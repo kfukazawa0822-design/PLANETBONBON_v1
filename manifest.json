@@ -1,0 +1,16 @@
+{
+  "name": "プラネットボンボン",
+  "short_name": "プラネットボンボン",
+  "description": "宇宙船で小惑星・宇宙ゴミをぶつけて連鎖爆発させ、エネルギーを回収するカジュアルアクションゲーム",
+  "id": "./index.html",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0e1a",
+  "theme_color": "#0a0e1a",
+  "lang": "ja",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
+  ]
+}
