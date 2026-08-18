@@ -56,9 +56,12 @@ const IMAGE_ASSET_PATHS = {
     default_n: 'assets/player/player_default_n.webp',
   },
   marbles: {
-    boost:  'assets/marbles/marble_boost.svg',
-    homing: 'assets/marbles/marble_homing.svg',
-    delay:  'assets/marbles/marble_delay.svg',
+    boost:   'assets/marbles/marble_boost.svg',
+    homing:  'assets/marbles/marble_homing.svg',
+    delay:   'assets/marbles/marble_delay.svg',
+    red:     'assets/marbles/marble_red.svg',
+    gold:    'assets/marbles/marble_gold.svg',
+    gravity: 'assets/marbles/marble_gravity.svg',
   },
   // 今後の追加予定（フォルダを作ってからここにカテゴリを追加）：
   // ui:          { ... },

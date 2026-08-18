@@ -595,7 +595,7 @@ canvas { display:block; width:100%; height:100%; }
   position:fixed; top:0; left:0; right:0;
   min-height:92px; padding:14px 6vw;
   display:flex; align-items:center; gap:16px;
-  background:#333333; border-bottom:1px solid #000;
+  background:#0a0e1a; border-bottom:1px solid #000;
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
   /* #title-screen(z-index:300)より上に出す必要がある（このバーはタイトル画面の上に重ねて表示するUIのため）。
      以前はz-index:260のままだったため、タイトル画面の背景に完全に隠れて見えなくなっていた */
@@ -612,7 +612,9 @@ canvas { display:block; width:100%; height:100%; }
 #psb-level-badge {
   flex-shrink:0;
   width:56px; height:64.66px; /* 正六角形の正しい比率（幅:高さ = √3:2 ≈ 0.866:1） */
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  /* 角を少し丸めて可愛い方向に。各頂点を隣接辺沿いに5px引き込み（前回9pxは丸すぎたため縮小）、
+     元の頂点を制御点にした二次ベジェで丸める（正六角形の頂点計算から導出） */
+  clip-path: path('M 32.33 2.50 L 51.67 13.67 Q 56.00 16.16 56.00 21.16 L 56.00 43.49 Q 56.00 48.49 51.67 50.99 L 32.33 62.16 Q 28.00 64.66 23.67 62.16 L 4.33 50.99 Q 0.00 48.49 0.00 43.49 L 0.00 21.16 Q 0.00 16.16 4.33 13.67 L 23.67 2.50 Q 28.00 0.00 32.33 2.50 Z');
   background:#fff;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   color:#1a1a1a;
@@ -626,13 +628,15 @@ canvas { display:block; width:100%; height:100%; }
 #psb-xp-row { display:flex; align-items:center; gap:10px; }
 #psb-xp-label { flex-shrink:0; width:30px; font-size:11px; letter-spacing:2px; font-weight:bold; color:#fff; }
 #psb-xp-track {
-  flex:1; position:relative; height:12px; border-radius:6px;
-  background:#555; border:1.5px solid #fff; overflow:hidden;
+  flex:1; position:relative; height:18px; border-radius:9px; /* 縦幅を少し長くし、角は完全な丸(高さの半分)に */
+  /* 白い枠は撤廃。トラック自体は背景よりわずかに明るい#2a2e38にして、輪郭が見えるようにする */
+  background:#2a2e38; border:none; overflow:hidden;
   min-width:40px;
 }
 #psb-xp-fill {
   position:absolute; left:0; top:0; bottom:0; width:0%;
   background:#00a5ad; transition:width 0.3s;
+  border-radius:9px; /* トラックと同じ丸みを付け、右端（残量が満タンでない側の先端）も丸く見せる */
 }
 /* バー下段：残量テキスト（ラベル分の幅を空けて、バーの右端に右揃え） */
 #psb-xp-remain-row { display:flex; align-items:center; gap:10px; }
@@ -642,16 +646,16 @@ canvas { display:block; width:100%; height:100%; }
   color:#ccc; text-align:right; white-space:nowrap; font-weight:bold;
 }
 #psb-xp-remain b { font-size:11px; color:#fff; }
-/* 右端：設定ボタン（白背景ではなく、白い枠線＋バー地色(#333)より少し明るいグレーの内側に） */
+/* 右端：設定ボタン（白背景ではなく、白い枠線＋内側はEXPトラックと同じ#2a2e38で統一） */
 #psb-settings-btn {
   flex-shrink:0;
   width:56px; height:56px; border-radius:10px;
-  border:1.5px solid #fff; background:#454545;
+  border:1.5px solid #fff; background:#2a2e38;
   font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center;
   -webkit-tap-highlight-color:transparent; transition:background 0.1s;
   color:#fff;
 }
-#psb-settings-btn:active { background:#505050; }
+#psb-settings-btn:active { background:#343946; }
 #psb-settings-btn img { width:28px; height:28px; object-fit:contain; }
 /* ── サブ画面共通（チュートリアル一覧・実績称号一覧）：上部ステータスバーは非表示にして使う ── */
 .subscreen {
@@ -2166,6 +2170,20 @@ let ctx    = canvas.getContext('2d');
 const WORLD_W = 3600, WORLD_H = 3600;
 const MARBLE_R = 21;
 const NORMAL_HUE = 41; // 磁晶核の色（画像からスポイトした値、固定1色）
+// 通常玉（専用イラストなし・丸描画）も、他のイラスト付き玉と同じ「見た目＝当たり半径×係数」の関係に統一するための表示倍率
+const NORMAL_MARBLE_DISPLAY_MULT = 1.1; // 1.15→1.1：見た目はそのまま、当たり半径を少し大きくして密集時の詰まり感を緩和
+// イラスト付き玉（跳躍・重力・追尾・遅延・紅・金）の表示倍率。dispR(見た目) = 当たり半径 × この値、で描画する
+const ART_MARBLE_DISPLAY_MULT = 1.2;
+// イラスト付き玉の「見た目サイズ」の固定目標値（旧・当たり半径×1.3だった頃の見た目をそのまま保持）。
+// 表示倍率(ART_MARBLE_DISPLAY_MULT)を変えても見た目は変わらないよう、ここから当たり半径を逆算する
+const ART_MARBLE_VISUAL_TARGET = {
+  boost:   MARBLE_R * 0.85 * 1.3,
+  gravity: MARBLE_R * 1.1  * 1.3,
+  homing:  MARBLE_R * 0.85 * 1.3, // 跳躍磁晶核と同じ見た目サイズ
+  delay:   MARBLE_R * 1.1  * 1.3, // 重力磁晶核と同じ見た目サイズ
+  red:     MARBLE_R * 1.2  * 1.3,
+  gold:    MARBLE_R * 1.3  * 1.3,
+};
 const COLLISION_SPEED = 3.5;
 const SPEEDS = [2.0, 2.6, 3.2, 4.0, 5.0];
 const BASE_MAGNET_RANGE   = 470;
@@ -2698,35 +2716,30 @@ function pickMarbleType(){
   // MARBLE FEVER中はレア玉の出現率を大きく引き上げる
   if (activeWorldEvent && activeWorldEvent.id === 'marble_fever') {
     const r = Math.random() * 100;
-    if(r < 10) return 'normal';
-    if(r < 15) return 'boost';
-    if(r < 35) return 'gravity';
-    if(r < 55) return 'homing';
-    if(r < 70) return 'delay';
-    if(r < 85) return 'sOnly';
-    return 'nOnly';
+    if(r < 14) return 'normal';
+    if(r < 21) return 'boost';
+    if(r < 50) return 'gravity';
+    if(r < 78) return 'homing';
+    return 'delay';
   }
   const r = Math.random() * 100;
-  // 通常：normal60% boost18% gravity5% homing5% delay2% sOnly5% nOnly5%
-  if(r < 60) return 'normal';
-  if(r < 78) return 'boost';
-  if(r < 83) return 'gravity';
-  if(r < 88) return 'homing';
-  if(r < 90) return 'delay';
-  if(r < 95) return 'sOnly';
-  return 'nOnly';
+  // 通常：normal67% boost20% gravity6% homing5% delay2%（S/N磁晶核は削除済み）
+  if(r < 67) return 'normal';
+  if(r < 87) return 'boost';
+  if(r < 93) return 'gravity';
+  if(r < 98) return 'homing';
+  return 'delay';
 }
 function makeMarble(x,y,vx,vy,mass=1,type=null,forcedR=null){
   const marbleType = type || pickMarbleType();
   const baseR = forcedR !== null ? forcedR :
-    marbleType==='boost'    ? MARBLE_R * 0.85 :
-    marbleType==='gravity'  ? MARBLE_R * 1.1  :
-    marbleType==='homing'   ? MARBLE_R * 1.05 :
-    marbleType==='delay'    ? MARBLE_R * 1.15 :
-    marbleType==='sOnly'    ? MARBLE_R * 1.0  :
-    marbleType==='nOnly'    ? MARBLE_R * 1.0  :
-    marbleType==='red'      ? MARBLE_R * 1.2  :
-    marbleType==='gold'     ? MARBLE_R * 1.3  :
+    marbleType==='boost'    ? ART_MARBLE_VISUAL_TARGET.boost   / ART_MARBLE_DISPLAY_MULT :
+    marbleType==='gravity'  ? ART_MARBLE_VISUAL_TARGET.gravity / ART_MARBLE_DISPLAY_MULT :
+    marbleType==='homing'   ? ART_MARBLE_VISUAL_TARGET.homing  / ART_MARBLE_DISPLAY_MULT : // 跳躍磁晶核と同じ見た目サイズを保ったまま当たり半径だけ逆算
+    marbleType==='delay'    ? ART_MARBLE_VISUAL_TARGET.delay   / ART_MARBLE_DISPLAY_MULT : // 重力磁晶核と同じ見た目サイズを保ったまま当たり半径だけ逆算
+    marbleType==='red'      ? ART_MARBLE_VISUAL_TARGET.red     / ART_MARBLE_DISPLAY_MULT :
+    marbleType==='gold'     ? ART_MARBLE_VISUAL_TARGET.gold    / ART_MARBLE_DISPLAY_MULT :
+    marbleType==='normal'   ? (MARBLE_R * 0.72) / NORMAL_MARBLE_DISPLAY_MULT : // 見た目サイズ(旧basR*1.0相当)は変えず、他種と同じ「当たり半径×係数＝見た目」の関係に合わせて当たり半径だけ逆算で縮小
     MARBLE_R;
   // 跳躍磁晶核：旧・軽玉の吹き飛ばし力(blastMult=1.8)を継承
   const blastMult = marbleType==='boost' ? 1.8 : 1.0;
@@ -2738,7 +2751,7 @@ function makeMarble(x,y,vx,vy,mass=1,type=null,forcedR=null){
     marbleType==='delay'  ? 7.0 : 0.4;
 
   // 手描きリングの本数（玉の種類・価値による差）
-  const ringCountMap = { boost:1, gravity:2, homing:2, delay:2, sOnly:2, nOnly:2, red:3, gold:4 };
+  const ringCountMap = { boost:1, gravity:2, homing:2, delay:2, red:3, gold:4 };
   const ringCount = ringCountMap[marbleType] || 2;
   const ringRadiiRatios = {
     1: [0.82],
@@ -3424,9 +3437,7 @@ function triggerExplosion(x, y, power, chainDepth, isRock, playerCaused=false, g
           } else {
             baseHitScore = lastChainTier === 2 ? 300 : lastChainTier === 1 ? 150 : 50; // 非プレイヤー起因：以前は固定50点だった
           }
-          // S磁晶核・N磁晶核：片方の極にしか反応しない制約への見返りとして基本ヒット点2倍
-          const typeScoreMult = (m.marbleType === 'sOnly' || m.marbleType === 'nOnly') ? 2 : 1;
-          const hitScore = Math.floor(baseHitScore * typeScoreMult * upgrades.chainMulti * getEventMult('chainMulti'));
+          const hitScore = Math.floor(baseHitScore * upgrades.chainMulti * getEventMult('chainMulti'));
           addScore(hitScore);
           // デバッグ集計：どの原因(S/N/非プレイヤー)・どの段階(通常/BIG/MEGA)で何点入ったか
           scoreDebug.hitByCause[currentChainCause || 'none'] += hitScore;
@@ -4090,7 +4101,7 @@ function triggerGameOver() {
       'ヒット系スコア小計':          { スコア: sumHit },
       '内訳合計(参考。他ボーナス除く)': { スコア: sumHit + d.waveBonus + d.spreadBonus },
     });
-    console.log('※ 1発あたりの基本点：S極=[通常65/BIG195/MEGA390]、N極=[通常360/BIG1125/MEGA2250]、非プレイヤー起因=[通常50/BIG150/MEGA300]（S/N磁晶核はさらに2倍）');
+    console.log('※ 1発あたりの基本点：S極=[通常65/BIG195/MEGA390]、N極=[通常360/BIG1125/MEGA2250]、非プレイヤー起因=[通常50/BIG150/MEGA300]');
     console.log('※ 拡散ボーナスは「累積距離の平方根」×10に変更（以前は累積距離をそのまま毎回加算していたため二乗に近い伸び方だった）');
     console.log('※ MEGA段階はチェイン数>125または連鎖深度>=8で突入。N極×MEGAが最も点が伸びやすい組み合わせ。');
   } catch(e) { /* デバッグ出力自体で本編が止まらないよう握りつぶす */ }
@@ -4951,10 +4962,6 @@ function update(dt){
   const VORTEX_RATIO = 0.35;
   const VORTEX_CAPTURE_R = player.r * 3.5; // この距離以内で渦モードに移行
   const VORTEX_CORE_R    = player.r * 0.25; // これ以内には入らない（コア圧）
-  // N磁晶核（nOnly）：S極には他の玉と同様に反応するが、通常よりずっと遠くから引き寄せられる
-  const N_ONLY_ATTRACT_RANGE_MULT = 3; // 「滅多遠くから」引き寄せられる演出のための引力レンジ倍率
-  // S磁晶核（sOnly）：N極には他の玉と同様に反応するが、通常よりずっと強く弾き飛ばされる
-  const S_ONLY_REPEL_FORCE_MULT = 3.5; // 「めっちゃ弾かれる」演出のための反発力倍率
 
   for(const m of marbles){
     if(!m.alive) continue;
@@ -4968,12 +4975,11 @@ function update(dt){
     const dist=Math.hypot(dx,dy);
     const nx=dist>0.1?dx/dist:0, ny=dist>0.1?dy/dist:0;
 
-    // S極(引力)に反応しない玉：S磁晶核（sOnly）、および起爆して暴走中の追尾磁晶核（homing）
-    const ignoresS = m.marbleType === 'sOnly' || (m.marbleType === 'homing' && m.detonating) || m.isCannonball;
-    // N極(反発)に反応しない玉：N磁晶核（nOnly）
-    const ignoresN = m.marbleType === 'nOnly' || m.isCannonball;
-    // このマーブルに適用するS極の引力レンジ（N磁晶核だけ大幅に拡張する）
-    const sRangeForThis = (m.marbleType === 'nOnly') ? mRange * N_ONLY_ATTRACT_RANGE_MULT : mRange;
+    // S極(引力)に反応しない玉：起爆して暴走中の追尾磁晶核（homing）
+    const ignoresS = (m.marbleType === 'homing' && m.detonating) || m.isCannonball;
+    // N極(反発)に反応しない玉：なし（発射体を除く）
+    const ignoresN = m.isCannonball;
+    const sRangeForThis = mRange;
 
     if(player.isCharging && player.charge > 0 && !ignoresS){
       // S極ホールド中：渦圏内に入ったらinVortex移行（バンパー/分裂で弾かれた直後の無敵中は再突入させない）
@@ -5008,8 +5014,7 @@ function update(dt){
         const maxSpd = 4 + player.charge * 3;
         if(spd > maxSpd){ m.vx = m.vx/spd*maxSpd; m.vy = m.vy/spd*maxSpd; }
       } else if(dist < sRangeForThis && dist > 1){
-        // 渦圏外：通常の引力＋弱い接線力（N磁晶核はsRangeForThisが拡張されているため、
-        // 通常よりずっと遠い位置からこの枝に入ってくる）
+        // 渦圏外：通常の引力＋弱い接線力
         const ratio = 1 - dist/sRangeForThis;
         const f = Math.pow(ratio,1.5)*fS*dt*player.charge;
         m.vx -= nx*f; m.vy -= ny*f;
@@ -5022,11 +5027,10 @@ function update(dt){
       if(m.inVortex && !player.isCharging && !justReleased){
         m.inVortex = false;
       }
-      // N極：反発（N磁晶核は反応しない。S磁晶核は通常より大幅に強く弾かれる）
+      // N極：反発
       if(!ignoresN && dist < mRange && dist > 1){
         const ratio = 1 - dist/mRange;
-        const repelMult = (m.marbleType === 'sOnly') ? S_ONLY_REPEL_FORCE_MULT : 1;
-        const f = ratio*fN*dt*player.nPower*repelMult;
+        const f = ratio*fN*dt*player.nPower;
         m.vx += nx*f; m.vy += ny*f;
         if(f > 0.001) m.recentPlayerForceTimer = 0.6;
       }
@@ -7375,16 +7379,23 @@ function drawCannonCharge(){
   ctx.restore();
 }
 
-// 小惑星グループ（跳躍・追尾・遅延磁晶核）のイラスト用ジオメトリ定義。
-// 元データ（assets/marbles/*.svg、viewBox="0 0 207.7 197.6"）の実寸をgetBBox()で解析して求めた値。
+// 小惑星グループ（跳躍・追尾・遅延磁晶核）・重力磁晶核（紫の惑星）・レア玉グループ（紅・金磁晶核）のイラスト用ジオメトリ定義。
+// 元データ（assets/marbles/*.svg）の実寸をgetBBox()で解析して求めた値。viewBoxはアセットごとに異なるためvbw/vbhも個別に持つ。
 // cx,cy: 本体（追尾磁晶核は頭部のみ）の中心座標／rad: その半径（当たり半径にスケールを合わせる基準）
 // forwardAngle: 追尾磁晶核のみ。イラスト内で「尾→頭」が向いている既定の角度（ラジアン）。
 // 実際の描画では、この角度と速度ベクトルの角度との差分だけ回転させて、尾が進行方向の後方に流れるようにする。
-const MARBLE_ART_VBW = 207.7, MARBLE_ART_VBH = 197.6;
 const MARBLE_ART = {
-  boost:  { cx:101.95, cy:106.71, rad:87.19 },
-  delay:  { cx:91.4,   cy:100.8,  rad:89.95 },
-  homing: { cx:59.9,   cy:122.4,  rad:53.3, forwardAngle: Math.atan2(100.5, -144.1) },
+  boost:   { vbw:207.7,  vbh:197.6,  cx:101.95, cy:106.71, rad:87.19 },
+  delay:   { vbw:207.7,  vbh:197.6,  cx:91.4,   cy:100.8,  rad:89.95 },
+  homing:  { vbw:207.7,  vbh:197.6,  cx:63.43,  cy:135.66, rad:61.41, forwardAngle: Math.atan2(100.5, -144.1) }, // cx/cy/radは頭部グループのgetBBox()で再計測（旧値は頭部から外れていたバグを修正）
+  red:     { vbw:256,    vbh:256,    cx:124.56, cy:126.12, rad:94.05 },
+  gold:    { vbw:256,    vbh:256,    cx:124.38, cy:125.91, rad:100.53 },
+  gravity: { vbw:253.87, vbh:252.68, cx:126.94, cy:126.32, rad:126.27 },
+};
+// レア玉（紅・金磁晶核）の発光色。前作同様、玉の周りに常時ふわっと光る発光をかける
+const MARBLE_GLOW_COLOR = {
+  red:  {r:255, g:70,  b:60},
+  gold: {r:255, g:205, b:70},
 };
 
 function drawMarbles(){
@@ -7400,8 +7411,6 @@ function drawMarbles(){
     if(m.marbleType === 'boost'){        h=28; s=100;l=58; ringAlpha=0.85; lineW=1.0; }
     else if(m.marbleType === 'gravity'){ h=270;s=100;l=70; ringAlpha=0.85; lineW=1.3; }
     else if(m.marbleType === 'homing'){  h=336;s=100;l=62; ringAlpha=0.9;  lineW=1.3; }
-    else if(m.marbleType === 'sOnly'){   h=12; s=100;l=62; ringAlpha=0.9;  lineW=1.3; }
-    else if(m.marbleType === 'nOnly'){   h=220;s=100;l=62; ringAlpha=0.9;  lineW=1.3; }
     else if(m.marbleType === 'delay'){   h=6;  s=70; l=48; ringAlpha=0.9;  lineW=1.4; }
     else if(m.marbleType === 'red'){     h=0;  s=68; l=49; ringAlpha=0.95; lineW=1.4; }
     else if(m.marbleType === 'gold'){    h=45; s=100;l=41; ringAlpha=0.95; lineW=1.4; }
@@ -7418,19 +7427,32 @@ function drawMarbles(){
       ctx.fillStyle = g; ctx.fill();
       drawCannonballSkin(m, t);
     } else {
-      // 小惑星グループ（跳躍・追尾・遅延）は専用イラストを描画。読み込み前・未対応タイプは
-      // 従来の丸＋リング描画にフォールバックする
-      const isAsteroidType = (m.marbleType === 'boost' || m.marbleType === 'homing' || m.marbleType === 'delay');
-      const marbleImg = (isAsteroidType && typeof IMAGE_ASSETS !== 'undefined')
+      // 小惑星グループ（跳躍・追尾・遅延）・レア玉グループ（紅・金）は専用イラストを描画。
+      // 読み込み前・未対応タイプ（重力磁晶核など）は従来の丸＋リング描画にフォールバックする
+      const hasCustomArt = MARBLE_ART.hasOwnProperty(m.marbleType);
+      const marbleImg = (hasCustomArt && typeof IMAGE_ASSETS !== 'undefined')
         ? IMAGE_ASSETS.get('marbles', m.marbleType) : null;
 
       if (marbleImg && marbleImg.complete && marbleImg.naturalWidth > 0) {
-        // 各イラスト（viewBox 0 0 207.7 197.6）の実寸データから求めた、本体の中心座標・半径
+        // 各イラストの実寸データから求めた、本体の中心座標・半径
         // （追尾磁晶核のみ、頭部の中心座標・半径・「尾から頭への既定の向き」を使う）
         const art = MARBLE_ART[m.marbleType];
-        const dispR = m.r * 1.3; // 当たり半径よりやや大きめに描いて見栄えを合わせる
+        const dispR = m.r * ART_MARBLE_DISPLAY_MULT; // 見た目サイズは固定目標(ART_MARBLE_VISUAL_TARGET)のまま、当たり半径(m.r)側を大きくして密集時の詰まり感を緩和
         const k = dispR / art.rad;
-        const w = MARBLE_ART_VBW * k, h = MARBLE_ART_VBH * k;
+        const w = art.vbw * k, h = art.vbh * k;
+
+        // レア玉（紅・金磁晶核）：前作同様、玉の周りに常時発光をかける
+        const glow = MARBLE_GLOW_COLOR[m.marbleType];
+        if (glow) {
+          const glowR = m.r * (2.0 + Math.sin(t * 1.6 + m.phase) * 0.25); // ふわふわと呼吸する発光
+          const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, glowR);
+          g.addColorStop(0,   `rgba(${glow.r},${glow.g},${glow.b},0.55)`);
+          g.addColorStop(0.5, `rgba(${glow.r},${glow.g},${glow.b},0.25)`);
+          g.addColorStop(1,   `rgba(${glow.r},${glow.g},${glow.b},0)`);
+          ctx.beginPath(); ctx.arc(m.x, m.y, glowR, 0, Math.PI*2);
+          ctx.fillStyle = g; ctx.fill();
+        }
+
         if (m.marbleType === 'homing') {
           // 追尾磁晶核：彗星の尾が進行方向の後方へ流れるよう、速度ベクトルに合わせて回転させる
           const speed = Math.hypot(m.vx, m.vy);
@@ -7446,7 +7468,9 @@ function drawMarbles(){
         }
       } else {
         // TODO: プラネットボンボン向けに新規描画実装が必要（旧マグネットボンボンのMARBLE_SKINS描画を仮の丸描画に差し替え）
-        ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI*2);
+        // 通常玉：専用イラストが無いため、他種と同じ「見た目＝当たり半径×係数」の関係になるよう表示だけ拡大して描く
+        const fallbackDispR = m.marbleType === 'normal' ? m.r * NORMAL_MARBLE_DISPLAY_MULT : m.r;
+        ctx.beginPath(); ctx.arc(m.x, m.y, fallbackDispR, 0, Math.PI*2);
         ctx.fillStyle = '#ffffff'; ctx.fill();
         ctx.lineWidth = lineW; ctx.strokeStyle = ringColor; ctx.stroke();
       }
