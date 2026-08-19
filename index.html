@@ -1369,16 +1369,17 @@ canvas { display:block; width:100%; height:100%; }
   color:rgba(255,255,255,0.55); line-height:1.4;
 }
 /* ストックドット：所持数(埋まっているドット)と最大数(ドットの総数)が一目で分かる */
+/* FB対応：埋まっている分が白一色で見分けづらかったため、埋まっている分にアクセントカラー(teal)を付ける */
 #skill-stocks { display:flex; gap:6px; padding-left:2px; }
 .skill-stock-dot {
   width:11px; height:11px; border-radius:50%;
-  background:#f5f7fa;
-  border:1.5px solid #f5f7fa;
+  background:#00a5ad;
+  border:1.5px solid #00a5ad;
   box-sizing:border-box;
 }
 .skill-stock-dot.empty {
-  background:#ffffff;
-  border:1.5px solid rgba(26,26,26,0.35);
+  background:rgba(255,255,255,0.12);
+  border:1.5px solid rgba(255,255,255,0.4);
   box-sizing:border-box;
 }
 
@@ -6195,10 +6196,10 @@ function updateChaosOverlay(){
   const overlay=document.getElementById('chaos-overlay');
   if(bat<30){
     const intensity=(1-bat/30)*0.4;
-    // FB対応：以前はrgba(r*2,r,0,...)＝赤が緑の2倍・青成分無しという配色だったため、
-    // オレンジ〜赤方向に色付いて見えていた。無彩色（黒の濃淡だけ）で暗くなるように変更。
+    // FB対応：黒のオーバーレイ（無彩色で暗くなる表現）から、赤いオーバーレイに変更。
+    // 不透明度の計算式(intensity*0.6、最大約0.24)は変更前のまま維持。
     overlay.style.opacity='1';
-    overlay.style.background=`rgba(0,0,0,${intensity*0.6})`;
+    overlay.style.background=`rgba(230,40,40,${intensity*0.6})`;
   } else {
     overlay.style.opacity='0';
   }
@@ -6678,7 +6679,8 @@ function updateGimmickRow() {
   document.getElementById('gimmick-fill').style.width = (ratio * 100) + '%';
   document.getElementById('gimmick-fill').style.background = col;
   document.getElementById('gimmick-sec').textContent = Math.ceil(ev.timer) + 's';
-  document.getElementById('gimmick-sec').style.color = col;
+  // FB対応：タイマー文字はギミック種別の色ではなく、常に薄いグレー寄りの白に固定
+  document.getElementById('gimmick-sec').style.color = '#e6e8ee';
   // 黄色など明るい色は白背景に埋もれて読めなくなるため、黒縁取りで常に視認性を確保する
   document.getElementById('gimmick-sec').style.textShadow =
     '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000';
@@ -6725,9 +6727,9 @@ const PULSE_FRAME_SIDES = ['top', 'right', 'bottom', 'left'];
 // 辺ごとに位相を少しずらして、4辺が完全な同期にならないようにする
 const PULSE_FRAME_SIDE_PHASE = { top:0, right:1.6, bottom:3.2, left:4.8 };
 
-// フェードイン用の色（グレー → 完全な黒）
-const PULSE_FRAME_COLOR_FROM = [176, 176, 176];
-const PULSE_FRAME_COLOR_TO   = [0, 0, 0];
+// FB対応：色そのものを白→赤で変化させるのではなく、色は常に赤固定にして
+// 透明→赤（不透明化）で表現する（不透明度は既存どおりline.alpha*visで制御）
+const PULSE_FRAME_COLOR_TO   = [230, 40, 40];
 
 function drawPulseFrame(){
   const amp = pulseFrame.amp, jit = pulseFrame.jitter, vis = pulseFrame.visibility;
@@ -6735,9 +6737,7 @@ function drawPulseFrame(){
 
   const t = pulseFrame.time;
   const step = 5; // 何pxごとに点を打つか（細かいほど滑らか。波長を詰めたので密度も上げる）
-  const gr = Math.round(PULSE_FRAME_COLOR_FROM[0] + (PULSE_FRAME_COLOR_TO[0]-PULSE_FRAME_COLOR_FROM[0])*vis);
-  const gg = Math.round(PULSE_FRAME_COLOR_FROM[1] + (PULSE_FRAME_COLOR_TO[1]-PULSE_FRAME_COLOR_FROM[1])*vis);
-  const gb = Math.round(PULSE_FRAME_COLOR_FROM[2] + (PULSE_FRAME_COLOR_TO[2]-PULSE_FRAME_COLOR_FROM[2])*vis);
+  const [gr, gg, gb] = PULSE_FRAME_COLOR_TO;
 
   ctx.save();
   ctx.lineJoin = 'round';
@@ -6930,10 +6930,11 @@ function drawRadarDevice(h, t) {
     ? Math.max(0, holeOpenTimer / HOLE_OPEN_DURATION) : 1;
   const isUrgent    = timeRatio < (10 / HOLE_OPEN_DURATION);
 
-  // ── 探知範囲：黒い細い破線 ──
+  // ── 探知範囲：白っぽい細い破線 ──
+  // FB対応：色自体は元から白系(230,234,245)だったが不透明度が低すぎて暗い背景に埋もれていたため、視認性を上げる
   if (isActive) {
     ctx.beginPath(); ctx.arc(h.x, h.y, RADAR_DETECT_R_DRAW, 0, Math.PI*2);
-    ctx.strokeStyle = 'rgba(230,234,245,0.15)'; ctx.lineWidth = 0.8;
+    ctx.strokeStyle = 'rgba(230,234,245,0.35)'; ctx.lineWidth = 0.8;
     ctx.setLineDash([8,6]); ctx.stroke(); ctx.setLineDash([]);
   } else {
     let ddx = player.wx - h.x, ddy = player.wy - h.y;
@@ -6982,6 +6983,7 @@ function drawRadarDevice(h, t) {
   });
 
   // ── スキャンライン：残光扇（魚群探知機風）+ 線本体 ──
+  // FB対応：装置の外(600pxレンジ)まで伸びる部分が黒だと暗い背景に埋もれて見えなくなっていたため、白っぽいグレーに変更
   if (isActive) {
     const scanA = h.scanAngle;
     const SWEEP = Math.PI * 0.6; // 残光の広がり角
@@ -7004,12 +7006,12 @@ function drawRadarDevice(h, t) {
     for(let si=0; si<steps2; si++){
       const a0 = scanA - SWEEP + (si/steps2)*SWEEP;
       const a1 = scanA - SWEEP + ((si+1)/steps2)*SWEEP;
-      const alpha = (si/steps2) * 0.06;
+      const alpha = (si/steps2) * 0.12;
       ctx.beginPath(); ctx.moveTo(Math.cos(a0)*r*0.88,Math.sin(a0)*r*0.88);
       ctx.arc(0,0,RADAR_DETECT_R_DRAW,a0,a1);
       ctx.lineTo(Math.cos(a1)*r*0.88,Math.sin(a1)*r*0.88);
       ctx.closePath();
-      ctx.fillStyle = `rgba(20,20,20,${alpha})`; ctx.fill();
+      ctx.fillStyle = `rgba(230,234,245,${alpha})`; ctx.fill();
     }
     ctx.restore();
     // スキャンライン本体（600pxまで・内外同じ太さ）
@@ -7017,27 +7019,29 @@ function drawRadarDevice(h, t) {
     ctx.beginPath();
     ctx.moveTo(0,0);
     ctx.lineTo(Math.cos(scanA)*RADAR_DETECT_R_DRAW, Math.sin(scanA)*RADAR_DETECT_R_DRAW);
-    ctx.strokeStyle = `rgba(20,20,20,${lineAlpha})`; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.strokeStyle = `rgba(230,234,245,${lineAlpha})`; ctx.lineWidth = 1.2; ctx.stroke();
     // 先端輝点
     ctx.beginPath(); ctx.arc(Math.cos(scanA)*r*0.86, Math.sin(scanA)*r*0.86, 2.2,0,Math.PI*2);
-    ctx.fillStyle = `rgba(20,20,20,${lineAlpha})`; ctx.fill();
+    ctx.fillStyle = `rgba(230,234,245,${lineAlpha})`; ctx.fill();
   } else {
     ctx.strokeStyle = 'rgba(20,20,20,0.2)'; ctx.lineWidth = 0.7;
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-r*0.6); ctx.stroke();
   }
 
   // ── 発動ゲージ：外周リング（線stroke方式） ──
+  // FB対応：ゲージ・外周枠ともに黒(20,20,20)だと、装置本体の白い円(r*0.87)より外側の
+  // 暗い背景に重なる部分が背景と同化して見えなくなっていたため、白っぽいグレーに変更
   const gaugeR = r * 1.0;
   const blinkAlpha = isUrgent ? 0.5 + Math.abs(Math.sin(t*6))*0.5 : 1;
   // ベース
   ctx.beginPath(); ctx.arc(0,0,gaugeR,0,Math.PI*2);
-  ctx.strokeStyle='rgba(20,20,20,0.15)'; ctx.lineWidth=9; ctx.stroke();
+  ctx.strokeStyle='rgba(225,225,232,0.15)'; ctx.lineWidth=9; ctx.stroke();
   // ゲージ本体（線）
   if(energyRatio > 0){
     ctx.beginPath();
     ctx.arc(0,0,gaugeR,-Math.PI/2,-Math.PI/2+energyRatio*Math.PI*2);
     const gA2 = (cFlash>0 ? 1.0 : 0.8) * blinkAlpha;
-    ctx.strokeStyle=`rgba(20,20,20,${gA2})`; ctx.lineWidth=9;
+    ctx.strokeStyle=`rgba(225,225,232,${gA2})`; ctx.lineWidth=9;
     ctx.lineCap='round'; ctx.stroke(); ctx.lineCap='butt';
     if(cFlash>0){
       ctx.beginPath();
@@ -7047,7 +7051,7 @@ function drawRadarDevice(h, t) {
   }
   // 外周枠
   ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
-  ctx.strokeStyle=`rgba(20,20,20,${0.6+flash*0.4})`; ctx.lineWidth=1.2; ctx.stroke();
+  ctx.strokeStyle=`rgba(225,225,232,${0.6+flash*0.4})`; ctx.lineWidth=1.2; ctx.stroke();
 
   // ── 中央コア（小点のみ）──
   ctx.beginPath(); ctx.arc(0,0,r*0.07,0,Math.PI*2);
@@ -7060,7 +7064,8 @@ function drawRadarDevice(h, t) {
     const startAngle = -Math.PI/2;
     const endAngle = startAngle + elapsed*Math.PI*2;
     const tAlpha = isUrgent ? 0.85+Math.abs(Math.sin(t*6))*0.15 : 0.9;
-    const col = `rgba(91,91,91,${tAlpha})`;
+    // FB対応：グレー(91,91,91)だと暗い背景に埋もれて見づらいため、白っぽいグレーに変更
+    const col = `rgba(230,230,235,${tAlpha})`;
 
     // 上部のツマミ
     const tabW = tr*0.5, tabH = tr*0.36;
@@ -7274,7 +7279,8 @@ function drawRocks(){
     }
 
     // ── グロウ（砂岩の影）──
-    const glowColor = rk.isCore ? '40,40,40' : '42,37,32';
+    // FB対応：コア岩の外側のグロウが黒っぽく背景と同化していたため、白っぽいグレーに変更
+    const glowColor = rk.isCore ? '220,220,228' : '42,37,32';
     const glow=ctx.createRadialGradient(0,0,0,0,0,rk.r*1.8);
     glow.addColorStop(0,`rgba(${glowColor},${rk.isCore?0.3:0.22})`);glow.addColorStop(1,'transparent');
     ctx.beginPath();ctx.arc(0,0,rk.r*1.8,0,Math.PI*2);
@@ -7282,6 +7288,7 @@ function drawRocks(){
 
     if(rk.isCore){
       // コア岩：ギザギザ花形
+      // FB対応：ブラックホールをイメージした紫〜青系のカラーに変更（旧：茶色 rgba(150,80,60,0.95)）
       const petals=10, pr=rk.r*1.0, pi=rk.r*0.72;
       ctx.beginPath();
       for(let i=0;i<=petals*2;i++){
@@ -7291,8 +7298,8 @@ function drawRocks(){
              :ctx.lineTo(Math.cos(ang)*rad,Math.sin(ang)*rad);
       }
       ctx.closePath();
-      ctx.fillStyle='rgba(150,80,60,0.95)'; ctx.fill();
-      ctx.strokeStyle='rgba(40,20,15,0.5)'; ctx.lineWidth=0.8; ctx.stroke();
+      ctx.fillStyle='rgba(98,64,196,0.95)'; ctx.fill();
+      ctx.strokeStyle='rgba(20,12,45,0.6)'; ctx.lineWidth=0.8; ctx.stroke();
       // ギミック名を白文字で表示
       const ph=holes.find(h=>Math.hypot(h.x-rk.x,h.y-rk.y)<5);
       if(ph && ph.isOpen && ph.gimmickName){
