@@ -2558,6 +2558,7 @@ const PLAYER_TOUCH_POP_SCORE_BASE = 100;
 
 let chainCount = 0, maxChain = 0, maxChainCount = 0, chainTimer = 0, chainDisplay = '', chainTexts = [];
 let score = 0, currentChainDepth = 0;
+let comboLockTimer = 0; // ブラックホール岩：崩壊の瞬間に危険範囲内にいたプレイヤーへのご褒美（この秒数の間、チェインが切れなくなる）
 // ── デバッグ用：スコア内訳の集計（コンソールで確認するためだけの内部データ。ゲーム進行には影響しない）──
 let scoreDebug = {
   hitByCause: { S:0, N:0, none:0 },   // 1発ごとの基本点（S極/N極/非プレイヤー起因）の合計
@@ -2645,7 +2646,7 @@ function initGame(mode) {
   upgrades = { sBoost:1, nBoost:1, rangeUp:1, chainMulti:1, explodeUp:1, rareBoost:0, skillCharge:100 };
   marbles=[]; rocks=[]; explosions=[]; particles=[]; shockwaves=[];
   items=[]; pickupEffects=[]; redBalls=[]; miniExplosions=[]; waveRings=[];
-  chainCount=0; maxChain=0; maxChainCount=0; chainTimer=0; chainDisplay=''; chainTexts=[]; score=0;
+  chainCount=0; maxChain=0; maxChainCount=0; chainTimer=0; chainDisplay=''; chainTexts=[]; score=0; comboLockTimer=0;
   scoreDebug = {
     hitByCause: { S:0, N:0, none:0 },
     hitCountByTier: { 0:0, 1:0, 2:0 },
@@ -2796,6 +2797,7 @@ function makeMarble(x,y,vx,vy,mass=1,type=null,forcedR=null){
       {a:Math.random()*Math.PI*2, spd:-(0.015+Math.random()*0.02), r:0.18+Math.random()*0.1},
     ],
     inVortex: false,
+    bhOwner: null, // ブラックホール岩に捕獲されている場合、その岩への参照（未捕獲はnull）
     nearGravity: false, // 重力磁晶核の影響圏内フラグ（毎フレーム更新）
     hasSplit: false,    // 分裂済みフラグ（trueなら分裂岩に接触しても分裂しない）
     bubbleShotBatchId: null, // シャボン玉：同じ発射由来かどうかの識別ID（nullなら対象外）
@@ -2842,8 +2844,17 @@ function spawnMarbles() {
 }
 
 // ── 岩の能力抽選 ────────────────────────────────
-const ROCK_ABILITIES = ['bumper', 'wave', 'split', 'resonance'];
+// FB対応：波動(wave)をブラックホール(blackhole)に置き換え（波動のコード自体は残しているが、抽選からは外れて出現しない）
+const ROCK_ABILITIES = ['bumper', 'blackhole', 'split', 'resonance'];
 function pickRockAbility(){ return ROCK_ABILITIES[Math.floor(Math.random()*4)]; }
+
+// ── ブラックホール(岩の覚醒能力)専用定数 ──────────────
+const BH_PULL_R           = 460; // 引力が働く半径（この中の玉・プレイヤーが引き寄せられる）
+const BH_CAPTURE_MULT     = 2.0; // 捕獲半径 = rk.r * この値（この中に入った玉は完全に捕獲＝質量として数える）
+const BH_DANGER_MULT      = 2.6; // 危険半径 = rk.r * この値（プレイヤーのバッテリーが減り、崩壊時のご褒美対象になる）
+const BH_COLLAPSE_MASS    = 16;  // 捕獲した玉の数がこれを超えたら崩壊（臨界）
+const BH_BATTERY_DRAIN_PS = 4;   // 危険半径内にいる間、1秒あたり減るバッテリー
+const BH_COMBO_LOCK_SEC   = 6;   // 崩壊の瞬間に危険半径内にいたプレイヤーへ、チェインが切れなくなる秒数
 
 // ── 流体シェイプ（ブロブ）生成 ─────────────────────
 // baseRを中心に、angleごとにランダムな半径ゆらぎを持たせた点群を作る（ox,oyで中心をずらせる）
@@ -2912,12 +2923,14 @@ function spawnRocks(count) {
       outlinePts1: deriveOutlineFromBlob(basePts, 1.06, 1.16, 0.09),
       outlinePts2: deriveOutlineFromBlob(basePts, 1.10, 1.24, 0.11),
       // 能力・状態管理
-      ability: pickRockAbility(), // 'bumper'|'wave'|'split'|'resonance'
+      ability: pickRockAbility(), // 'bumper'|'blackhole'|'split'|'resonance'
       state: 'normal',            // 'normal'|'omen'|'awake'
       stateTimer: 15 + Math.random()*35, // 通常→予兆までの秒数（15〜50秒：岩ごとにバラつかせる）
       omenDuration: 3, // 予兆の長さ（3秒固定）
       awakeDuration: 15 + Math.random()*7,// 覚醒の長さ（15〜22秒：岩ごとにバラつかせる）
       phase: Math.random()*Math.PI*2,    // 演出用位相
+      bhMass: 0,        // ブラックホール専用：現在捕獲中の玉の数
+      bhSpent: false,    // ブラックホール専用：今回の覚醒中に崩壊済みかどうか
     });
   }
   // 共鳴岩が1個だけなら2個以上になるよう調整
@@ -3549,6 +3562,8 @@ function updateChainDisplay(n, depth, wx, wy, playerCaused=false) {
   else if (n <= 125) { size=20; bold=true;  color='#ffffff'; }
   else if (n <= 200) { size=24; bold=true;  color='#00a5ad'; }
   else               { size=28; bold=true;  color='#cca500'; }
+  // ブラックホール崩壊によるコンボロック中：切れないことが一目でわかるよう専用の色に上書き
+  if (comboLockTimer > 0) { color = '#ff5fd0'; bold = true; }
   chainTexts.push({ x: wx, y: wy - 30, text, size, color, bold, life: 1, vy: -0.4 });
   // SP獲得：チェインのたびに+1SP
   if(selectedSkillId) gainSP(SP_RATE);
@@ -5115,11 +5130,13 @@ function update(dt){
     }
 
     if(a.inVortex) continue; // 渦中は岩との衝突判定のみスキップ（玉同士・岩は後で別途処理）
+    if(a.bhOwner) continue; // ブラックホールに捕獲中は玉同士の衝突判定をスキップ（密集させても早期に爆発せず、質量として溜め込めるようにする）
 
-    // 玉同士衝突（渦中でない玉のみ）
+    // 玉同士衝突（渦中・ブラックホール捕獲中でない玉のみ）
     for(let j=i+1;j<alive.length;j++){
       const b=alive[j];
       if(b.inVortex) continue;
+      if(b.bhOwner) continue;
       const dx=b.x-a.x, dy=b.y-a.y, dist=Math.hypot(dx,dy);
       if(dist<a.r+b.r&&dist>0.1){
         // シャボン玉：同じ発射由来の玉同士は、しばらくの間お互いに反応しない
@@ -5591,32 +5608,77 @@ function update(dt){
     if(rk.ability === 'resonance' && !rk.isResonanceLeader) continue;
     rk.stateTimer -= dtSec;
 
-    // 波動岩：覚醒中に定期的に衝撃波を発生
-    if(rk.state === 'awake' && rk.ability === 'wave'){
-      if(!rk.waveTimer) rk.waveTimer = 0;
-      rk.waveTimer -= dtSec;
-      if(rk.waveTimer <= 0){
-        rk.waveTimer = 1.5; // 1.5秒ごとに衝撃波
-        const WAVE_R = 700 + Math.random()*200; // 600〜900px
+    // ブラックホール岩：覚醒中は周囲の玉とプレイヤーを引き寄せ（波動の"反発"の逆＝"引力"）、
+    // 捕獲した玉の数（質量）がBH_COLLAPSE_MASSを超えたら自動で崩壊する。
+    // 誰が玉を送り込んだか（投げ込み／S極で抱えて突入／スキルで撃ち込み／自然に漂ってきた）は問わず、
+    // 「今何個捕まえているか」という1つの数字だけを見る設計。プレイヤーが近くにいなくても勝手に溜まって崩壊する。
+    if(rk.ability === 'blackhole'){
+      if(rk.state === 'awake' && !rk.bhSpent){
+        const captureR = rk.r * BH_CAPTURE_MULT;
+        const dangerR  = rk.r * BH_DANGER_MULT;
+        let capturedCount = 0;
         for(const m of marbles){
-          if(!m.alive || m.inVortex || (m.isCannonball && !m.cannonArmed)) continue;
+          if(!m.alive) continue;
+          if(m.bhOwner === rk) capturedCount++;
+          if(m.inVortex || (m.isCannonball && !m.cannonArmed)) continue;
           let dx=m.x-rk.x, dy=m.y-rk.y;
           if(dx>WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
           if(dy>WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
           const dist=Math.hypot(dx,dy);
-          if(dist < WAVE_R && dist > 1){
-            const ratio = 1 - dist/WAVE_R;
-            const force = ratio * 8;
-            m.vx += (dx/dist)*force;
-            m.vy += (dy/dist)*force;
+          if(dist < BH_PULL_R && dist > 1){
+            const ratio = 1 - dist/BH_PULL_R;
+            const force = ratio * 7; // 波動の反発(force=ratio*8)と対をなす、逆方向の引力
+            m.vx -= (dx/dist)*force;
+            m.vy -= (dy/dist)*force;
+          }
+          if(dist < captureR && m.bhOwner !== rk){
+            m.bhOwner = rk; // 捕獲：以後このブラックホールの質量として数える
+            capturedCount++;
           }
         }
-        // 視覚的な衝撃波リングをスポーン
-        if(!waveRings) waveRings = [];
-        waveRings.push({ x:rk.x, y:rk.y, r:rk.r, maxR:WAVE_R, life:1 });
+        rk.bhMass = capturedCount;
+
+        // プレイヤーへの引力・危険範囲内でのバッテリー消費
+        let pdx=player.wx-rk.x, pdy=player.wy-rk.y;
+        if(pdx>WORLD_W/2) pdx-=WORLD_W; else if(pdx<-WORLD_W/2) pdx+=WORLD_W;
+        if(pdy>WORLD_H/2) pdy-=WORLD_H; else if(pdy<-WORLD_H/2) pdy+=WORLD_H;
+        const pdist=Math.hypot(pdx,pdy);
+        let playerInDanger = false;
+        if(pdist < BH_PULL_R && pdist > 1){
+          const pRatio = 1 - pdist/BH_PULL_R;
+          const pForce = pRatio * 1.6;
+          player.wx -= (pdx/pdist)*pForce*dt;
+          player.wy -= (pdy/pdist)*pForce*dt;
+          player.wx=((player.wx%WORLD_W)+WORLD_W)%WORLD_W;
+          player.wy=((player.wy%WORLD_H)+WORLD_H)%WORLD_H;
+        }
+        if(pdist < dangerR){
+          playerInDanger = true;
+          player.battery = Math.max(0, player.battery - BH_BATTERY_DRAIN_PS*dtSec);
+        }
+
+        // 臨界：質量が閾値を超えたら崩壊
+        if(rk.bhMass >= BH_COLLAPSE_MASS){
+          rk.bhSpent = true;
+          const captured = marbles.filter(m=>m.alive && m.bhOwner===rk);
+          for(const m of captured) m.bhOwner = null;
+          if(captured.length > 0){
+            // 密集した玉のうち1個だけを起爆。あとは既存の連鎖判定が密集した玉を自動で巻き込んでくれる
+            triggerExplosion(captured[0].x, captured[0].y, 1.6, 0, true, false, 1, false);
+          }
+          if(playerInDanger){
+            comboLockTimer = BH_COMBO_LOCK_SEC; // 危険を取っていたプレイヤーへのご褒美：しばらくチェインが切れない
+          }
+          rk.bhMass = 0;
+        }
+      } else if(rk.state !== 'awake'){
+        // 覚醒していない間（崩壊せずに覚醒が終わった場合も含む）はいつでもリセットしておき、次回に持ち越さない
+        rk.bhSpent = false;
+        if(rk.bhMass > 0){
+          for(const m of marbles) if(m.bhOwner === rk) m.bhOwner = null;
+          rk.bhMass = 0;
+        }
       }
-    } else {
-      rk.waveTimer = 0;
     }
 
     if(rk.stateTimer <= 0){
@@ -5710,14 +5772,17 @@ function update(dt){
   // チェーン表示タイマー
   if(chainTimer>0){
     chainTimer-=dt;
-    if(chainTimer<=0){
-      // 0.8秒間爆発なし → チェインカウントをリセット
-      chainCount=0; currentChainDepth=0; comboItemCheckDepth=0;
-      redBallCheckChain=0; goldBallCheckChain=0; // チェインが切れたら次のチェインでまたカウント0から
-      currentChainCause=null; // チェイン起因（S/N/非プレイヤー）もリセット
-      chainSpreadDistance=0; chainLastExplosionX=null; chainLastExplosionY=null; // 拡散距離もリセット
-    }
   }
+  // 0.8秒間爆発なし → チェインカウントをリセット。
+  // ただしブラックホール崩壊によるコンボロック中は、切れる条件を満たしていてもリセットを保留する
+  // （ロックが解除された時点で、あらためて判定される＝取り逃しなく必ずいつかリセットされる）
+  if(chainTimer<=0 && chainCount>0 && comboLockTimer<=0){
+    chainCount=0; currentChainDepth=0; comboItemCheckDepth=0;
+    redBallCheckChain=0; goldBallCheckChain=0; // チェインが切れたら次のチェインでまたカウント0から
+    currentChainCause=null; // チェイン起因（S/N/非プレイヤー）もリセット
+    chainSpreadDistance=0; chainLastExplosionX=null; chainLastExplosionY=null; // 拡散距離もリセット
+  }
+  if(comboLockTimer>0) comboLockTimer = Math.max(0, comboLockTimer - dtSec);
   // チェーンテキストのライフ更新
   for(const ct of chainTexts){ ct.life -= 0.012*dt; ct.y += ct.vy*dt; }
   chainTexts = chainTexts.filter(ct => ct.life > 0);
@@ -7162,7 +7227,7 @@ function drawRocks(){
       // 予兆：覚醒が近づくほど激しく明滅・震える（カウントダウンの緊張感を出す）
       const progress = 1 - (rk.stateTimer / rk.omenDuration); // 0(開始)→1(覚醒直前)
       const omenColor = {
-        bumper:'255,200,80', wave:'80,180,255', split:'180,255,120', resonance:'200,100,255'
+        bumper:'255,200,80', blackhole:'150,80,220', split:'180,255,120', resonance:'200,100,255'
       }[rk.ability] || '200,200,200';
       const speed = 2.5 + progress*7; // だんだん明滅が速くなる
       const pulse = 0.5 + Math.sin(t*speed + rk.phase)*0.5;
@@ -7211,16 +7276,35 @@ function drawRocks(){
         aw.addColorStop(1,'transparent');
         ctx.beginPath();ctx.arc(0,0,rk.r*2.4,0,Math.PI*2);ctx.fillStyle=aw;ctx.fill();
 
-      } else if(rk.ability === 'wave'){
-        // 波動：周囲の空間が歪む（拡散する同心円）
-        for(let wi=0;wi<3;wi++){
-          const phase = (t*0.8 + wi/3) % 1; // 0〜1でループ
-          const waveR = rk.r*(1.2 + phase*3.5);
-          const alpha = (1-phase)*0.35;
-          ctx.beginPath();ctx.arc(0,0,waveR,0,Math.PI*2);
-          ctx.strokeStyle=`rgba(80,180,255,${alpha})`;
-          ctx.lineWidth=1.2;ctx.stroke();
+      } else if(rk.ability === 'blackhole'){
+        // ブラックホール：捕獲した質量(bhMass)に応じて事象の地平面が育っていく。危険範囲は薄い破線で目安表示
+        const massRatio = Math.min(1, (rk.bhMass||0) / BH_COLLAPSE_MASS);
+        ctx.beginPath(); ctx.arc(0,0,rk.r*BH_DANGER_MULT,0,Math.PI*2);
+        ctx.strokeStyle = 'rgba(150,80,220,0.18)'; ctx.lineWidth = 1;
+        ctx.setLineDash([6,8]); ctx.stroke(); ctx.setLineDash([]);
+        // 降着円盤：内側へ渦巻きながら吸い込まれる粒子
+        for(let si=0; si<14; si++){
+          const spiralT = (t*1.6 + si/14) % 1;
+          const ang = spiralT*Math.PI*6 + rk.phase;
+          const rad = rk.r*(2.6 - spiralT*1.7);
+          const fx = Math.cos(ang)*rad, fy = Math.sin(ang)*rad;
+          const alpha = spiralT*0.8;
+          ctx.beginPath(); ctx.arc(fx,fy,1.6+massRatio*1.2,0,Math.PI*2);
+          ctx.fillStyle = `rgba(180,140,255,${alpha})`; ctx.fill();
         }
+        // 事象の地平面：質量が増えるほど濃く・大きくなる暗い円
+        const horizonR = rk.r*(0.55 + massRatio*0.5);
+        const horizon = ctx.createRadialGradient(0,0,0,0,0,horizonR);
+        horizon.addColorStop(0, `rgba(5,2,12,${0.85+massRatio*0.15})`);
+        horizon.addColorStop(1, 'rgba(60,20,90,0.4)');
+        ctx.beginPath(); ctx.arc(0,0,horizonR,0,Math.PI*2); ctx.fillStyle=horizon; ctx.fill();
+        ctx.beginPath(); ctx.arc(0,0,horizonR,0,Math.PI*2);
+        ctx.strokeStyle = `rgba(180,140,255,${0.5+massRatio*0.5})`; ctx.lineWidth = 1.4; ctx.stroke();
+        // 外側のグロウ
+        const bhGlow = ctx.createRadialGradient(0,0,rk.r*0.4,0,0,rk.r*2.2);
+        bhGlow.addColorStop(0,`rgba(150,80,220,${0.28+massRatio*0.22})`);
+        bhGlow.addColorStop(1,'transparent');
+        ctx.beginPath();ctx.arc(0,0,rk.r*2.2,0,Math.PI*2);ctx.fillStyle=bhGlow;ctx.fill();
 
       } else if(rk.ability === 'split'){
         // 分裂：緑の破片が浮遊するだけのシンプルな演出（中心から伸びるヒビ線は廃止）
