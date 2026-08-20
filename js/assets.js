@@ -13,6 +13,8 @@
 //      items/      ← アイテムアイコン
 //      skills/     ← スキルアイコン（白色SVG。暗い背景の上に乗せる前提のデザイン）
 //      player/     ← 自機（プレイヤー）画像
+//      marbles/    ← 玉（磁晶核）イラスト
+//      rocks/      ← 岩（覚醒能力）の専用イラスト
 //
 // 使い方（index.html側）：
 //   <script src="js/assets.js"></script>   ← ゲーム本体のscriptタグより前に読み込む
@@ -62,6 +64,10 @@ const IMAGE_ASSET_PATHS = {
     red:     'assets/marbles/marble_red.svg',
     gold:    'assets/marbles/marble_gold.svg',
     gravity: 'assets/marbles/marble_gravity.svg',
+  },
+  rocks: {
+    // 覚醒能力を持つ岩の専用イラスト。今のところブラックホールのみ（他の能力は従来の流体シェイプのまま）
+    blackhole: 'assets/rocks/blackhole.svg',
   },
   // 今後の追加予定（フォルダを作ってからここにカテゴリを追加）：
   // ui:          { ... },

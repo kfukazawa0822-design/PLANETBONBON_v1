@@ -1018,7 +1018,7 @@ canvas { display:block; width:100%; height:100%; }
   background-image:url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMTAwIiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIj48cGF0aCBkPSJNMC45LDEwLjYgUTEuMCwyLjIgOS44LDIuMCBRMTguNiwxLjggMjYuNCwyLjEgUTM0LjIsMi41IDQzLjEsMi4yIFE1Mi4wLDEuOCA2MC4wLDEuNSBRNjcuOSwxLjIgNzUuNSwxLjMgUTgzLjIsMS41IDkyLjEsMS4yIFExMDEuMSwwLjggMTA5LjYsMS4wIFExMTguMSwxLjIgMTI1LjcsMS4wIFExMzMuMywwLjcgMTQyLjQsMS41IFExNTEuNiwyLjMgMTU5LjcsMi4yIFExNjcuOCwyLjEgMTc1LjEsMS43IFExODIuNCwxLjQgMTkxLjEsMS4yIFExOTkuOSwwLjkgMjA4LjcsMS4yIFEyMTcuNSwxLjUgMjI0LjgsMi4wIFEyMzIuMiwyLjUgMjQwLjQsMi43IFEyNDguNiwyLjggMjU3LjMsMi40IFEyNjUuOSwxLjkgMjc0LjAsMS44IFEyODIuMSwxLjggMjkwLjIsMS4zIFEyOTguMywwLjcgMzA3LjMsMS4wIFEzMTYuNCwxLjIgMzE3LjYsOC4xIFEzMTguOCwxNS4wIDMxOS4xLDI0LjAgUTMxOS4zLDMzLjEgMzE5LjAsNDEuMiBRMzE4LjgsNDkuMyAzMTguNiw1Ny41IFEzMTguNCw2NS43IDMxNy45LDczLjcgUTMxNy4zLDgxLjYgMzE4LjEsODkuNiBRMzE5LjAsOTcuNSAzMTAuOCw5OC4zIFEzMDIuNyw5OS4xIDI5My44LDk4LjUgUTI4NS4wLDk3LjkgMjc2LjgsOTcuOSBRMjY4LjYsOTcuOSAyNjAuOSw5Ny45IFEyNTMuMyw5Ny45IDI0My45LDk3LjYgUTIzNC42LDk3LjMgMjI3LjEsOTguMyBRMjE5LjYsOTkuMyAyMTEuMSw5OC44IFEyMDIuNiw5OC4yIDE5NC40LDk4LjUgUTE4Ni4yLDk4LjggMTc3LjYsOTguNiBRMTY5LjAsOTguNSAxNjEuMSw5OC41IFExNTMuMiw5OC41IDE0NC41LDk4LjAgUTEzNS44LDk3LjQgMTI3LjgsOTguMyBRMTE5LjcsOTkuMiAxMTEuNCw5OC44IFExMDMuMiw5OC40IDk0LjksOTcuOSBRODYuNiw5Ny4zIDc4LjEsOTguMSBRNjkuNSw5OC45IDYyLjEsOTguNCBRNTQuNiw5Ny45IDQ2LjMsOTguMyBRMzcuOSw5OC42IDI5LjksOTguOSBRMjEuOSw5OS4zIDEzLjEsOTkuMyBRNC4zLDk5LjMgMy42LDkxLjkgUTIuOSw4NC42IDIuOCw3Ni4yIFEyLjcsNjcuOCAyLjEsNTkuMyBRMS41LDUwLjggMi4xLDQyLjQgUTIuNywzNC4wIDEuNywyNi41IFEwLjgsMTkuMCAwLjksMTAuNiBaIiBmaWxsPSIjMWMyNDM4IiBzdHJva2U9IiNmNWY3ZmEiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+');
 }
 #go-menu:hover,#go-menu:active { opacity:0.7; }
-#go-btns-first.hide, #go-btns-normal.hide { display:none; }
+#go-btns-normal.hide { display:none; }
 
 /* ── 速度スライダー（右下） ── */
 #speed-slider-wrap {
@@ -1968,9 +1968,6 @@ canvas { display:block; width:100%; height:100%; }
       <button class="go-btn" id="go-retry">↺ リトライ</button>
       <button class="go-btn" id="go-menu">← もどる</button>
     </div>
-    <div class="go-btns hide" id="go-btns-first">
-      <button class="go-btn" id="go-complete">完了</button>
-    </div>
   </div>
 </div>
 
@@ -2637,6 +2634,7 @@ function initGame(mode) {
   player.wx = WORLD_W/2; player.wy = WORLD_H/2;
   player.angle = -Math.PI/2;
   player.speedIdx = 4; player.magnet = 'N'; player.battery = 100;
+  player.bhVx = 0; player.bhVy = 0; // ブラックホールに引かれている間だけ溜まる速度成分（渦の力と同じく摩擦で減衰する）
   player.charge = 0; player.nPower = 1; player.isCharging = false;
   player.blinking = false; player.blinkTimer = 0; blinkGhosts = [];
   _dashLines = null; _dashRushBlend = 0; _dashLineTimer = 0;
@@ -2798,6 +2796,8 @@ function makeMarble(x,y,vx,vy,mass=1,type=null,forcedR=null){
     ],
     inVortex: false,
     bhOwner: null, // ブラックホール岩に捕獲されている場合、その岩への参照（未捕獲はnull）
+    bhField: false, // ブラックホールの引力圏内（BH_PULL_R以内）にいるかどうか。捕獲前でも玉同士の衝突起爆を止めるためのフラグ（毎フレーム再計算）
+    bhReleaseGrace: 0, // ブラックホール崩壊で解放された直後の玉につく、再捕獲までの猶予（同じ場所に居座ったまま瞬間的に再崩壊を繰り返すのを防ぐ）
     nearGravity: false, // 重力磁晶核の影響圏内フラグ（毎フレーム更新）
     hasSplit: false,    // 分裂済みフラグ（trueなら分裂岩に接触しても分裂しない）
     bubbleShotBatchId: null, // シャボン玉：同じ発射由来かどうかの識別ID（nullなら対象外）
@@ -2849,12 +2849,30 @@ const ROCK_ABILITIES = ['bumper', 'blackhole', 'split', 'resonance'];
 function pickRockAbility(){ return ROCK_ABILITIES[Math.floor(Math.random()*4)]; }
 
 // ── ブラックホール(岩の覚醒能力)専用定数 ──────────────
-const BH_PULL_R           = 460; // 引力が働く半径（この中の玉・プレイヤーが引き寄せられる）
+// FB対応：「吸引範囲が小さい気がする、デフォルトのプレイヤーのS極くらいの大きさは欲しい」との要望。
+// プレイヤーの通常S極範囲(BASE_MAGNET_RANGE=470)より一回り大きくして、明確にそれ以上の存在感を持たせる
+const BH_PULL_R           = 550; // 引力が働く半径（この中の玉・プレイヤーが引き寄せられる）
 const BH_CAPTURE_MULT     = 2.0; // 捕獲半径 = rk.r * この値（この中に入った玉は完全に捕獲＝質量として数える）
 const BH_DANGER_MULT      = 2.6; // 危険半径 = rk.r * この値（プレイヤーのバッテリーが減り、崩壊時のご褒美対象になる）
 const BH_COLLAPSE_MASS    = 16;  // 捕獲した玉の数がこれを超えたら崩壊（臨界）
-const BH_BATTERY_DRAIN_PS = 4;   // 危険半径内にいる間、1秒あたり減るバッテリー
+const BH_BATTERY_DRAIN_PS = 2;   // 危険半径内にいる間、1秒あたり減るバッテリー
+// FB対応：抜け出せず沈み込んだ場合に確定死になっていた（4だと通常消費の4倍で、脱出に手間取るだけで即詰みだった）ため半減
 const BH_COMBO_LOCK_SEC   = 6;   // 崩壊の瞬間に危険半径内にいたプレイヤーへ、チェインが切れなくなる秒数
+// FB対応：「崩壊したら2秒くらいのクールタイムを設けた方が良さそう」との要望。
+// 崩壊した瞬間から一定時間、そのブラックホールは吸引・捕獲を完全に休止する（見た目にも一拍置く）
+const BH_COOLDOWN_SEC     = 2.0;
+// FB対応：「フリーズショットなどの集中放火が中心部を素通りしてしまう」との要望。
+// 通常の引力（少しずつ力を加える方式）だけでは、もともと速すぎる玉の勢いを止めきれず、
+// 吸引が効き始める前に反対側まで突き抜けてしまう。捕獲半径より少し広めのこの範囲内では、
+// 玉自身の速度を直接強制的に減速させ、どれだけ速い玉でも中心付近では確実に失速するようにする
+const BH_DAMP_MULT        = 3.2; // 減速フィールドの半径 = rk.r * この値（captureR=rk.r*2.0より少し広め）
+// FB対応：「ブラックホールの吸引が、ど真ん中に集まりすぎている」との指摘。
+// プレイヤーのS極の渦には、中心にこれ以上は近づけない「コア」領域(VORTEX_CORE_R = player.r*0.25)があり、
+// そこに入ると引力の代わりにごく弱い反発力がかかるため、玉は中心の1点に潰れず、コアの縁でふわっと収まる。
+// ブラックホールにはこのコアが無く、力が働くのは中心から1px以内で完全カットのみだったため、
+// 実質的にほぼ中心の1点まで吸い込まれてびったり重なって見えていた。プレイヤーの渦と同じ比率(自身の半径の25%)で
+// コア領域を用意し、同じ考え方（コア圧で軽く押し返す）を適用して、中心付近でも玉同士に隙間ができるようにする
+const BH_CORE_MULT        = 0.25; // コア半径 = rk.r * この値（プレイヤーのVORTEX_CORE_R = player.r*0.25と揃えた比率）
 
 // ── 流体シェイプ（ブロブ）生成 ─────────────────────
 // baseRを中心に、angleごとにランダムな半径ゆらぎを持たせた点群を作る（ox,oyで中心をずらせる）
@@ -2930,7 +2948,7 @@ function spawnRocks(count) {
       awakeDuration: 15 + Math.random()*7,// 覚醒の長さ（15〜22秒：岩ごとにバラつかせる）
       phase: Math.random()*Math.PI*2,    // 演出用位相
       bhMass: 0,        // ブラックホール専用：現在捕獲中の玉の数
-      bhSpent: false,    // ブラックホール専用：今回の覚醒中に崩壊済みかどうか
+      bhCooldown: 0,    // ブラックホール専用：崩壊直後の休止タイマー（>0の間は吸引・捕獲を行わない）
     });
   }
   // 共鳴岩が1個だけなら2個以上になるよう調整
@@ -3322,12 +3340,17 @@ function showGimmickBanner(name, color='#f5f7fa', effect='') {
   if (window.Achievements) window.Achievements.incrementStat('gimmickTriggerCount');
 }
 
-function showItemPopup(msg, color) {
+// FB対応：「バッテリーがギミックの文字と被る」との指摘。#item-popupは既定で画面中央（#gimmick-bannerと同じ位置）
+// に出るため、世界干渉ギミック発動時のバッテリー回復ポップだけは、画面中央に出るギミック名テキストと
+// 毎回ぴったり重なって読めなくなっていた。offsetYPx を渡した時だけその分だけ縦にずらせるようにし、
+// 通常のアイテム取得時（呼び出し側でoffsetYPxを渡さない）は従来どおり画面中央に表示する
+function showItemPopup(msg, color, offsetYPx) {
   const el=document.getElementById('item-popup');
   el.textContent=msg; el.style.color=color;
   el.style.textShadow=`0 0 16px ${color}`;
   el.style.background='rgba(0,0,0,0.7)';
   el.style.border=`1px solid ${color}44`;
+  el.style.top = (offsetYPx != null) ? `calc(50% + ${offsetYPx}px)` : '50%';
   el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
 }
 
@@ -3417,6 +3440,9 @@ function triggerExplosion(x, y, power, chainDepth, isRock, playerCaused=false, g
     // ── 磁晶核への連鎖 ──
     for(const m of marbles){
       if(!m.alive || m.detonating) continue;
+      // FB対応：ブラックホールに捕獲済み／捕獲に向けて引力圏内にいる玉は、離れた場所の爆発の連鎖にも巻き込まれないようにする
+      // （せっかく溜まった質量が、無関係な連鎖の余波で毎回崩されてしまい起動できない、という不具合の対策）
+      if(m.bhOwner || m.bhField) continue;
       let dx=m.x-x, dy=m.y-y;
       if(dx> WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
       if(dy> WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
@@ -4089,14 +4115,6 @@ function triggerGameOver() {
     window.Achievements.setStatIfHigher(bestKey, score);
   }
   document.getElementById('go-new-record').classList.toggle('hide', !isNewRecord);
-
-  // 初めてのプレイ（総プレイ回数が1回目）だけ、リトライ／もどるを隠して「完了」ボタン1つにする。
-  // ただし、あまりに短時間（MIN_PLAYTIME_FOR_REWARD未満）で終わった場合は「クリア」とは
-  // 見なさず、通常のリトライ／もどるボタンを出す（バッテリー切れ直後の操作不能を防ぐため）
-  const isVeryFirstPlay = window.Achievements && window.Achievements.getStatValue('totalPlayCount') === 1
-    && playTime >= MIN_PLAYTIME_FOR_REWARD;
-  document.getElementById('go-btns-normal').classList.toggle('hide', isVeryFirstPlay);
-  document.getElementById('go-btns-first').classList.toggle('hide', !isVeryFirstPlay);
 
   // ── デバッグ用：スコア内訳をコンソールに出力（「なぜこのスコアになったか」の確認用。UIには出さない）──
   try {
@@ -4992,7 +5010,10 @@ function update(dt){
     const nx=dist>0.1?dx/dist:0, ny=dist>0.1?dy/dist:0;
 
     // S極(引力)に反応しない玉：起爆して暴走中の追尾磁晶核（homing）
-    const ignoresS = (m.marbleType === 'homing' && m.detonating) || m.isCannonball;
+    // FB対応：ブラックホールが既に捕獲した玉(bhOwner)も対象に追加。以前はここが素通りだったため、
+    // プレイヤーがS極でブラックホールに近づくと、せっかく捕獲済みの玉を横から奪って持っていけてしまい、
+    // 崩壊に必要な質量が溜まらない（起動できない）不具合になっていた
+    const ignoresS = (m.marbleType === 'homing' && m.detonating) || m.isCannonball || !!m.bhOwner;
     // N極(反発)に反応しない玉：なし（発射体を除く）
     const ignoresN = m.isCannonball;
     const sRangeForThis = mRange;
@@ -5093,6 +5114,11 @@ function update(dt){
   }
 
   // ── マーブル更新 ──
+  // 軽量化：以前はこの下のループの中で「マーブル1個ごとに岩12個全部を毎回チェックし、
+  // その中でブラックホールかどうかを判定する」形になっていた（O(マーブル数×岩の数)）。
+  // 覚醒中のブラックホールは通常2〜3個程度なのに毎回12個全部を舐めるのは無駄なので、
+  // 対象となる「今フレーム減速フィールドを持つブラックホール」だけを先に1回だけ絞り込んでおく
+  const activeBlackHoles = rocks.filter(rk => rk.alive && rk.ability === 'blackhole' && rk.state === 'awake' && rk.bhCooldown <= 0);
   const alive=marbles.filter(m=>m.alive);
   for(let i=0;i<alive.length;i++){
     const a=alive[i];
@@ -5110,6 +5136,27 @@ function update(dt){
     // スマブラのふっとばしのように、スイープで弾かれた直後は上限を大きく緩めて、実際に遠くまで吹っ飛ばす
     const spdCap = a.inVortex ? 10 : (a.isCannonball ? 999 : (a.marbleType==='boost' ? 40 : (a.speedCapBoostTimer>0 ? 80 : 24))); // 渦中はゆったり、大砲玉は減速のみで直進、跳躍磁晶核は上限も高め
     if(s2>spdCap){a.vx=a.vx/s2*spdCap;a.vy=a.vy/s2*spdCap;}
+    // FB対応：「フリーズショットなどの集中放火がブラックホールの中心部を素通りしてしまう」との指摘。
+    // ブラックホールの引力はこの後（マーブル更新ループの外）で加算されるが、それは「力を少しずつ加える」
+    // 方式のため、もともと非常に速い玉（スキルで撃ち込まれた玉など）の勢いを1フレームで止めることはできず、
+    // 位置更新（この直後のa.x/a.y更新）に古い速度がそのまま使われて中心を素通りしてしまっていた。
+    // 位置を更新する直前に、ここで速度そのものを直接強制的に減速させることで、どれだけ速い玉でも
+    // 中心に近づくにつれて確実に失速し、素通りできなくなるようにする
+    for(const drk of activeBlackHoles){
+      let bdx=a.x-drk.x, bdy=a.y-drk.y;
+      if(bdx>WORLD_W/2) bdx-=WORLD_W; else if(bdx<-WORLD_W/2) bdx+=WORLD_W;
+      if(bdy>WORLD_H/2) bdy-=WORLD_H; else if(bdy<-WORLD_H/2) bdy+=WORLD_H;
+      const dampR = drk.r * BH_DAMP_MULT;
+      // 軽量化：ほとんどのマーブルは減速フィールドの外にいるので、まず二乗距離同士で比較して
+      // 対象外なら即スキップする（Math.hypotの平方根計算は実際に範囲内の時だけ行えば十分）
+      const bdist2 = bdx*bdx + bdy*bdy;
+      if(bdist2 < dampR*dampR){
+        const bdist = Math.sqrt(bdist2);
+        const dampRatio = 1 - bdist/dampR; // 0(減速フィールドの外周)〜1(中心)
+        const dampFactor = Math.pow(1 - dampRatio*0.55, effDt); // 中心付近では毎フレーム最大55%減速
+        a.vx *= dampFactor; a.vy *= dampFactor;
+      }
+    }
     a.x=((a.x+a.vx*effDt)%WORLD_W+WORLD_W)%WORLD_W;
     a.y=((a.y+a.vy*effDt)%WORLD_H+WORLD_H)%WORLD_H;
 
@@ -5131,12 +5178,17 @@ function update(dt){
 
     if(a.inVortex) continue; // 渦中は岩との衝突判定のみスキップ（玉同士・岩は後で別途処理）
     if(a.bhOwner) continue; // ブラックホールに捕獲中は玉同士の衝突判定をスキップ（密集させても早期に爆発せず、質量として溜め込めるようにする）
+    // FB対応：投げ込み中／自然に吸い込まれている途中（まだ捕獲＝bhOwner確定前）の玉同士がブラックホールの引力圏内で
+    // ぶつかって爆発してしまい、どう頑張っても起動できないという不具合があった。捕獲前でも引力圏内にいる間は
+    // 玉同士の衝突起爆を止め、静かに吸い込まれていく間に爆発しないようにする
+    if(a.bhField) continue;
 
-    // 玉同士衝突（渦中・ブラックホール捕獲中でない玉のみ）
+    // 玉同士衝突（渦中・ブラックホール捕獲中／引力圏内でない玉のみ）
     for(let j=i+1;j<alive.length;j++){
       const b=alive[j];
       if(b.inVortex) continue;
       if(b.bhOwner) continue;
+      if(b.bhField) continue;
       const dx=b.x-a.x, dy=b.y-a.y, dist=Math.hypot(dx,dy);
       if(dist<a.r+b.r&&dist>0.1){
         // シャボン玉：同じ発射由来の玉同士は、しばらくの間お互いに反応しない
@@ -5235,6 +5287,7 @@ function update(dt){
     // 玉→岩衝突
     for(const rk of rocks){
       if(!rk.alive) continue;
+      if(rk.ability === 'blackhole') continue; // ブラックホールは吸い込むだけの存在。通常の岩のような当たり判定は持たない
       // コア岩は対応する発電装置が開放中のみ衝突判定
       if(rk.isCore){
         const parentHole = holes.find(h => Math.hypot(h.x-rk.x, h.y-rk.y) < 5);
@@ -5359,6 +5412,7 @@ function update(dt){
     if(!m.alive || !m.inVortex) continue;
     for(const rk of rocks){
       if(!rk.alive) continue;
+      if(rk.ability === 'blackhole') continue; // ブラックホールは吸い込むだけの存在。通常の岩のような当たり判定は持たない
       if(rk.isCore){
         const parentHole = holes.find(h => Math.hypot(h.x-rk.x, h.y-rk.y) < 5);
         if(!parentHole || !parentHole.isOpen) continue;
@@ -5572,7 +5626,9 @@ function update(dt){
     : player.r * 1.0;
   if(playTime > 3 && !player.blinking){
     for(const m of marbles){
-      if(!m.alive || m.inVortex || m.isCannonball) continue;
+      // FB対応：ここは磁力とは別の「船体が物理的に触れた」判定。bhOwnerの除外が無かったため、
+      // S極ホールド中にブラックホールの捕獲済みの玉へ船体で突っ込むと、そのまま渦に取り込んで奪ってしまっていた
+      if(!m.alive || m.inVortex || m.isCannonball || m.bhOwner) continue;
       let dx=m.x-player.wx, dy=m.y-player.wy;
       if(dx> WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
       if(dy> WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
@@ -5601,6 +5657,9 @@ function update(dt){
     }
   }
 
+  // ブラックホールの引力圏内フラグをこのフレーム分リセット（この下のループで、覚醒中のブラックホールがあれば立て直す）
+  for(const m of marbles) m.bhField = false;
+
   // ── 岩の状態管理（覚醒システム） ──
   for(const rk of rocks){
     if(!rk.alive || rk.state === undefined) continue;
@@ -5613,7 +5672,17 @@ function update(dt){
     // 誰が玉を送り込んだか（投げ込み／S極で抱えて突入／スキルで撃ち込み／自然に漂ってきた）は問わず、
     // 「今何個捕まえているか」という1つの数字だけを見る設計。プレイヤーが近くにいなくても勝手に溜まって崩壊する。
     if(rk.ability === 'blackhole'){
-      if(rk.state === 'awake' && !rk.bhSpent){
+      // FB対応：崩壊後にrk.bhSpentがtrueになったまま、覚醒中はずっとここに入れなくなり、
+      // 見た目は覚醒中のまま（画像・危険リングとも表示され続ける）なのに実際は完全に無反応（吸引もしない・
+      // バッテリーも減らない）という「元気に吸ってたのに後半で全然吸ってくれなくなる」不具合があった。
+      // 崩壊直後にrk.bhMassは0に戻るため連続崩壊の心配はなく、bhSpentによる封印自体が不要だったので撤廃し、
+      // 覚醒中は常にこの中で吸引・捕獲を続け、条件が整えば同じ覚醒中に何度でも崩壊できるようにする
+      if(rk.state === 'awake'){
+        // FB対応：「崩壊したら2秒くらいのクールタイムを設けた方が良さそう」との要望。
+        // 崩壊直後はこの間、吸引・捕獲・危険判定を一切行わない完全休止状態にする（見た目にも一拍置く）
+        if(rk.bhCooldown > 0){
+          rk.bhCooldown = Math.max(0, rk.bhCooldown - dtSec);
+        } else {
         const captureR = rk.r * BH_CAPTURE_MULT;
         const dangerR  = rk.r * BH_DANGER_MULT;
         let capturedCount = 0;
@@ -5624,60 +5693,142 @@ function update(dt){
           let dx=m.x-rk.x, dy=m.y-rk.y;
           if(dx>WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
           if(dy>WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
-          const dist=Math.hypot(dx,dy);
-          if(dist < BH_PULL_R && dist > 1){
-            const ratio = 1 - dist/BH_PULL_R;
-            const force = ratio * 7; // 波動の反発(force=ratio*8)と対をなす、逆方向の引力
-            m.vx -= (dx/dist)*force;
-            m.vy -= (dy/dist)*force;
+          // 軽量化：captureR/dangerR/dampRはいずれもBH_PULL_Rより必ず小さいので、
+          // まず二乗距離でBH_PULL_R圏外かどうかを判定し、圏外ならこの岩については
+          // 以降の処理（捕獲判定含む）を丸ごとスキップできる（Math.hypotは圏内の時だけ呼ぶ）
+          const dist2 = dx*dx + dy*dy;
+          if(dist2 >= BH_PULL_R*BH_PULL_R) continue;
+          const dist=Math.sqrt(dist2);
+          m.bhField = true; // 捕獲前でも引力圏内にいる間は玉同士の衝突起爆を止める（下の衝突判定・爆発連鎖で参照）
+          if(dist > 1){
+            // FB対応：「プレイヤーのS極の渦と回転の仕方が違う。律儀に同じ半径で回っているし、回転が速すぎる」との指摘。
+            // 以前は引力・接線力の両方が距離の近さにほぼ同じ比率で強くなる作りで、途中のどこかで
+            // 「接線力＝ぐるぐる回す力」と「引力＝中心に落とす力」がつり合ってしまい、同じ半径をぐるぐる
+            // 回り続ける安定軌道になっていた。プレイヤーの渦モード（VORTEX_CAPTURE_R内）と同じ考え方に揃え、
+            // 引力は距離に関わらずほぼ一定（＝つり合わず、じわじわ確実に中心へ落ちていく）にし、
+            // 接線力は近いほど強くなるが全体的にかなり弱めることで、プレイヤーの渦と同じ「スパイラルに
+            // 落ちていく」見た目・回転速度感に揃える。速度上限もプレイヤーの渦と同程度に抑える
+            const nx=dx/dist, ny=dy/dist;
+            const bhCoreR = rk.r * BH_CORE_MULT;
+            if(dist > bhCoreR){
+              const tx=ny, ty=-nx; // 時計回りの接線方向
+              const ratio = 1 - dist/BH_PULL_R; // 0(遠)〜1(近)
+              // FB対応：「動きが遅すぎる」との指摘で、引力・接線力とも約1.4倍に強める
+              // （両方を同じ比率で上げているので、以前直した「回転が速すぎて同じ半径で回り続ける」問題は再発しない）
+              const pullStrength    = 0.05; // 引き込み：プレイヤーの渦(0.025×charge、最大0.025)より少し強めでほぼ一定
+              const tangentStrength = 0.010 + ratio*0.07; // 渦を巻く力：近いほど強いが、全体的にかなり弱め＋今回やや強化
+              m.vx += -nx*pullStrength*dt*60 + tx*tangentStrength*dt*60;
+              m.vy += -ny*pullStrength*dt*60 + ty*tangentStrength*dt*60;
+              // 渦内の速度上限（プレイヤーの渦と同程度。回転だけが目に見えて速くなりすぎないように。上の強化に合わせて7→9）
+              const bhSpd = Math.hypot(m.vx, m.vy);
+              const bhMaxSpd = 9;
+              if(bhSpd > bhMaxSpd){ m.vx = m.vx/bhSpd*bhMaxSpd; m.vy = m.vy/bhSpd*bhMaxSpd; }
+            } else {
+              // FB対応：「ど真ん中に集まりすぎている」との指摘。プレイヤーの渦のコア圧（VORTEX_CORE_R内で
+              // 引力の代わりに弱い反発をかける仕組み）と同じ考え方を適用し、中心の1点に潰れず
+              // コアの縁でふわっと収まるようにする（引力の強さに合わせ、プレイヤー版よりやや強めに押し返す）
+              m.vx += nx * 0.012 * dt * 60;
+              m.vy += ny * 0.012 * dt * 60;
+            }
           }
-          if(dist < captureR && m.bhOwner !== rk){
+          if(dist < captureR && m.bhOwner !== rk && !(m.bhReleaseGrace > 0)){
             m.bhOwner = rk; // 捕獲：以後このブラックホールの質量として数える
             capturedCount++;
           }
         }
         rk.bhMass = capturedCount;
 
-        // プレイヤーへの引力・危険範囲内でのバッテリー消費
+        // プレイヤーへの引力：S極の渦モードと同じ「力を溜めて摩擦で減衰させる」方式(player.bhVx/bhVy)に変更。
+        // 直接座標をずらすのではなく玉と同じ velocity+friction の仕組みに揃えたことで、渦モードと同じ質感になる。
+        // 配分も本家の渦（中心付近ではむしろ接線力(渦を巻く力)が引力より強い）に合わせ、
+        // 「グイッと直進で引き込まれる」のではなく「ぐるぐる回りながら少しずつ寄っていく」動きにしている。
+        // 強さはプレイヤーの最高速度(SPEEDS[4]=5.0)にわずかに劣る程度に調整済み：踏ん張れば振り切れるが、
+        // 気を抜くとじわじわ流される、くらいのバランスを狙っている。
         let pdx=player.wx-rk.x, pdy=player.wy-rk.y;
         if(pdx>WORLD_W/2) pdx-=WORLD_W; else if(pdx<-WORLD_W/2) pdx+=WORLD_W;
         if(pdy>WORLD_H/2) pdy-=WORLD_H; else if(pdy<-WORLD_H/2) pdy+=WORLD_H;
         const pdist=Math.hypot(pdx,pdy);
         let playerInDanger = false;
         if(pdist < BH_PULL_R && pdist > 1){
-          const pRatio = 1 - pdist/BH_PULL_R;
-          const pForce = pRatio * 1.6;
-          player.wx -= (pdx/pdist)*pForce*dt;
-          player.wy -= (pdy/pdist)*pForce*dt;
-          player.wx=((player.wx%WORLD_W)+WORLD_W)%WORLD_W;
-          player.wy=((player.wy%WORLD_H)+WORLD_H)%WORLD_H;
+          const pnx=pdx/pdist, pny=pdy/pdist;
+          const ptx=pny, pty=-pnx; // 時計回りの接線方向
+          // FB対応：真ん中まで吸い込まれるとどう頑張っても抜け出せず死ぬ、という理不尽な状態があった。
+          // 引力の強さを計算する距離を captureR で底打ちさせることで、それより深く入り込んでも
+          // これ以上は強くならない（＝captureR付近で頑張れば抜け出せるなら、中心付近でも同じだけ頑張れば抜け出せる）
+          const effPdist = Math.max(pdist, captureR);
+          const pRatio = 1 - effPdist/BH_PULL_R;
+          // FB対応：以前は境界付近の力がほぼ0(0.05/0.014)で、範囲の外周ではほとんど何も感じられず
+          // 「範囲が小さい」という印象につながっていた。境界での最低保証値を上げ、圏内に入った瞬間から
+          // はっきり引かれているとわかるようにした（中心付近の強さ・脱出可能性は既存の調整を維持）
+          // FB対応：「イライラするのでもう少し抜け出しやすくしてほしい」との要望。captureR付近（一番強い場所）
+          // での引力の定常到達速度が、プレイヤーの最高速度(5.0)に迫るほど強く、踏ん張っても振り切りにくかった。
+          // 引力・渦を巻く力を全体的に弱め、さらに下の摩擦減衰も少し速くして、抗力に対する反応をよくした
+          const pRadial  = 0.18 + pRatio*0.85;  // 引き込み（以前の0.3+1.6よりだいぶ弱め）
+          const pTangent = 0.08 + pRatio*0.55;  // 渦を巻く力（中心に近いほど強くなる）
+          player.bhVx += -pnx*pRadial + ptx*pTangent;
+          player.bhVy += -pny*pRadial + pty*pTangent;
         }
         if(pdist < dangerR){
           playerInDanger = true;
           player.battery = Math.max(0, player.battery - BH_BATTERY_DRAIN_PS*dtSec);
         }
 
-        // 臨界：質量が閾値を超えたら崩壊
+        // 臨界：質量が閾値を超えたら崩壊（bhMassを即0に戻すので、同じ覚醒中でも条件が整えば何度でも崩壊できる）
         if(rk.bhMass >= BH_COLLAPSE_MASS){
-          rk.bhSpent = true;
           const captured = marbles.filter(m=>m.alive && m.bhOwner===rk);
-          for(const m of captured) m.bhOwner = null;
+          // FB対応：「崩壊したはずなのに何も起きていないように見える／崩壊ラベルが連続で出続ける」バグの本当の原因。
+          // 従来はcaptured[0]の1点だけを起爆し、あとは連鎖判定（triggerExplosionのsetTimeoutスイープ）が
+          // 密集した玉を自動で巻き込んでくれる想定だった。しかしこのスイープは
+          // 「m.bhOwner || m.bhField の玉は連鎖の対象外」という条件を持っており（無関係な爆発に巻き込まれないための
+          // 仕様）、bhOwnerはここで解除していてもbhFieldは同フレーム内で既にtrueになっていて、次フレームの
+          // リセット（for(const m of marbles) m.bhField=false）より前にスイープが走ってしまうため、
+          // 解放したはずの玉がまるごと連鎖の対象から漏れて1個も爆発しない、ということが起きていた。
+          // 結果、質量だけリセットされて玉自体はその場に残り、bhReleaseGrace(1秒)が切れた直後に
+          // 同じ玉たちがすぐ再捕獲されて即再崩壊……を繰り返し、崩壊ラベルだけが無限に出続けて見えていた。
+          // 対策：連鎖の"当たり"に賭けず、捕獲していた玉を個別にはっきり起爆状態にして、確実に消滅させる
+          // （既存の起爆エフェクト＝白い震動リングも見えるので、崩壊の瞬間がひと目でわかる演出にもなる）
+          for(const m of captured){
+            m.bhOwner = null;
+            m.bhField = false; // 猶予期間中は通常の衝突判定にも普通に反応させる
+            m.bhReleaseGrace = 1.0;
+            if(!m.detonating){
+              m.detonating = true;
+              m.detonateTimer = (m.detonateTime || 0.4) + Math.random()*0.3; // 少しずらして連鎖っぽく見せる
+              m.playerCaused = false;
+            }
+          }
           if(captured.length > 0){
-            // 密集した玉のうち1個だけを起爆。あとは既存の連鎖判定が密集した玉を自動で巻き込んでくれる
+            // 崩壊の起点らしい見た目の派手な一発（実際の消滅は上の個別起爆が担うので、これは演出目的）
             triggerExplosion(captured[0].x, captured[0].y, 1.6, 0, true, false, 1, false);
           }
+          // 崩壊そのものを大きく見せる（既存の爆発よりひと目で分かるように）
+          shockwaves.push({x:rk.x, y:rk.y, r:0, maxR:rk.r*6, life:1});
+          screenShake.power = Math.min(screenShake.power + 8, 12);
+          // FB対応：「崩壊したのにポップもChainのピンク色変化も無かった」との報告を受けて、危険範囲外の崩壊でも
+          // 一律バナーを出すようにしたところ、今度は「崩壊してないのに連続でバナーが出続ける」という報告が来た。
+          // 原因は、この画面上のブラックホールは1個だけではないこと（岩12個中、能力は25%の確率でブラックホール
+          // になるため通常2〜3個は存在する）。プレイヤーから遠く離れた別のブラックホールが（画面外で）
+          // 何度も崩壊すると、その度に同じ共有バナー要素が再アニメーションされ、プレイヤーには
+          // 「自分の見ているブラックホールは崩壊していないのに、崩壊ラベルだけが途切れず表示され続ける」
+          // ように見えてしまっていた。バナーは「プレイヤーが気づける範囲」に限定し、画面外の崩壊は
+          // その場のショックウェイブ・玉の起爆演出だけで済ませる（無関係な場所の崩壊でバナーを連発させない）
           if(playerInDanger){
             comboLockTimer = BH_COMBO_LOCK_SEC; // 危険を取っていたプレイヤーへのご褒美：しばらくチェインが切れない
+            showGimmickBanner('ブラックホール崩壊！', '#ff5fd0', `コンボロック ${BH_COMBO_LOCK_SEC}秒`);
+          } else if(pdist < BH_PULL_R){
+            showGimmickBanner('ブラックホール崩壊！', '#b28cff', '');
           }
           rk.bhMass = 0;
+          rk.bhCooldown = BH_COOLDOWN_SEC; // FB対応：崩壊直後は少し休止させ、間髪あけずに再吸引→再崩壊が続くのを防ぐ
         }
-      } else if(rk.state !== 'awake'){
+        } // クールタイム分岐（if(rk.bhCooldown > 0) ... else）の終わり
+      } else {
         // 覚醒していない間（崩壊せずに覚醒が終わった場合も含む）はいつでもリセットしておき、次回に持ち越さない
-        rk.bhSpent = false;
         if(rk.bhMass > 0){
           for(const m of marbles) if(m.bhOwner === rk) m.bhOwner = null;
           rk.bhMass = 0;
         }
+        rk.bhCooldown = 0; // 次に覚醒したときは休止なしから始める
       }
     }
 
@@ -5702,11 +5853,24 @@ function update(dt){
   }
   syncResonanceRocks();
 
+  // ブラックホールに引かれて溜まった速度成分を摩擦で減衰させつつ位置に反映（ループ内で何個分溜まっても、ここで1回だけ）
+  // FB対応：抜け出しやすくする調整の一環として、減衰も少し速めにし、逆方向に踏ん張った時の
+  // 反応がより素早く感じられるようにした（0.75→0.68：1フレームでの残存割合を下げて手応えを良くする）
+  if(player.bhVx || player.bhVy){
+    player.bhVx *= Math.pow(0.68, dt);
+    player.bhVy *= Math.pow(0.68, dt);
+    player.wx += player.bhVx * dt;
+    player.wy += player.bhVy * dt;
+    player.wx = ((player.wx % WORLD_W) + WORLD_W) % WORLD_W;
+    player.wy = ((player.wy % WORLD_H) + WORLD_H) % WORLD_H;
+  }
+
   // ── プレイヤー↔岩 当たり判定（ブリンクで高速移動中は素通りする） ──
   rockHitCooldown = Math.max(0, rockHitCooldown - dtSec);
   if(!player.blinking)
   for(const rk of rocks){
     if(!rk.alive) continue;
+    if(rk.ability === 'blackhole') continue; // ブラックホールは吸い込むだけの存在。通常の岩のような当たり判定は持たない（弾かれず、そのまま引力圏に入る）
     let dx=player.wx-rk.x, dy=player.wy-rk.y;
     if(dx> WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
     if(dy> WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
@@ -5976,6 +6140,7 @@ function update(dt){
     if(m.alive && m.recentPlayerForceTimer > 0) m.recentPlayerForceTimer = Math.max(0, m.recentPlayerForceTimer - dtSec);
     if(m.alive && m.speedCapBoostTimer > 0) m.speedCapBoostTimer = Math.max(0, m.speedCapBoostTimer - dtSec);
     if(m.alive && m.bubbleShotBatchTimer > 0) m.bubbleShotBatchTimer = Math.max(0, m.bubbleShotBatchTimer - dtSec);
+    if(m.alive && m.bhReleaseGrace > 0) m.bhReleaseGrace = Math.max(0, m.bhReleaseGrace - dtSec);
   }
 
   updateHUD();
@@ -6105,6 +6270,16 @@ function triggerHoleGimmick(hole) {
   hole.animDir = -1;
   hole.points = 0;
   spawnHoleMarbleBurst(hole.x, hole.y, 20);
+  // FB対応：「世界干渉ギミック、発動成功できたらバッテリーを回復とかでも良さそう」との要望。
+  // 発電装置のゲージが満タンになり、世界干渉ギミック（オーバーチャージ／岩覚醒／渦／マーブルフィーバー／
+  // 共鳴ラン等）が実際に発動した瞬間に、種類を問わず一律でバッテリーを回復する
+  // （当初15%で実装→「多すぎる」とのFBで10%に調整）
+  const HOLE_GIMMICK_BATTERY_RESTORE = 10;
+  player.battery = Math.min(100, player.battery + HOLE_GIMMICK_BATTERY_RESTORE);
+  // 直後にshowGimmickBanner()で画面中央にギミック名が出るため、被らないようその下にずらして表示する
+  showItemPopup(`バッテリー +${HOLE_GIMMICK_BATTERY_RESTORE}%`, '#44ffaa', 110);
+  if (window.SoundSE) window.SoundSE.playBatteryHit();
+  updateHUD();
   // 既存イベントは上書き終了
   if (activeWorldEvent && activeWorldEvent.id === 'rock_awaken') {
     // 前のROCK AWAKENが残っていたら岩を通常に戻す
@@ -7223,6 +7398,7 @@ function drawRocks(){
 
     // ── 予兆・覚醒演出 ──
     let rkJitter = 0, rkBodyScale = 1; // 本体描画（多角形）に反映する変形量。毎フレーム作り直す
+    let rkBodyDrawn = false; // 覚醒中のブラックホールは専用イラストを演出パートで描画済みなので、後段の本体描画をスキップする
     if(rk.state === 'omen'){
       // 予兆：覚醒が近づくほど激しく明滅・震える（カウントダウンの緊張感を出す）
       const progress = 1 - (rk.stateTimer / rk.omenDuration); // 0(開始)→1(覚醒直前)
@@ -7277,34 +7453,42 @@ function drawRocks(){
         ctx.beginPath();ctx.arc(0,0,rk.r*2.4,0,Math.PI*2);ctx.fillStyle=aw;ctx.fill();
 
       } else if(rk.ability === 'blackhole'){
-        // ブラックホール：捕獲した質量(bhMass)に応じて事象の地平面が育っていく。危険範囲は薄い破線で目安表示
+        // ブラックホール：専用イラスト（覚醒中のみ）を、捕獲した質量(bhMass)に応じてじわっと拡大させながら表示。
+        // 危険範囲は薄い破線で目安表示。本体（流体シェイプ）の描画はここで済ませるので、後段の通常岩描画はスキップする
         const massRatio = Math.min(1, (rk.bhMass||0) / BH_COLLAPSE_MASS);
-        ctx.beginPath(); ctx.arc(0,0,rk.r*BH_DANGER_MULT,0,Math.PI*2);
-        ctx.strokeStyle = 'rgba(150,80,220,0.18)'; ctx.lineWidth = 1;
-        ctx.setLineDash([6,8]); ctx.stroke(); ctx.setLineDash([]);
-        // 降着円盤：内側へ渦巻きながら吸い込まれる粒子
-        for(let si=0; si<14; si++){
-          const spiralT = (t*1.6 + si/14) % 1;
-          const ang = spiralT*Math.PI*6 + rk.phase;
-          const rad = rk.r*(2.6 - spiralT*1.7);
-          const fx = Math.cos(ang)*rad, fy = Math.sin(ang)*rad;
-          const alpha = spiralT*0.8;
-          ctx.beginPath(); ctx.arc(fx,fy,1.6+massRatio*1.2,0,Math.PI*2);
-          ctx.fillStyle = `rgba(180,140,255,${alpha})`; ctx.fill();
+        // FB対応：崩壊後2秒間のクールタイム中は吸引が完全に止まっているので、見た目もひと目で「今は休止中」と
+        // 分かるように、吸引範囲を示すリング類は消し、本体の発光もぐっと弱めておく
+        const inCooldown = (rk.bhCooldown||0) > 0;
+        if(!inCooldown){
+          // FB対応：「吸引範囲が小さい気がする」との声。実際の引力はBH_PULL_R（危険範囲よりずっと外側）まで働いているが、
+          // 今までは危険範囲の破線しか見えず、本当の広さが伝わっていなかった。ごく薄い円でBH_PULL_R自体の外周も見せる
+          ctx.beginPath(); ctx.arc(0,0,BH_PULL_R,0,Math.PI*2);
+          ctx.strokeStyle = 'rgba(150,80,220,0.10)'; ctx.lineWidth = 1;
+          ctx.setLineDash([4,10]); ctx.stroke(); ctx.setLineDash([]);
+          ctx.beginPath(); ctx.arc(0,0,rk.r*BH_DANGER_MULT,0,Math.PI*2);
+          ctx.strokeStyle = 'rgba(150,80,220,0.18)'; ctx.lineWidth = 1;
+          ctx.setLineDash([6,8]); ctx.stroke(); ctx.setLineDash([]);
         }
-        // 事象の地平面：質量が増えるほど濃く・大きくなる暗い円
-        const horizonR = rk.r*(0.55 + massRatio*0.5);
-        const horizon = ctx.createRadialGradient(0,0,0,0,0,horizonR);
-        horizon.addColorStop(0, `rgba(5,2,12,${0.85+massRatio*0.15})`);
-        horizon.addColorStop(1, 'rgba(60,20,90,0.4)');
-        ctx.beginPath(); ctx.arc(0,0,horizonR,0,Math.PI*2); ctx.fillStyle=horizon; ctx.fill();
-        ctx.beginPath(); ctx.arc(0,0,horizonR,0,Math.PI*2);
-        ctx.strokeStyle = `rgba(180,140,255,${0.5+massRatio*0.5})`; ctx.lineWidth = 1.4; ctx.stroke();
-        // 外側のグロウ
+        // 外側のグロウ（イラストの背後に敷く。質量が増えるほど強く。クールタイム中は弱めに固定）
+        const glowMult = inCooldown ? 0.35 : 1;
         const bhGlow = ctx.createRadialGradient(0,0,rk.r*0.4,0,0,rk.r*2.2);
-        bhGlow.addColorStop(0,`rgba(150,80,220,${0.28+massRatio*0.22})`);
+        bhGlow.addColorStop(0,`rgba(150,80,220,${(0.28+massRatio*0.22)*glowMult})`);
         bhGlow.addColorStop(1,'transparent');
         ctx.beginPath();ctx.arc(0,0,rk.r*2.2,0,Math.PI*2);ctx.fillStyle=bhGlow;ctx.fill();
+        // 専用イラスト：ゆっくり自転させ、質量が増えるほど大きくする（崩壊が近いことの目安にもなる）
+        const bhImg = (typeof IMAGE_ASSETS !== 'undefined') ? IMAGE_ASSETS.get('rocks', 'blackhole') : null;
+        if(bhImg && bhImg.complete && bhImg.naturalWidth > 0){
+          const art = ROCK_ART.blackhole;
+          const dispR = rk.r * (1.3 + massRatio*0.5);
+          const k = dispR / art.rad;
+          const w = art.vbw*k, h = art.vbh*k;
+          ctx.save();
+          ctx.globalAlpha *= inCooldown ? 0.55 : 1; // クールタイム中は本体も少し薄く＝休止中だと分かるように
+          ctx.rotate(t*(inCooldown ? 0.17 : 0.6) + rk.phase); // FB対応：「動きが遅すぎる」との指摘で自転を速めた（0.35→0.6、休止中も比率を保って0.1→0.17）
+          ctx.drawImage(bhImg, -art.cx*k, -art.cy*k, w, h);
+          ctx.restore();
+          rkBodyDrawn = true; // 本体イラストはここで描画済み。後段の通常岩描画（流体シェイプ）をスキップさせる
+        } // 画像が未読込の場合はrkBodyDrawnをtrueにしない→後段で青紫のまん丸にフォールバックする（真っ暗な岩が出ないように）
 
       } else if(rk.ability === 'split'){
         // 分裂：緑の破片が浮遊するだけのシンプルな演出（中心から伸びるヒビ線は廃止）
@@ -7391,6 +7575,17 @@ function drawRocks(){
         ctx.font=`bold 11px 'Courier New',monospace`;
         ctx.fillStyle='rgba(255,255,255,0.95)';
         ctx.fillText(ph.gimmickName,0,0);
+      }
+    } else if(rk.ability === 'blackhole'){
+      // ブラックホール：覚醒中は専用イラスト（上の演出パートで描画済み）、それ以外（通常・予兆）は青紫のまん丸で表現
+      if(!rkBodyDrawn){
+        const bhBall = ctx.createRadialGradient(-rk.r*0.25,-rk.r*0.25,rk.r*0.1,0,0,rk.r*1.05);
+        bhBall.addColorStop(0, 'rgba(150,110,230,1)');
+        bhBall.addColorStop(0.55, 'rgba(90,60,190,1)');
+        bhBall.addColorStop(1, 'rgba(45,25,110,1)');
+        ctx.beginPath(); ctx.arc(0,0,rk.r,0,Math.PI*2);
+        ctx.fillStyle = bhBall; ctx.fill();
+        ctx.strokeStyle = 'rgba(20,10,50,0.7)'; ctx.lineWidth = 1.6; ctx.stroke();
       }
     } else {
       // 通常岩：流体シェイプ（黒塗りつぶし・グラデーションなし）＋周りにいびつな黒線を2本（手描きスケッチ風）
@@ -7483,6 +7678,12 @@ const MARBLE_ART = {
   gold:    { vbw:256,    vbh:256,    cx:124.38, cy:125.91, rad:100.53 },
   gravity: { vbw:253.87, vbh:252.68, cx:126.94, cy:126.32, rad:126.27 },
 };
+// 岩（覚醒能力）の専用イラスト用ジオメトリ定義。今のところブラックホールのみ（他の能力は従来通り手描き風の流体シェイプ）。
+// MARBLE_ARTと同じ考え方：元データ（assets/rocks/*.svg）をgetBBox()で解析し、中心座標(cx,cy)と代表半径(rad)を求めている
+// （このSVGは装飾用の小さな粒がスパイラル本体の外にも散っているため、粒を除いた本体グループのbboxを基準にした）。
+const ROCK_ART = {
+  blackhole: { vbw:253.87, vbh:252.68, cx:124.73, cy:126.82, rad:104.08 },
+};
 // レア玉（紅・金磁晶核）の発光色。前作同様、玉の周りに常時ふわっと光る発光をかける
 const MARBLE_GLOW_COLOR = {
   red:  {r:255, g:70,  b:60},
@@ -7565,6 +7766,24 @@ function drawMarbles(){
         ctx.fillStyle = '#ffffff'; ctx.fill();
         ctx.lineWidth = lineW; ctx.strokeStyle = ringColor; ctx.stroke();
       }
+    }
+
+    // ── 遅延磁晶核：起爆までの秒読みを赤いオーバーレイで警告（前作と同様の表現） ──
+    // FB対応：「遅延玉、いつ爆発するのかわからない」との声。armed後の7秒間、残り時間が
+    // 減るほど濃く・速く点滅する赤い光を玉自体に重ねて、はっきり「もうすぐ爆発する」と伝える
+    if(m.marbleType === 'delay' && m.armed && m.fuseTimer !== null){
+      const fuseRatio = 1 - Math.max(0, m.fuseTimer) / 7.0; // 0(起爆トリガー直後)→1(まさに爆発する瞬間)
+      const pulseSpeed = 4 + fuseRatio * 16; // 残り時間が減るほど点滅が速くなる
+      const pulse = Math.sin(t * pulseSpeed) * 0.5 + 0.5; // 0→1
+      const overlayAlpha = (0.22 + fuseRatio * 0.5) * (0.55 + pulse * 0.45);
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 1.15, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,20,20,${overlayAlpha})`;
+      ctx.fill();
+      // 遠くからでも気づけるよう、外周にもうっすら光る警告リングを添える
+      ctx.beginPath(); ctx.arc(m.x, m.y, m.r * (1.4 + pulse*0.3), 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(255,70,70,${0.3 + fuseRatio*0.4})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
     }
 
     // ── 起爆状態（赤くパルス） ──
@@ -9241,15 +9460,6 @@ function doGoMenu(){
 }
 document.getElementById('go-menu').addEventListener('click', withResultInterstitial(doGoMenu));
 document.getElementById('go-menu').addEventListener('touchstart', withResultInterstitial(doGoMenu), {passive:false});
-function goCompleteFirstPlay(){
-  document.getElementById('gameover').classList.remove('show');
-  document.getElementById('title-screen').classList.remove('hide');
-  if (window.SoundBGM) window.SoundBGM.play('menu');
-  updatePlayerStatusBar();
-  gameRunning=false;
-}
-document.getElementById('go-complete').addEventListener('click', goCompleteFirstPlay);
-document.getElementById('go-complete').addEventListener('touchstart', e=>{ e.preventDefault(); goCompleteFirstPlay(); }, {passive:false});
 
 // ── タイトル画面 ──────────────────────────────────
 // タイトル画面が唯一の入口。PLAYボタンは、旧モード選択画面を経由せず
@@ -9666,6 +9876,14 @@ function tryOpenEndless(){
   }
 
   function updateAndDraw(){
+    // FB対応（「ゲームが重すぎる」の原因調査）：現在このボイル演出は、旧モード選択画面のボタンが撤廃され、
+    // コレクション画面のカードもDOMごと無くなっているため、実質的に何も登録されずboilStatesが常に空の状態が
+    // ずっと続いていた。それでもこの関数自体は60fpsのまま毎フレーム呼ばれ続け、画面全体を覆う専用canvas
+    // (#boil-canvas, z-index:500)へのclearRectを無条件に実行し続けていた＝タイトルだろうと実際のゲーム
+    // プレイ中だろうと、何も描いていないのに全画面のcanvasレイヤーを毎フレーム触ってブラウザに
+    // 再合成させ続けるという、完全に無駄な負荷が常時かかっていた。登録が1つもない間はこの処理自体を
+    // 丸ごとスキップする（将来また何かをregisterした瞬間から普通に描画が始まるので機能的な影響はない）
+    if (boilStates.size === 0) return;
     bctx.clearRect(0,0,bc.width,bc.height);
     for (const [el, st] of boilStates){
       if (!isVisible(el)){
