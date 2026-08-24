@@ -292,16 +292,23 @@ canvas { display:block; width:100%; height:100%; }
   font-size:12px; letter-spacing:6px;
   color:rgba(245,247,250,0.5); margin-bottom:6px;
 }
+/* FB対応：「ラベル(世界観のフレーバー名)が主役で、スコア加算やバッテリー回復などの
+   “実際に何が起きたか”が脇役の小さい表示になっている」との指摘。初見プレイヤーは
+   「ブラックホール崩壊！」のような煽り気味の文言だけが大きく出ると身構えてしまい、
+   逆に一番伝えたい「いいことが起きたよ」という結果が小さくて伝わらない、という
+   問題があった。フレーバー名（世界観）は控えめな脇役表示に変更する */
 #gimmick-banner-name {
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
-  font-size:30px; font-weight:bold; letter-spacing:3px;
-  color:#f5f7fa;
+  font-size:13px; font-weight:600; letter-spacing:1.5px;
+  color:rgba(245,247,250,0.6); margin-bottom:6px;
 }
-/* 効果説明（名前の下にもう1行、少し小さめに表示） */
+/* 効果・結果（スコア加算やバッテリー回復など「いいことが起きた」実感）を主役として
+   大きく強調表示する。長めの効果文でも画面幅からあふれないよう折り返しを許可する */
 #gimmick-banner-effect {
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
-  font-size:14px; font-weight:bold; letter-spacing:1px;
-  color:#f5f7fa; margin-top:8px;
+  font-size:26px; font-weight:900; letter-spacing:1px;
+  color:#f5f7fa; margin:8px auto 0; max-width:82vw;
+  white-space:normal; line-height:1.3;
 }
 /* 表示時間を少し長めに（2.6s→4.2s。フェードイン/ホールド/フェードアウトの比率は維持） */
 #gimmick-banner.show { animation: gimmickBannerFade 4.2s ease forwards; }
@@ -699,7 +706,10 @@ canvas { display:block; width:100%; height:100%; }
 }
 .achievement-tab-btn.active { background:#f5f7fa; border-color:#f5f7fa; color:#0a0e1a; }
 .achievement-tab-btn:active { opacity:0.8; }
-.achievement-tab-panel.hide { display:none; }
+/* !important必須：#achv-tab-list側がdisplay:flexをID指定で持っており、クラス指定だけでは
+   詳細度で負けてhideが効かない（非アクティブ時も実績一覧が記録タブの下に表示され続けてしまう
+   原因になっていた）。IDの詳細度に確実に勝てるようここだけ!importantにしている。 */
+.achievement-tab-panel.hide { display:none !important; }
 #achv-tab-stats {
   width:min(400px, 88vw); flex:1; min-height:0; overflow-y:auto;
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
@@ -720,6 +730,17 @@ canvas { display:block; width:100%; height:100%; }
   border-top:1px solid rgba(255,255,255,0.15); border-bottom:1px solid rgba(255,255,255,0.15);
 }
 .achv-section-label { font-size:9px; letter-spacing:3px; color:rgba(255,255,255,0.45); margin-bottom:8px; }
+/* 記録タブ：スキル解放レベルの一覧（プレイヤーが「あと何レベでどのスキルが解放されるか」を確認できる） */
+.skill-unlock-ref-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:7px 0; font-size:12px;
+}
+.skill-unlock-ref-row:not(:last-child) { border-bottom:1px solid rgba(255,255,255,0.08); }
+.skill-unlock-ref-name { display:flex; align-items:center; gap:7px; color:rgba(255,255,255,0.85); }
+.skill-unlock-ref-icon { width:16px; height:16px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.skill-unlock-ref-icon img { width:16px; height:16px; object-fit:contain; }
+.skill-unlock-ref-lv { color:#8ff7ff; font-weight:bold; font-size:12px; letter-spacing:1px; }
+.skill-unlock-ref-lv.owned { color:rgba(255,255,255,0.35); font-weight:normal; }
 
 /* チュートリアルカード（ボタンとして機能、押すと過去のポップを見返せる） */
 .tutorial-card {
@@ -789,14 +810,17 @@ canvas { display:block; width:100%; height:100%; }
   border-radius:6px; padding:14px; font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
   position:relative; /* 受け取りポップアップ(.achv-claim-popup)をカード内に重ねるため */
 }
-.achv-card.unlocked { background:#151b2c; border:1px solid rgba(255,255,255,0.15); }
-.achv-card.locked   { background:#2a2a2a; border:1px solid #2a2a2a; }
+/* 解放済み：達成の目立つ黄色で表示。未解放：暗めに沈めて、まだ見えていない感を出す */
+.achv-card.unlocked { background:#221c0f; border:1px solid rgba(255,213,74,0.4); }
+.achv-card.locked   { background:#1a1a1a; border:1px solid rgba(255,255,255,0.06); }
 .achv-title { font-size:15px; font-weight:bold; }
-.achv-card.unlocked .achv-title { color:#f5f7fa; }
-.achv-card.locked .achv-title { color:#fff; letter-spacing:3px; }
+.achv-card.unlocked .achv-title { color:#ffd54a; text-shadow:0 0 8px rgba(255,213,74,0.35); }
+.achv-card.locked .achv-title { color:rgba(255,255,255,0.28); letter-spacing:3px; }
 .achv-desc { font-size:11px; margin-top:5px; line-height:1.5; }
-.achv-card.unlocked .achv-desc { color:rgba(255,255,255,0.75); }
-.achv-card.locked .achv-desc { color:#ddd; }
+.achv-card.unlocked .achv-desc { color:rgba(255,255,255,0.8); }
+.achv-card.locked .achv-desc { color:rgba(255,255,255,0.35); }
+/* 解放済みカードの下に添える「達成条件」：後から見返した時のための、控えめな薄字表示 */
+.achv-condition { font-size:9px; margin-top:7px; letter-spacing:0.5px; color:rgba(255,255,255,0.32); }
 .achv-meta { font-size:9px; color:#999; margin-top:9px; letter-spacing:0.5px; }
 
 /* 解除済み・未受け取りカード：ぼんやり発光してタップを誘導する */
@@ -1561,6 +1585,20 @@ canvas { display:block; width:100%; height:100%; }
 .option-toggle-3 .option-toggle-btn {
   font-size:9px; line-height:1.4; padding:7px 2px;
 }
+/* お気に入りスキル選択：プルダウン（ネイティブ<select>）方式 */
+.option-select {
+  width:100%; padding:10px 34px 10px 12px; border-radius:6px;
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif; font-size:12px; letter-spacing:1px;
+  background-color:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.2);
+  color:rgba(255,255,255,0.9);
+  -webkit-tap-highlight-color:transparent; cursor:pointer;
+  color-scheme:dark; /* 対応ブラウザではプルダウンの選択肢一覧もダークテーマで表示される */
+  appearance:none; -webkit-appearance:none; -moz-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='rgba(255,255,255,0.6)' d='M7 10l5 5 5-5z'/></svg>");
+  background-repeat:no-repeat; background-position:right 10px center; background-size:18px;
+}
+.option-select:focus { outline:none; border-color:rgba(143,247,255,0.6); }
+.option-select option { background:#14141e; color:#fff; }
 #option-back {
   width:100%; padding:11px 0; border-radius:6px; flex-shrink:0;
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif; font-size:11px; letter-spacing:3px;
@@ -1617,6 +1655,55 @@ canvas { display:block; width:100%; height:100%; }
   color:#1a1a1a; font-weight:bold;
 }
 #reset-confirm-ok:active { background:rgba(255,255,255,0.7); }
+
+/* スキル解放：NEW SKILLポップアップ */
+#skill-unlock-overlay {
+  position:fixed; inset:0; z-index:405;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,10,0.88);
+  opacity:0; pointer-events:none; transition:opacity 0.25s;
+}
+#skill-unlock-overlay.show { opacity:1; pointer-events:auto; }
+#skill-unlock-box {
+  background:rgba(20,20,30,0.98); border:1.5px solid rgba(255,200,60,0.55);
+  box-shadow:0 0 30px rgba(255,200,60,0.25);
+  border-radius:14px; padding:28px 24px 22px; width:80%; max-width:300px;
+  text-align:center; animation: skillUnlockPop 0.35s ease;
+}
+@keyframes skillUnlockPop {
+  0%   { transform:scale(0.85); opacity:0; }
+  60%  { transform:scale(1.03); opacity:1; }
+  100% { transform:scale(1); opacity:1; }
+}
+#skill-unlock-label {
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:14px; letter-spacing:1px; font-weight:bold;
+  color:#ffd54f; text-shadow:0 0 10px rgba(255,213,79,0.6);
+  margin-bottom:14px;
+}
+#skill-unlock-icon {
+  width:56px; height:56px; margin:0 auto 12px; border-radius:50%;
+  background:rgba(255,213,79,0.12); border:1px solid rgba(255,213,79,0.35);
+  display:flex; align-items:center; justify-content:center; font-size:28px;
+}
+#skill-unlock-icon img { width:30px; height:30px; object-fit:contain; }
+#skill-unlock-name {
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:16px; font-weight:bold; color:#fff; letter-spacing:1px; margin-bottom:8px;
+}
+#skill-unlock-desc {
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:10px; letter-spacing:0.5px; line-height:1.7;
+  color:rgba(255,255,255,0.55); margin-bottom:20px;
+}
+#skill-unlock-ok {
+  width:100%; padding:11px 0; border-radius:6px;
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif; font-size:11px; letter-spacing:3px;
+  cursor:pointer; transition:all 0.12s; -webkit-tap-highlight-color:transparent;
+  background:rgba(255,213,79,0.9); border:1.5px solid rgba(255,213,79,0.9);
+  color:#1a1a1a; font-weight:bold;
+}
+#skill-unlock-ok:active { background:rgba(255,213,79,0.7); }
 
 /* モード選択のオプションボタンは廃止（設定ボタンに統合） */
 
@@ -1810,6 +1897,12 @@ canvas { display:block; width:100%; height:100%; }
     <div id="option-scroll-area">
       <div id="option-title">OPTION</div>
 
+      <div class="option-row" id="option-row-favorite">
+        <div class="option-label">お気に入りスキル</div>
+        <div class="option-desc">選択すると、スキル選択画面の抽選に必ず1つ含まれるようになります。</div>
+        <select id="favorite-skill-select" class="option-select"></select>
+      </div>
+
       <div class="option-row">
         <div class="option-label">プレイヤーの移動操作方法</div>
         <div class="option-desc">
@@ -1859,6 +1952,17 @@ canvas { display:block; width:100%; height:100%; }
       <button id="reset-confirm-cancel">キャンセル</button>
       <button id="reset-confirm-ok">初期化する</button>
     </div>
+  </div>
+</div>
+
+<!-- スキル解放：NEW SKILLポップアップ（レベル到達済みで未通知のスキルがある状態でタイトル画面に着くと表示） -->
+<div id="skill-unlock-overlay">
+  <div id="skill-unlock-box">
+    <div id="skill-unlock-label">新しいスキルを獲得！</div>
+    <div id="skill-unlock-icon"></div>
+    <div id="skill-unlock-name"></div>
+    <div id="skill-unlock-desc"></div>
+    <button id="skill-unlock-ok">OK</button>
   </div>
 </div>
 
@@ -2112,6 +2216,10 @@ canvas { display:block; width:100%; height:100%; }
       <span>プレイ時間</span>
       <span class="go-stat-val" id="achv-stat-playtime">0分</span>
     </div>
+    <div class="achv-section-block">
+      <div class="achv-section-label">スキル解放レベル</div>
+      <div id="skill-unlock-ref-list"></div>
+    </div>
   </div>
   <!-- タブ2：実績一覧（js/achievements.jsのdefsを元にカードを生成） -->
   <div id="achv-tab-list" class="achievement-tab-panel hide">
@@ -2289,16 +2397,28 @@ let screenShake = { x:0, y:0, power:0 };
 
 // ── スキルシステム ────────────────────────────────
 const SKILL_DEFS = [
-  { id:'blink',   name:'ブリンク',     icon:'⚡', spCost:100, maxStock:3, desc:'指定方向へ瞬間移動する（約500px）' },
-  { id:'dash',    name:'ダッシュ',     icon:'💨', spCost:80,  maxStock:1, desc:'約3秒間、高速移動する' },
-  { id:'cannon',  name:'大砲',         icon:'💣', spCost:80,  maxStock:3, desc:'前方へ巨大な磁晶核を発射する' },
-  { id:'typhoon', name:'台風の目',     icon:'🌪', spCost:200, maxStock:1, desc:'約3秒間、周囲の玉とアイテムを引き寄せる' },
+  { id:'blink',   name:'パルス',     icon:'⚡', spCost:100, maxStock:3, desc:'指定方向へ瞬間移動する（約500px）' },
+  { id:'dash',    name:'ブースト',     icon:'💨', spCost:80,  maxStock:1, desc:'約3秒間、高速移動する' },
+  { id:'cannon',  name:'メテオキャノン', icon:'💣', spCost:80,  maxStock:3, desc:'前方へ巨大な磁晶核を発射する' },
+  { id:'typhoon', name:'重力崩壊',     icon:'🌪', spCost:200, maxStock:1, desc:'約3秒間、周囲の玉とアイテムを引き寄せる' },
   { id:'shield',  name:'シールド',     icon:'🛡', spCost:100, maxStock:2, desc:'約10秒間、Sで引き寄せた玉を保護。バッテリーのハズレも無効化' },
   { id:'bubble',  name:'フリーズショット', icon:'🫧', spCost:100,  maxStock:1, desc:'狙いを定め、玉を勢いよく前方に飛ばす' },
-  { id:'beacon',  name:'ワープビーコン', icon:'🛰', spCost:100, maxStock:1, desc:'アイテムを検知するビーコンを設置。再使用でワープ' },
-  { id:'sweep',   name:'マグネットスイープ', icon:'🧹', spCost:100, maxStock:2, desc:'前方を薙ぎ払い、玉を吹き飛ばす' },
+  { id:'beacon',  name:'フリーズハンド', icon:'🥢', spCost:100, maxStock:1, desc:'約5秒間、時を止めて、触れた場所の近くに玉を寄せ集める' },
+  { id:'sweep',   name:'スターウェーブ', icon:'🧹', spCost:100, maxStock:2, desc:'前方を薙ぎ払い、玉を吹き飛ばす' },
   { id:'energyConverter', name:'エネルギー変換器', icon:'🔌', spCost:150, maxStock:1, desc:'約10秒間、爆発ごとにバッテリーを回復する' },
 ];
+// レベル解放スキル：パルス・フリーズショット・スターウェーブ以外は、プレイヤーレベルが
+// ここに書かれたレベルに達するごとに順に解放される（実際にunlockedSkillsへ追加され、
+// 「NEW SKILL」ポップアップが出るのは、そのレベルに到達してから初めてタイトル画面に
+// 戻ったタイミング。詳細はqueueSkillUnlocks/checkPendingSkillUnlocksを参照）
+const SKILL_UNLOCK_LEVELS = {
+  shield: 10,
+  typhoon: 15,
+  beacon: 20,
+  dash: 25,
+  cannon: 30,
+  energyConverter: 35,
+};
 const SP_RATE = 0.35; // SP獲得係数（チェイン・赤玉・金玉に適用）
 let selectedSkillId = null; // 選択中のスキルID
 let skillSP         = 0;    // 現在のSP
@@ -2316,7 +2436,8 @@ let bubbleShotBatchCounter = 0; // シャボン玉：発射シーケンスごと
 let bubbleFireBatchId = 0;      // 今回の発射シーケンスのバッチID
 const BUBBLE_SHOT_IMMUNITY_DURATION = 0.6; // 同じ発射由来の玉同士がお互いに反応しない時間（秒）。それ以外(岩・ギミック・他の玉)には即座に反応する
 let cannonCharge     = null;  // 大砲：チャージ中の状態（null=非チャージ中）
-let beaconPos         = null; // ワープビーコン：記憶地点 {x,y}
+let dragFreezeActive  = false; // フリーズハンド：時間停止＋ドラッグ操作中フラグ（true中はupdate()の大部分をスキップし、ドラッグ操作だけ許可する）
+let dragPoint         = null;  // フリーズハンド：現在の引き寄せ先座標（ワールド座標）{x,y}
 let sweepEffects      = []; // マグネットスイープ：手描きの弧エフェクト {cx,cy,startAngle,endAngle,range,color,born,dur}
 
 let upgrades = { sBoost:1, nBoost:1, rangeUp:1, chainMulti:1, explodeUp:1, rareBoost:0, skillCharge:100 };
@@ -2340,6 +2461,7 @@ function defaultSaveData() {
     bestScores: [],        // 自己ベストTOP3（降順、最大3件）。リザルト画面「自己ベストTOP3」表示用
     howToPlaySeen: false,  // 「遊び方」オーバーレイを一度でも見たか（true化後は初回自動表示をしない）
     settings: { dragMode: 'absolute', favoriteSkillId: '', bgmEnabled: true, seEnabled: true, speedBarVisible: false },
+    pendingSkillUnlocks: [], // レベル到達済みだが、まだタイトル画面でポップアップ通知していないスキルidの一覧
   };
 }
 
@@ -2366,6 +2488,10 @@ function migrateSaveData(parsed) {
   if (parsed.settings && typeof parsed.settings === 'object') {
     data.settings = { ...data.settings, ...parsed.settings };
     if (data.settings.favoriteSkillId === 'stop') data.settings.favoriteSkillId = 'bubble'; // 同上の移行
+  }
+  // 既存セーブ（このフィールド追加より前のデータ）にはキー自体が存在しないため、空配列にしておく
+  if (Array.isArray(parsed.pendingSkillUnlocks)) {
+    data.pendingSkillUnlocks = [...new Set(parsed.pendingSkillUnlocks.filter(id => typeof id === 'string'))];
   }
   data.version = SAVE_DATA_VERSION;
   return data;
@@ -2442,6 +2568,7 @@ function savePlayerProgress() { saveSaveData(); }
 // XPを付与し、必要なだけレベルアップを繰り返す（繰り越しあり・切り捨てなし）
 // 発生したレベルアップの配列を返す： [{ newLevel, big }, ...]
 function grantXP(amount) {
+  const levelBefore = playerProgress.level;
   playerProgress.xp += amount;
   const levelUps = [];
   while (playerProgress.xp >= xpNeededForLevel(playerProgress.level)) {
@@ -2450,9 +2577,78 @@ function grantXP(amount) {
     const big = (playerProgress.level % 10 === 0); // 10の倍数（100の倍数も含む）は演出を派手にする
     levelUps.push({ newLevel: playerProgress.level, big });
   }
+  if (playerProgress.level > levelBefore) queueSkillUnlocks(levelBefore, playerProgress.level);
   savePlayerProgress();
   if (window.Achievements) window.Achievements.checkLevelAchievements(); // Lv20/50/100系の実績をここでチェック
   return levelUps;
+}
+
+// レベルが fromLevel→toLevel に上がった際、その範囲内にSKILL_UNLOCK_LEVELSの
+// 解放レベルが含まれていれば「解放待ち」として積んでおく（この時点ではまだ
+// unlockedSkillsには追加しない。実際に使えるようになりポップアップが出るのは、
+// 次に初めてタイトル画面へ着いたタイミング＝checkPendingSkillUnlocks側）
+function queueSkillUnlocks(fromLevel, toLevel) {
+  if (!Array.isArray(saveData.pendingSkillUnlocks)) saveData.pendingSkillUnlocks = [];
+  for (const skillId in SKILL_UNLOCK_LEVELS) {
+    const reqLevel = SKILL_UNLOCK_LEVELS[skillId];
+    if (reqLevel <= fromLevel || reqLevel > toLevel) continue;
+    if (saveData.unlockedSkills.includes(skillId)) continue;
+    if (saveData.pendingSkillUnlocks.includes(skillId)) continue;
+    saveData.pendingSkillUnlocks.push(skillId);
+  }
+}
+
+// タイトル画面に着くたびに呼ぶ：解放待ちのスキルがあれば、ここで初めて
+// unlockedSkillsに追加（＝実際に使えるようになる）し、NEW SKILLポップアップを出す。
+// 一度表示したら解放待ちキューは空にするので、以後は再表示されない。
+function checkPendingSkillUnlocks() {
+  const pending = saveData.pendingSkillUnlocks;
+  if (!Array.isArray(pending) || pending.length === 0) return;
+  const newlyUnlocked = [];
+  for (const skillId of pending) {
+    if (saveData.unlockedSkills.includes(skillId)) continue; // 念のため：既に何らかの経路で解放済みならスキップ
+    const def = SKILL_DEFS.find(s => s.id === skillId);
+    if (!def) continue;
+    saveData.unlockedSkills.push(skillId);
+    newlyUnlocked.push(def);
+  }
+  saveData.pendingSkillUnlocks = [];
+  saveSaveData();
+  if (newlyUnlocked.length > 0) {
+    if (window.Achievements) window.Achievements.syncOwnedSkillCount(saveData.unlockedSkills.length); // 実績「スキル収集家/スキルマスター/完全装備」用
+    showSkillUnlockPopup(newlyUnlocked);
+  }
+}
+
+// タイトル画面を表示する共通処理。単にhideクラスを外すだけでなく、
+// 毎回ここで解放待ちスキルのチェックも行う（呼び出し側を増やすたびに
+// チェック漏れが起きないよう、title-screenを表示する箇所は必ずこの関数を通す）
+function showTitleScreen() {
+  document.getElementById('title-screen').classList.remove('hide');
+  checkPendingSkillUnlocks();
+}
+
+// スキル解放ポップアップ：複数同時に解放された場合は1つずつ順番に表示する
+let skillUnlockQueue = [];
+function showSkillUnlockPopup(defs) {
+  const wasEmpty = skillUnlockQueue.length === 0;
+  skillUnlockQueue.push(...defs);
+  if (wasEmpty) advanceSkillUnlockPopup();
+}
+function advanceSkillUnlockPopup() {
+  const overlay = document.getElementById('skill-unlock-overlay');
+  if (!overlay) return;
+  if (skillUnlockQueue.length === 0) {
+    overlay.classList.remove('show');
+    return;
+  }
+  const def = skillUnlockQueue.shift();
+  const iconPath = (typeof IMAGE_ASSET_PATHS !== 'undefined') ? IMAGE_ASSET_PATHS.skills[def.id] : null;
+  const iconEl = document.getElementById('skill-unlock-icon');
+  iconEl.innerHTML = iconPath ? `<img src="${iconPath}" alt="${def.name}">` : `<span>${def.icon}</span>`;
+  document.getElementById('skill-unlock-name').textContent = def.name;
+  document.getElementById('skill-unlock-desc').textContent = def.desc;
+  overlay.classList.add('show');
 }
 
 function updatePlayerStatusBar() {
@@ -2469,6 +2665,9 @@ function updatePlayerStatusBar() {
 // #player-status-barはタイトル画面と一緒に最初から表示されるため（旧モード選択画面経由でしか
 // 表示されなかった以前の仕様と異なり）、ページ読み込み時点で一度だけ内容を反映しておく。
 updatePlayerStatusBar();
+// ページ読み込み時点で既にタイトル画面が表示されているため（唯一の入口）、
+// 前回プレイ時にレベル到達済みで未通知のスキル解放があれば、起動直後にここでポップアップを出す。
+checkPendingSkillUnlocks();
 
 let player = {
   wx: WORLD_W/2, wy: WORLD_H/2,
@@ -2555,7 +2754,6 @@ const PLAYER_TOUCH_POP_SCORE_BASE = 100;
 
 let chainCount = 0, maxChain = 0, maxChainCount = 0, chainTimer = 0, chainDisplay = '', chainTexts = [];
 let score = 0, currentChainDepth = 0;
-let comboLockTimer = 0; // ブラックホール岩：崩壊の瞬間に危険範囲内にいたプレイヤーへのご褒美（この秒数の間、チェインが切れなくなる）
 // ── デバッグ用：スコア内訳の集計（コンソールで確認するためだけの内部データ。ゲーム進行には影響しない）──
 let scoreDebug = {
   hitByCause: { S:0, N:0, none:0 },   // 1発ごとの基本点（S極/N極/非プレイヤー起因）の合計
@@ -2573,7 +2771,6 @@ let chainLastExplosionX = null, chainLastExplosionY = null; // 直前の爆発�
 
 // ── バッテリー残10%以下：画面端の波線演出 ──────────
 let pulseFrame = { amp:0, jitter:0, time:0, visibility:0 }; // 現在の振幅・不安定度・出現度（滑らかに追従）
-let nPoleHoldTimer = 0; // 実績「トリッキー」用：N極を連続で維持している時間（秒）
 
 let cam = { zoom:1.0, targetZoom:1.0, baseZoom:1.0, shakeX:0, shakeY:0, zoomHoldTimer:0 };
 let bubbleZoomTarget = 1.0;   // シャボン玉発射時に引いた先のズーム値
@@ -2644,7 +2841,7 @@ function initGame(mode) {
   upgrades = { sBoost:1, nBoost:1, rangeUp:1, chainMulti:1, explodeUp:1, rareBoost:0, skillCharge:100 };
   marbles=[]; rocks=[]; explosions=[]; particles=[]; shockwaves=[];
   items=[]; pickupEffects=[]; redBalls=[]; miniExplosions=[]; waveRings=[];
-  chainCount=0; maxChain=0; maxChainCount=0; chainTimer=0; chainDisplay=''; chainTexts=[]; score=0; comboLockTimer=0;
+  chainCount=0; maxChain=0; maxChainCount=0; chainTimer=0; chainDisplay=''; chainTexts=[]; score=0;
   scoreDebug = {
     hitByCause: { S:0, N:0, none:0 },
     hitCountByTier: { 0:0, 1:0, 2:0 },
@@ -2656,9 +2853,8 @@ function initGame(mode) {
   pulseFrame={ amp:0, jitter:0, time:0, visibility:0 };
   rockHitCooldown=0;
   playTime=0; batteryDrainBoostAnnounced=false; currentChainDepth=0; screenShake={x:0,y:0,power:0}; releaseGraceTimer=0;
-  nPoleHoldTimer=0; // 実績「トリッキー」用：N極を連続で維持している時間
   skillSP=0; skillStock=0; skillActive=false; skillTimer=0;
-  bubbleAiming=false; bubbleAimElapsed=0; bubbleFiring=false; bubbleFireQueue=[]; bubbleFireElapsed=0; beaconPos=null;
+  bubbleAiming=false; bubbleAimElapsed=0; bubbleFiring=false; bubbleFireQueue=[]; bubbleFireElapsed=0; dragFreezeActive=false; dragPoint=null;
   { const b1=document.getElementById('bubble-aim-banner'), b2=document.getElementById('bubble-fire-btn');
     if(b1) b1.classList.add('hide'); if(b2) b2.classList.add('hide'); }
   rockSpawnTimer=0; itemSpawnTimer=0; redBallCheckChain=0; goldBallCheckChain=0; comboItemCheckDepth=0; comboItemCooldown=0;
@@ -2847,17 +3043,25 @@ function spawnMarbles() {
 // FB対応：波動(wave)をブラックホール(blackhole)に置き換え（波動のコード自体は残しているが、抽選からは外れて出現しない）
 const ROCK_ABILITIES = ['bumper', 'blackhole', 'split', 'resonance'];
 function pickRockAbility(){ return ROCK_ABILITIES[Math.floor(Math.random()*4)]; }
+// FB対応：「ブラックホールがたまにめっちゃ設置されていて大変」との指摘。従来は12個の岩それぞれに
+// 4能力を単純に1/4で抽選していたため、運が悪いと（二項分布なので）ブラックホールだけ5〜7個といった
+// 偏りが普通に発生してしまっていた。フィールド上に同時に存在するブラックホールの個体数を
+// 最小1個・最大4個に収まるよう、spawnRocks()の抽選後に調整する
+const BH_MIN_COUNT = 1;
+const BH_MAX_COUNT = 4;
 
 // ── ブラックホール(岩の覚醒能力)専用定数 ──────────────
 // FB対応：「吸引範囲が小さい気がする、デフォルトのプレイヤーのS極くらいの大きさは欲しい」との要望。
 // プレイヤーの通常S極範囲(BASE_MAGNET_RANGE=470)より一回り大きくして、明確にそれ以上の存在感を持たせる
 const BH_PULL_R           = 550; // 引力が働く半径（この中の玉・プレイヤーが引き寄せられる）
 const BH_CAPTURE_MULT     = 2.0; // 捕獲半径 = rk.r * この値（この中に入った玉は完全に捕獲＝質量として数える）
-const BH_DANGER_MULT      = 2.6; // 危険半径 = rk.r * この値（プレイヤーのバッテリーが減り、崩壊時のご褒美対象になる）
+const BH_DANGER_MULT      = 2.6; // 危険半径 = rk.r * この値（この中にいる間、プレイヤーのバッテリーが減る＝リスク側の演出）
 const BH_COLLAPSE_MASS    = 16;  // 捕獲した玉の数がこれを超えたら崩壊（臨界）
 const BH_BATTERY_DRAIN_PS = 2;   // 危険半径内にいる間、1秒あたり減るバッテリー
 // FB対応：抜け出せず沈み込んだ場合に確定死になっていた（4だと通常消費の4倍で、脱出に手間取るだけで即詰みだった）ため半減
-const BH_COMBO_LOCK_SEC   = 6;   // 崩壊の瞬間に危険半径内にいたプレイヤーへ、チェインが切れなくなる秒数
+// FB対応：崩壊のご褒美を「危険半径内にいた時だけコンボロック」から「崩壊したら瞬時に+スコア」という、
+// プレイヤーの位置に関係なく必ず発生するボーナスに変更（数値は未確定の仮値。バランスを見て調整可）
+const BH_COLLAPSE_SCORE_BONUS = 30000; // 崩壊した瞬間に無条件で加算されるスコア（仮値。50000だと大きすぎるとのFBで30000に調整）
 // FB対応：「崩壊したら2秒くらいのクールタイムを設けた方が良さそう」との要望。
 // 崩壊した瞬間から一定時間、そのブラックホールは吸引・捕獲を完全に休止する（見た目にも一拍置く）
 const BH_COOLDOWN_SEC     = 2.0;
@@ -2957,6 +3161,25 @@ function spawnRocks(count) {
     const others = rocks.filter(r=>r.alive && r.ability!=='resonance');
     if(others.length > 0){
       others[Math.floor(Math.random()*others.length)].ability = 'resonance';
+    }
+  }
+  // FB対応：ブラックホールの同時存在数をBH_MIN_COUNT〜BH_MAX_COUNT個に収める。
+  // 共鳴岩の個体数調整（直前のブロック）に影響を与えないよう、差し替え先の能力は
+  // 'bumper'/'split'のみに限定する（'resonance'の個数はここでは変更しない）
+  const NON_BH_FILL_ABILITIES = ['bumper', 'split'];
+  const bhRocks = rocks.filter(r => r.alive && r.ability === 'blackhole');
+  if (bhRocks.length > BH_MAX_COUNT) {
+    const excess = bhRocks.length - BH_MAX_COUNT;
+    const shuffled = bhRocks.slice().sort(() => Math.random() - 0.5);
+    for (let i = 0; i < excess; i++) {
+      shuffled[i].ability = NON_BH_FILL_ABILITIES[Math.floor(Math.random()*NON_BH_FILL_ABILITIES.length)];
+    }
+  } else if (bhRocks.length < BH_MIN_COUNT) {
+    const shortfall = BH_MIN_COUNT - bhRocks.length;
+    const candidates = rocks.filter(r => r.alive && r.ability !== 'blackhole' && r.ability !== 'resonance');
+    const shuffled = candidates.slice().sort(() => Math.random() - 0.5);
+    for (let i = 0; i < shortfall && i < shuffled.length; i++) {
+      shuffled[i].ability = 'blackhole';
     }
   }
   syncResonanceRocks(); // 生成直後にリーダーを選出し、タイミングを揃えておく
@@ -3096,37 +3319,12 @@ function spawnItem() {
   if(gameMode === 'quick') pool = pool.filter(d=>d.cat!=='battery' && d.cat!=='skill'); // クイックプレイにはバッテリー・スキル関連アイテムは出さない
   if (player.battery<40) pool=[...pool,...ITEM_DEFS.filter(d=>d.cat==='battery' && gameMode!=='quick')];
   const def = resolveItemDef(pool[Math.floor(Math.random()*pool.length)]);
-  // ビーコン設置中は、ビーコン周囲600px以内のアイテムが4個未満なら優先してそこにスポーンする
-  // （2026-08〜：ビーコン帰還時に判断する間もなくバッテリーの大ハズレを踏んでしまう「バッテリー事故」を
-  // 防ぐため、ビーコン中心からBEACON_ITEM_MIN_R以内には出現させない安全地帯を設けた）
-  const BEACON_ITEM_MIN_R = 250, BEACON_ITEM_R = 600, BEACON_ITEM_CAP = 4;
-  let useBeacon = false;
-  if (beaconPos) {
-    let nearBeaconCount = 0;
-    for (const it of items) {
-      let bdx = it.x - beaconPos.x, bdy = it.y - beaconPos.y;
-      if (bdx > WORLD_W/2) bdx -= WORLD_W; else if (bdx < -WORLD_W/2) bdx += WORLD_W;
-      if (bdy > WORLD_H/2) bdy -= WORLD_H; else if (bdy < -WORLD_H/2) bdy += WORLD_H;
-      if (Math.hypot(bdx, bdy) < BEACON_ITEM_R) nearBeaconCount++;
-    }
-    if (nearBeaconCount < BEACON_ITEM_CAP) useBeacon = true;
-  }
   // プレイヤーから1000〜1800px・岩・玉と重ならない位置に配置
-  // （ビーコン優先時はビーコン中心からBEACON_ITEM_MIN_R〜BEACON_ITEM_R px の輪の範囲内。
-  //   中心付近を除外することで、帰還した瞬間に足元のアイテムを問答無用で拾ってしまう事故を防ぐ）
   let x, y, ok=false, tries=0;
   while(!ok && tries<50){
-    let bx, by;
-    if (useBeacon) {
-      const ang=Math.random()*Math.PI*2, dist=BEACON_ITEM_MIN_R + Math.random()*(BEACON_ITEM_R-BEACON_ITEM_MIN_R);
-      bx=((beaconPos.x+Math.cos(ang)*dist)%WORLD_W+WORLD_W)%WORLD_W;
-      by=((beaconPos.y+Math.sin(ang)*dist)%WORLD_H+WORLD_H)%WORLD_H;
-    } else {
-      const ang=Math.random()*Math.PI*2, dist=1200+Math.random()*960;
-      bx=((player.wx+Math.cos(ang)*dist)%WORLD_W+WORLD_W)%WORLD_W;
-      by=((player.wy+Math.sin(ang)*dist)%WORLD_H+WORLD_H)%WORLD_H;
-    }
-    x=bx; y=by;
+    const ang=Math.random()*Math.PI*2, dist=1200+Math.random()*960;
+    x=((player.wx+Math.cos(ang)*dist)%WORLD_W+WORLD_W)%WORLD_W;
+    y=((player.wy+Math.sin(ang)*dist)%WORLD_H+WORLD_H)%WORLD_H;
     ok=true; tries++;
     for(const rk of rocks){
       if(!rk.alive) continue;
@@ -3187,11 +3385,6 @@ function applyItem(def) {
       upgrades.sBoost = Math.min(upgrades.sBoost+0.4*itemValueMult,3);
       const lvAfter = computeItemLevel(PLAYER_ITEM_DEFS.find(x=>x.id==='s_boost'));
       msg=`S極強化 +Lv${lvAfter-lvBefore}`;
-      // 実績「S極マスター」：LvMAX到達チェック
-      if (window.Achievements) {
-        const d = PLAYER_ITEM_DEFS.find(x=>x.id==='s_boost');
-        if (d && computeItemLevel(d) >= d.maxLv) window.Achievements.unlock('ach_008');
-      }
       break;
     }
     case 'n_boost': {
@@ -3199,11 +3392,6 @@ function applyItem(def) {
       upgrades.nBoost = Math.min(upgrades.nBoost+0.6*itemValueMult,4);
       const lvAfter = computeItemLevel(PLAYER_ITEM_DEFS.find(x=>x.id==='n_boost'));
       msg=`N極強化 +Lv${lvAfter-lvBefore}`;
-      // 実績「N極マスター」：LvMAX到達チェック
-      if (window.Achievements) {
-        const d = PLAYER_ITEM_DEFS.find(x=>x.id==='n_boost');
-        if (d && computeItemLevel(d) >= d.maxLv) window.Achievements.unlock('ach_009');
-      }
       break;
     }
     case 'range_up': {
@@ -3227,7 +3415,6 @@ function applyItem(def) {
     case 'ep_bonus':
       itemRewardCoinsThisSession += EP_BONUS_AMOUNT;
       msg = `+${EP_BONUS_AMOUNT}EP 獲得！`; col = '#dddddd';
-      if (window.Achievements) window.Achievements.unlock('ach_010'); // 実績「年金生活」
       break;
     case 'bat_stable':
       player.battery=Math.min(100,player.battery+20); msg='バッテリー +20%';
@@ -3246,7 +3433,7 @@ function applyItem(def) {
         } else {
           player.battery=Math.max(0,player.battery-amt); msg=`バッテリー -${amt}%`; col='#ff6666';
         }
-        if (window.Achievements) window.Achievements.unlock('ach_011'); // 実績「ハズレくじ」
+        if (window.Achievements) window.Achievements.unlock('ach_005'); // 実績「ハズレくじ」
         if (window.SoundSE) window.SoundSE.playBatteryMiss();
       }
       break;
@@ -3273,7 +3460,7 @@ function applyItem(def) {
         } else {
           player.battery=Math.max(0,player.battery-l);msg=`バッテリー -${l}%!!`;col='#ff2244';
         }
-        if (window.Achievements) window.Achievements.unlock('ach_011'); // 実績「ハズレくじ」
+        if (window.Achievements) window.Achievements.unlock('ach_005'); // 実績「ハズレくじ」
         if (window.SoundSE) window.SoundSE.playBatteryMiss();
       }
       break;
@@ -3281,7 +3468,7 @@ function applyItem(def) {
   }
   // 実績「起死回生」：残量10%以下だったバッテリーアイテムで、実際に残量が増えた場合に解除
   if (window.Achievements && (def.id==='bat_stable' || def.id==='bat_unstable' || def.id==='bat_chaos')) {
-    if (batteryBefore <= 10 && player.battery > batteryBefore) window.Achievements.unlock('ach_012');
+    if (batteryBefore <= 10 && player.battery > batteryBefore) window.Achievements.unlock('ach_006');
   }
   showItemPopup(msg,col);
   addScore(Math.floor(ITEM_PICKUP_SCORE_BASE*upgrades.chainMulti));
@@ -3316,22 +3503,30 @@ function showTopNotification(msg) {
   el.classList.add('show');
 }
 
-// ── ギミック発動演出（画面中央に「ギミック作動」＋ギミック名＋効果説明を大きめに表示） ──
+// ── ギミック発動演出（画面中央に「ギミック作動」＋ギミック名＋効果説明を表示） ──
+// FB対応：以前は「ギミック名（世界観のフレーバー）」を大きく主役に、「効果・結果
+// （スコア加算やバッテリー回復など、実際に何が起きたか）」を小さく脇役に表示していた。
+// これだと初見プレイヤーには煽り気味の名前だけが強調されて「なにが起こってるの？！」と
+// 焦らせてしまい、一番伝えたい「いいことが起きたよ」という結果が伝わりにくい、との指摘。
+// 重要度を反転し、効果・結果を主役（大きく・色つきグロー）、フレーバー名を脇役
+// （小さく・控えめな単色）にする。世界観自体をなくすわけではなく、優先度を下げるだけ。
 function showGimmickBanner(name, color='#f5f7fa', effect='') {
   const el = document.getElementById('gimmick-banner');
   const nameEl = document.getElementById('gimmick-banner-name');
   const effectEl = document.getElementById('gimmick-banner-effect');
+  // フレーバー名（脇役）：発動ギミックの色に関わらず控えめな単色に統一し、視線が
+  // 効果テキストより先にここへ引かれないようにする。黒い縁取りだけで可読性を確保。
   nameEl.textContent = name;
-  nameEl.style.color = color;
-  // 色付きグローだけだと黄色などの明るい色が背景に溶けて読めなくなるため、
-  // 黒い縁取り(text-shadowを4方向)を追加した上で、従来通り同色のグローも重ねる
   nameEl.style.textShadow =
-    `-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 0 20px ${color}`;
+    `-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000`;
   if (effectEl) {
-    effectEl.textContent = effect ? `-${effect}-` : '';
+    // 効果・結果（主役）：色付きグロー＋黒縁取りで、これまでフレーバー名に使っていた
+    // 強調表現をそのまま持ってくる。かっこ書き（-テキスト-）だった装飾は、脇役の
+    // キャプション向けだったため主役表示では外す
+    effectEl.textContent = effect || '';
     effectEl.style.color = color;
     effectEl.style.textShadow =
-      `-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000`;
+      `-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 0 20px ${color}`;
   }
   el.classList.remove('show');
   void el.offsetWidth;
@@ -3588,8 +3783,6 @@ function updateChainDisplay(n, depth, wx, wy, playerCaused=false) {
   else if (n <= 125) { size=20; bold=true;  color='#ffffff'; }
   else if (n <= 200) { size=24; bold=true;  color='#00a5ad'; }
   else               { size=28; bold=true;  color='#cca500'; }
-  // ブラックホール崩壊によるコンボロック中：切れないことが一目でわかるよう専用の色に上書き
-  if (comboLockTimer > 0) { color = '#ff5fd0'; bold = true; }
   chainTexts.push({ x: wx, y: wy - 30, text, size, color, bold, life: 1, vy: -0.4 });
   // SP獲得：チェインのたびに+1SP
   if(selectedSkillId) gainSP(SP_RATE);
@@ -3621,20 +3814,15 @@ function useSkill(){
     finishBubbleAim();
     return;
   }
-  // ワープビーコンのみ特殊：1回目は記憶のみでストック消費なし
-  if(selectedSkillId==='beacon'){
-    activateBeacon();
-    return;
-  }
   // 大砲チャージ中は再発動しない（ホールド中に連打されても新しいチャージを始めない）
   if(selectedSkillId==='cannon' && cannonCharge) return;
   if(skillStock <= 0) return;
   skillStock--;
-  // シャボン玉（bubble）・大砲（cannon）だけはここで鳴らさない：ここは「狙い/チャージ」に
-  // 入るタイミングであり、実際に弾が飛ぶ「発射」はそれぞれfinishBubbleAim()/fireCannon()側。
-  // FBにより発動時ではなく発射時（手を離した時）に鳴らしてほしいとのことなので、
-  // SEはfinishBubbleAim()/fireCannon()に移した
-  if (window.SoundSE && selectedSkillId !== 'bubble' && selectedSkillId !== 'cannon') window.SoundSE.playSkill(selectedSkillId);
+  // シャボン玉（bubble）・大砲（cannon）・フリーズハンド（beacon）はここで鳴らさない：
+  // シャボン玉/大砲は「狙い/チャージ」入りのタイミングであり実際の発射時に別途鳴らす。
+  // フリーズハンドは発動音として既存の「ビーコン設置」音（skillBeacon）を専用関数経由で
+  // 流用するため、activateBeacon()側で明示的に鳴らす
+  if (window.SoundSE && selectedSkillId !== 'bubble' && selectedSkillId !== 'cannon' && selectedSkillId !== 'beacon') window.SoundSE.playSkill(selectedSkillId);
   // 使用後も現在貯まっている途中のゲージ(skillSP)はそのまま継続する
   switch(selectedSkillId){
     case 'blink':   activateBlink();  break;
@@ -3645,6 +3833,7 @@ function useSkill(){
     case 'bubble':  activateBubble(); break;
     case 'sweep':   activateSweep();  break;
     case 'energyConverter': activateEnergyConverter(); break;
+    case 'beacon':  activateBeacon(); break;
   }
 }
 
@@ -3673,14 +3862,14 @@ function activateBlink(){
     particles.push({x:player.wx,y:player.wy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
       hue:200,r:2+Math.random()*2,life:1,maxLife:0.4+Math.random()*0.2});
   }
-  showSkillKanjiBanner('ブリンク！');
+  showSkillKanjiBanner('パルス！');
 }
 
 function activateDash(){
   // 3秒間、速度を2倍に
   skillActive = true;
   skillTimer = 3.0;
-  showSkillKanjiBanner('3秒ダッシュ！');
+  showSkillKanjiBanner('3秒ブースト！');
 }
 
 const CANNON_R = MARBLE_R * 3;   // 磁晶核の3倍サイズ（S/N極には一切反応しない専用玉として扱う）
@@ -3740,7 +3929,7 @@ function activateTyphoon(){
   // 3秒間、プレイヤー周囲の玉をゆっくり吸い寄せる
   skillActive = true;
   skillTimer = 3.0;
-  showSkillKanjiBanner('台風の目');
+  showSkillKanjiBanner('重力崩壊');
 }
 
 function activateShield(){
@@ -3939,7 +4128,7 @@ function activateSweep(){
   cam.shakeX=(Math.random()-0.5)*6;
   cam.shakeY=(Math.random()-0.5)*6;
 
-  showSkillKanjiBanner('マグネットスイープ！');
+  showSkillKanjiBanner('スターウェーブ！');
 }
 
 // エネルギー変換器：約10秒間、玉が爆発するたびバッテリーが1%回復する（triggerExplosion側で加算）
@@ -3949,45 +4138,20 @@ function activateEnergyConverter(){
   showSkillKanjiBanner('エネルギー変換開始');
 }
 
+// フリーズハンド：フリーズショットと同じ「時間を止める」仕組みを使い、
+// 触れた/なぞった場所（dragPoint）の近くにある玉だけを少しずつ寄せ集められるようにする。
+// 実際の引き寄せ処理はupdate()側（dragFreezeActiveの分岐）で行う。ここでは発動処理だけ。
 function activateBeacon(){
-  if(!beaconPos){
-    // 1回目：現在地を記憶（ストック消費なし）
-    beaconPos = { x: player.wx, y: player.wy };
-    if (window.SoundSE) window.SoundSE.playBeaconSet();
-    showSkillKanjiBanner('設置');
-  } else {
-    // 2回目：記憶地点へワープ（ストック消費あり）
-    if(skillStock <= 0) return;
-    skillStock--;
-    if (window.SoundSE) window.SoundSE.playBeaconWarp();
-    const fromX = player.wx, fromY = player.wy;
-
-    // 出発地点：吸い込まれるように収束するパーティクル＋閉じていくリング
-    for(let i=0;i<16;i++){
-      const a=Math.random()*Math.PI*2, s=3+Math.random()*5;
-      particles.push({x:fromX+Math.cos(a)*36,y:fromY+Math.sin(a)*36,vx:-Math.cos(a)*s,vy:-Math.sin(a)*s,
-        hue:140,r:2+Math.random()*2,life:1,maxLife:0.3+Math.random()*0.15});
-    }
-    shockwaves.push({x:fromX,y:fromY,r:40,maxR:2,life:1}); // maxRを小さくすることで"収縮する"リングにしている
-
-    player.wx = beaconPos.x;
-    player.wy = beaconPos.y;
-
-    // 到着地点：勢いよく飛び散る大量のパーティクル＋時間差の三重リング波紋
-    for(let i=0;i<36;i++){
-      const a=Math.random()*Math.PI*2, s=3+Math.random()*7;
-      particles.push({x:player.wx,y:player.wy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
-        hue:140,r:2+Math.random()*3,life:1,maxLife:0.5+Math.random()*0.4});
-    }
-    shockwaves.push({x:player.wx,y:player.wy,r:0,maxR:110,life:1});
-    setTimeout(()=>{ shockwaves.push({x:player.wx,y:player.wy,r:0,maxR:160,life:1}); }, 90);
-    setTimeout(()=>{ shockwaves.push({x:player.wx,y:player.wy,r:0,maxR:210,life:1}); }, 180);
-    cam.shakeX=(Math.random()-0.5)*8;
-    cam.shakeY=(Math.random()-0.5)*8;
-
-    beaconPos = null;
-    showSkillKanjiBanner('ワープ！');
-  }
+  dragFreezeActive = true;
+  skillActive = true;
+  skillTimer = 5.0; // フリーズショットと同じ長さ（時が止まっている時間）
+  // タッチ前のデフォルト位置（自機の少し前方）。実際に画面へ触れた瞬間、そちらへ切り替わる
+  dragPoint = {
+    x: (((player.wx + Math.cos(player.angle)*80) % WORLD_W) + WORLD_W) % WORLD_W,
+    y: (((player.wy + Math.sin(player.angle)*80) % WORLD_H) + WORLD_H) % WORLD_H,
+  };
+  if (window.SoundSE) window.SoundSE.playBeaconSet(); // 既存の発動音（skillBeacon）を流用
+  showSkillKanjiBanner('フリーズハンド！');
 }
 
 // ── SP獲得：赤玉・金玉破壊時 ────────────────────
@@ -4095,11 +4259,10 @@ function triggerGameOver() {
   const levelUps = grantXP(grandTotalXpBonus * 10);
   showLevelUpBanner(null); // 前回表示ぶんを隠しておく（アニメーション側で必要なタイミングで出す）
 
-  // ── 実績称号：各モードの初プレイでリザルト画面を見た実績＋各種統計の更新 ──
+  // ── 実績称号：初プレイでリザルト画面を見た実績＋各種統計の更新 ──
   let isNewRecord = false;
   if (window.Achievements) {
-    if (gameMode === 'quick')   window.Achievements.unlock('ach_001');
-    if (gameMode === 'endless') window.Achievements.unlock('ach_003');
+    window.Achievements.unlock('ach_001'); // 実績「宇宙へようこそ」：モードを問わずリザルト画面を見た時点で解除
     window.Achievements.incrementStat('totalPlayCount');       // 総プレイ回数
     // クイックモードのプレイ回数（ストーリー条件用）：20秒未満は「クリア」と見なさずカウントしない
     if (gameMode === 'quick' && playTime >= MIN_PLAYTIME_FOR_REWARD) window.Achievements.incrementStat('quickPlayCount');
@@ -4744,23 +4907,20 @@ function update(dt){
   const dtSec=dt/60;
   playTime+=dtSec;
 
-  // ── 実績チェック：90秒連続N極維持／180秒生存 ──
-  if (window.Achievements) {
-    if (!player.isCharging) { // N極
-      nPoleHoldTimer += dtSec;
-      if (nPoleHoldTimer >= 60) window.Achievements.unlock('ach_013');
-    } else {
-      nPoleHoldTimer = 0;
-    }
-    if (playTime >= 180) window.Achievements.unlock('ach_014');
-  }
+  // ── 実績チェック：180秒生存（実績「尽きない探究心」） ──
+  if (window.Achievements && playTime >= 180) window.Achievements.unlock('ach_007');
   if(comboItemCooldown > 0) comboItemCooldown -= dtSec;
   // ── スキル効果タイマー ──
+  // 判定は0ぴったりではなく微小な許容値(0.0005秒=1フレームの1/30程度)以下で行う。
+  // update(dt)が毎回きっちり同じ幅で呼ばれる場合、5.0から浮動小数の減算を繰り返すと
+  // 極小の正の値（例：1.3e-14）で止まって二度と0以下にならないことがあり、
+  // そのままだとスキルの時間切れ処理が永遠に発動しなくなってしまうため
   if(skillActive && skillTimer > 0){
     skillTimer -= dtSec;
-    if(skillTimer <= 0){
+    if(skillTimer <= 0.0005){
       skillActive=false; skillTimer=0;
       if(selectedSkillId==='bubble' && bubbleAiming) finishBubbleAim(); // 狙い時間切れ→自動発射
+      if(selectedSkillId==='beacon' && dragFreezeActive){ dragFreezeActive=false; dragPoint=null; } // フリーズハンド：時間切れで解除
     }
   }
 
@@ -4786,6 +4946,32 @@ function update(dt){
     if (wasBeforeOneSec && bubbleAimElapsed >= 1){
       const fireBtn = document.getElementById('bubble-fire-btn');
       if (fireBtn) fireBtn.classList.remove('hide');
+    }
+    return;
+  }
+
+  // ── フリーズハンド：時間を止めて、触れた場所の近くの玉だけをゆっくり引き寄せる ──
+  // シャボン玉の「狙い中は時間を止める」のと同じ考え方で、この間は他の更新を全てスキップする。
+  // 触れた場所(dragPoint、ワールド座標)は各種タッチ/マウスイベント側で設定される。
+  // ラーメンの油を箸で寄せるイメージ＝一瞬で吸い込むのではなく、じわっと粘り気を持って寄っていく動き。
+  if(dragFreezeActive){
+    if(dragPoint){
+      const DRAG_PULL_R = 130;      // 狭い範囲でピンポイントに操作できるよう小さめにしている
+      const DRAG_PULL_RATE = 0.06;  // 1フレームで距離をどれだけ詰めるか（小さいほど粘り気のある動きになる）
+      for(const m of marbles){
+        if(!m.alive) continue;
+        let dx = dragPoint.x - m.x, dy = dragPoint.y - m.y;
+        if(dx>WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
+        if(dy>WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
+        const dist = Math.hypot(dx,dy);
+        if(dist < 1 || dist >= DRAG_PULL_R) continue;
+        // 座標を直接動かす（時間停止中は通常の物理・速度を通さないため）。
+        // 距離に比例して詰めるので、中心に近いほど動きがゆっくりになり吸い込まれるのではなく寄ってくる感触になる
+        const pull = Math.min(1, DRAG_PULL_RATE * dt);
+        m.x = (((m.x + dx*pull) % WORLD_W) + WORLD_W) % WORLD_W;
+        m.y = (((m.y + dy*pull) % WORLD_H) + WORLD_H) % WORLD_H;
+        m.vx *= 0.8; m.vy *= 0.8; // 解除後に元の勢いのまま暴れて飛んでいかないよう、引き寄せ中に少しずつ勢いを殺す
+      }
     }
     return;
   }
@@ -5686,6 +5872,7 @@ function update(dt){
         const captureR = rk.r * BH_CAPTURE_MULT;
         const dangerR  = rk.r * BH_DANGER_MULT;
         let capturedCount = 0;
+        let nearbyCount = 0; // 崩壊ラベル調査対応：吸引圏内にいる玉の数（捕獲済み・未捕獲問わず）。近くの玉が枯渇していないかの判定に使う
         for(const m of marbles){
           if(!m.alive) continue;
           if(m.bhOwner === rk) capturedCount++;
@@ -5700,6 +5887,7 @@ function update(dt){
           if(dist2 >= BH_PULL_R*BH_PULL_R) continue;
           const dist=Math.sqrt(dist2);
           m.bhField = true; // 捕獲前でも引力圏内にいる間は玉同士の衝突起爆を止める（下の衝突判定・爆発連鎖で参照）
+          nearbyCount++;
           if(dist > 1){
             // FB対応：「プレイヤーのS極の渦と回転の仕方が違う。律儀に同じ半径で回っているし、回転が速すぎる」との指摘。
             // 以前は引力・接線力の両方が距離の近さにほぼ同じ比率で強くなる作りで、途中のどこかで
@@ -5738,6 +5926,28 @@ function update(dt){
         }
         rk.bhMass = capturedCount;
 
+        // FB対応：「崩壊ラベルが出なくなった」との報告を調査した結果、玉の自然補充は基本プレイヤーの
+        // 周辺にしか出現しない仕組みだったため、プレイヤーから離れた場所で覚醒したブラックホールは
+        // 吸引圏内の玉がほとんど無いまま覚醒時間(15〜22秒)が終わってしまい、質量が閾値(16)まで
+        // 全く届かずリセットされる＝崩壊もラベルも一度も発生しない、ということが起こりやすいとわかった。
+        // プレイヤーが近くにいる時は元から玉が集まりやすいので、この補充は「圏内の玉が少ない時だけ」
+        // 発動するようにし、既存のバランス（プレイヤー主導で捕獲を助ける遊び）を変えないようにする
+        rk.bhFeedTimer = (rk.bhFeedTimer || 0) - dtSec;
+        if(rk.bhMass < BH_COLLAPSE_MASS && nearbyCount < 10 && rk.bhFeedTimer <= 0){
+          rk.bhFeedTimer = 2.2;
+          for(let fi=0; fi<5; fi++){
+            const fa = Math.random()*Math.PI*2, fr = rk.r*3 + Math.random()*rk.r*2;
+            const fx = ((rk.x + Math.cos(fa)*fr) % WORLD_W + WORLD_W) % WORLD_W;
+            const fy = ((rk.y + Math.sin(fa)*fr) % WORLD_H + WORLD_H) % WORLD_H;
+            let fok = true;
+            for(const m of marbles){ if((fx-m.x)**2+(fy-m.y)**2 < (MARBLE_R*2.2)**2){ fok=false; break; } }
+            if(fok){
+              for(const ork of rocks){ if(!ork.alive) continue; if((fx-ork.x)**2+(fy-ork.y)**2 < (MARBLE_R+ork.r+30)**2){ fok=false; break; } }
+            }
+            if(fok) marbles.push(makeMarble(fx,fy,0,0,0.8+Math.random()*0.4));
+          }
+        }
+
         // プレイヤーへの引力：S極の渦モードと同じ「力を溜めて摩擦で減衰させる」方式(player.bhVx/bhVy)に変更。
         // 直接座標をずらすのではなく玉と同じ velocity+friction の仕組みに揃えたことで、渦モードと同じ質感になる。
         // 配分も本家の渦（中心付近ではむしろ接線力(渦を巻く力)が引力より強い）に合わせ、
@@ -5748,7 +5958,6 @@ function update(dt){
         if(pdx>WORLD_W/2) pdx-=WORLD_W; else if(pdx<-WORLD_W/2) pdx+=WORLD_W;
         if(pdy>WORLD_H/2) pdy-=WORLD_H; else if(pdy<-WORLD_H/2) pdy+=WORLD_H;
         const pdist=Math.hypot(pdx,pdy);
-        let playerInDanger = false;
         if(pdist < BH_PULL_R && pdist > 1){
           const pnx=pdx/pdist, pny=pdy/pdist;
           const ptx=pny, pty=-pnx; // 時計回りの接線方向
@@ -5769,7 +5978,6 @@ function update(dt){
           player.bhVy += -pny*pRadial + pty*pTangent;
         }
         if(pdist < dangerR){
-          playerInDanger = true;
           player.battery = Math.max(0, player.battery - BH_BATTERY_DRAIN_PS*dtSec);
         }
 
@@ -5804,20 +6012,14 @@ function update(dt){
           // 崩壊そのものを大きく見せる（既存の爆発よりひと目で分かるように）
           shockwaves.push({x:rk.x, y:rk.y, r:0, maxR:rk.r*6, life:1});
           screenShake.power = Math.min(screenShake.power + 8, 12);
-          // FB対応：「崩壊したのにポップもChainのピンク色変化も無かった」との報告を受けて、危険範囲外の崩壊でも
-          // 一律バナーを出すようにしたところ、今度は「崩壊してないのに連続でバナーが出続ける」という報告が来た。
-          // 原因は、この画面上のブラックホールは1個だけではないこと（岩12個中、能力は25%の確率でブラックホール
-          // になるため通常2〜3個は存在する）。プレイヤーから遠く離れた別のブラックホールが（画面外で）
-          // 何度も崩壊すると、その度に同じ共有バナー要素が再アニメーションされ、プレイヤーには
-          // 「自分の見ているブラックホールは崩壊していないのに、崩壊ラベルだけが途切れず表示され続ける」
-          // ように見えてしまっていた。バナーは「プレイヤーが気づける範囲」に限定し、画面外の崩壊は
-          // その場のショックウェイブ・玉の起爆演出だけで済ませる（無関係な場所の崩壊でバナーを連発させない）
-          if(playerInDanger){
-            comboLockTimer = BH_COMBO_LOCK_SEC; // 危険を取っていたプレイヤーへのご褒美：しばらくチェインが切れない
-            showGimmickBanner('ブラックホール崩壊！', '#ff5fd0', `コンボロック ${BH_COMBO_LOCK_SEC}秒`);
-          } else if(pdist < BH_PULL_R){
-            showGimmickBanner('ブラックホール崩壊！', '#b28cff', '');
-          }
+          // FB対応：「崩壊してもラベルが出ない／Chainの色が変わらない」との報告の根本原因は、
+          // 旧ご褒美（危険半径内にいた時だけコンボロック）とラベル表示が、どちらも「危険半径(dangerR =
+          // rk.r×2.6)内にいるか」という、玉の捕獲半径とほぼ同じくらい狭い条件に依存していたこと。
+          // 見ているだけではまず満たされない条件だった。ご褒美を「崩壊したら瞬時に+スコア」という、
+          // プレイヤーの位置に関係なく必ず発生するボーナスに変更したのに合わせて、ラベル表示も
+          // 崩壊のたびに必ず出すようにする（スコアが実際に動く以上、通知も必ず出すのが自然なため）
+          addScore(BH_COLLAPSE_SCORE_BONUS);
+          showGimmickBanner('ブラックホール崩壊！', '#b28cff', `+${BH_COLLAPSE_SCORE_BONUS.toLocaleString()}点`);
           rk.bhMass = 0;
           rk.bhCooldown = BH_COOLDOWN_SEC; // FB対応：崩壊直後は少し休止させ、間髪あけずに再吸引→再崩壊が続くのを防ぐ
         }
@@ -5938,15 +6140,12 @@ function update(dt){
     chainTimer-=dt;
   }
   // 0.8秒間爆発なし → チェインカウントをリセット。
-  // ただしブラックホール崩壊によるコンボロック中は、切れる条件を満たしていてもリセットを保留する
-  // （ロックが解除された時点で、あらためて判定される＝取り逃しなく必ずいつかリセットされる）
-  if(chainTimer<=0 && chainCount>0 && comboLockTimer<=0){
+  if(chainTimer<=0 && chainCount>0){
     chainCount=0; currentChainDepth=0; comboItemCheckDepth=0;
     redBallCheckChain=0; goldBallCheckChain=0; // チェインが切れたら次のチェインでまたカウント0から
     currentChainCause=null; // チェイン起因（S/N/非プレイヤー）もリセット
     chainSpreadDistance=0; chainLastExplosionX=null; chainLastExplosionY=null; // 拡散距離もリセット
   }
-  if(comboLockTimer>0) comboLockTimer = Math.max(0, comboLockTimer - dtSec);
   // チェーンテキストのライフ更新
   for(const ct of chainTexts){ ct.life -= 0.012*dt; ct.y += ct.vy*dt; }
   chainTexts = chainTexts.filter(ct => ct.life > 0);
@@ -6562,16 +6761,6 @@ function offscreenNavTargets(){
     if (m.marbleType === 'red')  list.push({ x:m.x, y:m.y, kind:'red' });
     if (m.marbleType === 'gold') list.push({ x:m.x, y:m.y, kind:'gold' });
   }
-  if (beaconPos) {
-    let beaconHasItems = false;
-    for (const it of items) {
-      let idx = it.x-beaconPos.x, idy = it.y-beaconPos.y;
-      if (idx > WORLD_W/2) idx -= WORLD_W; else if (idx < -WORLD_W/2) idx += WORLD_W;
-      if (idy > WORLD_H/2) idy -= WORLD_H; else if (idy < -WORLD_H/2) idy += WORLD_H;
-      if (Math.hypot(idx,idy) < 600) { beaconHasItems = true; break; }
-    }
-    list.push({ x:beaconPos.x, y:beaconPos.y, kind:'beacon', hasItems:beaconHasItems });
-  }
   return list;
 }
 
@@ -6617,29 +6806,6 @@ function drawOffscreenNavIcon(kind, x, y, scale, hasItems){
     ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(210,166,0,0.78)'; ctx.fill();
     ctx.strokeStyle = 'rgba(26,26,26,0.55)'; ctx.lineWidth = 1.5; ctx.stroke();
-  } else if (kind === 'beacon') {
-    // アイテム検知中：ビーコンの色に合わせた波紋を出す（発電装置のピンと同じ仕組み）
-    if (hasItems) {
-      const wt = Date.now()*0.001;
-      for(let wi=0; wi<2; wi++){
-        const wavePhase = (wt*0.6 + wi/2) % 1;
-        const waveR = 19 + wavePhase*20;
-        const waveAlpha = (1-wavePhase)*0.45;
-        ctx.beginPath(); ctx.arc(0,0,waveR,0,Math.PI*2);
-        ctx.strokeStyle = `rgba(120,220,170,${waveAlpha})`; ctx.lineWidth = 1.4;
-        ctx.stroke();
-      }
-    }
-    // 白丸＋緑の旗（ワープビーコン）：他のピンより一回り大きく（1.5倍）
-    ctx.save(); ctx.scale(1.5, 1.5);
-    ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fill();
-    ctx.strokeStyle = 'rgba(120,255,180,0.9)'; ctx.lineWidth = 2.0; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,7); ctx.lineTo(0,-7);
-    ctx.strokeStyle = 'rgba(26,26,26,0.8)'; ctx.lineWidth = 1.4; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,-7); ctx.lineTo(6,-4); ctx.lineTo(0,-1); ctx.closePath();
-    ctx.fillStyle = 'rgba(120,220,170,0.95)'; ctx.fill();
-    ctx.restore();
   }
   ctx.restore();
 }
@@ -6755,7 +6921,7 @@ function draw(){
     drawExplosions();
     drawParticles();
     drawChainTexts();
-    drawBeacon();
+    drawDragFreeze();
     ctx.restore();
   }
 
@@ -7198,29 +7364,40 @@ function drawRadarDevice(h, t) {
   ctx.save();
   ctx.translate(h.x, h.y);
 
+  // FB対応：「起動前の装置と起動中の装置の見分けがつかない／起動していないのに存在感が
+  // ありすぎる」との指摘（プレイ中の人に指を指され「これは何？」と聞かれてしまった、との報告）。
+  // 以前は本体円・グリッド線・外周枠がisOpen(起動中かどうか)に関わらずほぼ同じ明るさ・大きさで
+  // 描かれていて、動くスキャンラインなど細部の違いに気づかない限り「起動しているかどうか」が
+  // 伝わらなかった。未起動時は見た目のスケール・明るさ・情報量を大きく落として意図的に「地味」
+  // ＝スリープ中に見せ、起動中との差を一目でわかるようにする（当たり判定や検知範囲などの
+  // ゲーム内数値は変更しない。見た目だけの調整）
+  const presenceScale = isActive ? 1 : 0.72;
   const beatScale = isUrgent ? 1 + Math.sin(t * 8) * 0.02 : 1;
-  ctx.scale(beatScale, beatScale);
+  ctx.scale(beatScale * presenceScale, beatScale * presenceScale);
 
-  // ── 背景円 ──
+  // ── 背景円：未起動時は暗く沈んだ色にして、明るい起動中の本体と一目で区別できるようにする ──
   ctx.beginPath(); ctx.arc(0, 0, r * 0.87, 0, Math.PI*2);
-  ctx.fillStyle = 'rgba(245,245,245,0.90)'; ctx.fill();
+  ctx.fillStyle = isActive ? 'rgba(245,245,245,0.90)' : 'rgba(110,114,124,0.30)';
+  ctx.fill();
 
-  // ── グリッド線・同心円 ──
-  const gAlpha = 0.09 + flash * 0.06;
-  ctx.strokeStyle = `rgba(20,20,20,${gAlpha})`; ctx.lineWidth = 0.5;
-  ctx.beginPath();
-  ctx.moveTo(-r*0.84,0); ctx.lineTo(r*0.84,0);
-  ctx.moveTo(0,-r*0.84); ctx.lineTo(0,r*0.84);
-  ctx.stroke();
-  ctx.setLineDash([2,4]);
-  const d45 = r*0.84*Math.cos(Math.PI/4);
-  ctx.beginPath();
-  ctx.moveTo(-d45,-d45); ctx.lineTo(d45,d45);
-  ctx.moveTo(d45,-d45); ctx.lineTo(-d45,d45);
-  ctx.stroke(); ctx.setLineDash([]);
-  [0.28, 0.55].forEach(rf=>{
-    ctx.beginPath(); ctx.arc(0,0,r*rf,0,Math.PI*2); ctx.stroke();
-  });
+  // ── グリッド線・同心円：未起動時は情報量を削って地味にするため非表示 ──
+  if (isActive) {
+    const gAlpha = 0.09 + flash * 0.06;
+    ctx.strokeStyle = `rgba(20,20,20,${gAlpha})`; ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(-r*0.84,0); ctx.lineTo(r*0.84,0);
+    ctx.moveTo(0,-r*0.84); ctx.lineTo(0,r*0.84);
+    ctx.stroke();
+    ctx.setLineDash([2,4]);
+    const d45 = r*0.84*Math.cos(Math.PI/4);
+    ctx.beginPath();
+    ctx.moveTo(-d45,-d45); ctx.lineTo(d45,d45);
+    ctx.moveTo(d45,-d45); ctx.lineTo(-d45,d45);
+    ctx.stroke(); ctx.setLineDash([]);
+    [0.28, 0.55].forEach(rf=>{
+      ctx.beginPath(); ctx.arc(0,0,r*rf,0,Math.PI*2); ctx.stroke();
+    });
+  }
 
   // ── スキャンライン：残光扇（魚群探知機風）+ 線本体 ──
   // FB対応：装置の外(600pxレンジ)まで伸びる部分が黒だと暗い背景に埋もれて見えなくなっていたため、白っぽいグレーに変更
@@ -7264,23 +7441,25 @@ function drawRadarDevice(h, t) {
     ctx.beginPath(); ctx.arc(Math.cos(scanA)*r*0.86, Math.sin(scanA)*r*0.86, 2.2,0,Math.PI*2);
     ctx.fillStyle = `rgba(230,234,245,${lineAlpha})`; ctx.fill();
   } else {
-    ctx.strokeStyle = 'rgba(20,20,20,0.2)'; ctx.lineWidth = 0.7;
+    ctx.strokeStyle = 'rgba(20,20,20,0.15)'; ctx.lineWidth = 0.7;
     ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-r*0.6); ctx.stroke();
   }
 
   // ── 発動ゲージ：外周リング（線stroke方式） ──
   // FB対応：ゲージ・外周枠ともに黒(20,20,20)だと、装置本体の白い円(r*0.87)より外側の
   // 暗い背景に重なる部分が背景と同化して見えなくなっていたため、白っぽいグレーに変更
+  // （さらに今回のFB対応：未起動時はゲージ・外周枠とも明るさを落として地味にする）
   const gaugeR = r * 1.0;
   const blinkAlpha = isUrgent ? 0.5 + Math.abs(Math.sin(t*6))*0.5 : 1;
   // ベース
   ctx.beginPath(); ctx.arc(0,0,gaugeR,0,Math.PI*2);
-  ctx.strokeStyle='rgba(225,225,232,0.15)'; ctx.lineWidth=9; ctx.stroke();
+  ctx.strokeStyle = isActive ? 'rgba(225,225,232,0.15)' : 'rgba(225,225,232,0.08)';
+  ctx.lineWidth=9; ctx.stroke();
   // ゲージ本体（線）
   if(energyRatio > 0){
     ctx.beginPath();
     ctx.arc(0,0,gaugeR,-Math.PI/2,-Math.PI/2+energyRatio*Math.PI*2);
-    const gA2 = (cFlash>0 ? 1.0 : 0.8) * blinkAlpha;
+    const gA2 = (cFlash>0 ? 1.0 : 0.8) * blinkAlpha * (isActive ? 1 : 0.55);
     ctx.strokeStyle=`rgba(225,225,232,${gA2})`; ctx.lineWidth=9;
     ctx.lineCap='round'; ctx.stroke(); ctx.lineCap='butt';
     if(cFlash>0){
@@ -7291,11 +7470,14 @@ function drawRadarDevice(h, t) {
   }
   // 外周枠
   ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
-  ctx.strokeStyle=`rgba(225,225,232,${0.6+flash*0.4})`; ctx.lineWidth=1.2; ctx.stroke();
+  ctx.strokeStyle = isActive ? `rgba(225,225,232,${0.6+flash*0.4})` : 'rgba(225,225,232,0.2)';
+  ctx.lineWidth = isActive ? 1.2 : 0.9;
+  ctx.stroke();
 
   // ── 中央コア（小点のみ）──
   ctx.beginPath(); ctx.arc(0,0,r*0.07,0,Math.PI*2);
-  ctx.fillStyle='rgba(20,20,20,0.6)'; ctx.fill();
+  ctx.fillStyle = isActive ? 'rgba(20,20,20,0.6)' : 'rgba(20,20,20,0.35)';
+  ctx.fill();
 
   // ── 右上タイマー：ストップウォッチ風（上のツマミ＋二重丸の枠＋扇形で欠けていく塗り） ──
   if(isActive){
@@ -7949,90 +8131,31 @@ function drawExplosions(){
   }
 }
 
-function drawBeacon(){
-  if(!beaconPos) return;
-  const t = Date.now()*0.003;
+// フリーズハンド中の視覚効果：時が止まっている間、触れた場所(dragPoint)に
+// 「箸の先」のような小さな引き寄せポイントを表示する。氷色の脈動リング＋
+// 実際に玉を引き寄せる範囲(DRAG_PULL_Rと同じ半径)を薄い円で示す
+function drawDragFreeze(){
+  if(!dragFreezeActive || !dragPoint) return;
+  const t = Date.now()*0.004;
   const pulse = 0.7 + Math.sin(t)*0.3;
 
-  // プレイヤーとの距離（ワールドループを考慮した最短距離）
-  let ddx = beaconPos.x - player.wx, ddy = beaconPos.y - player.wy;
-  if (ddx > WORLD_W/2) ddx -= WORLD_W; else if (ddx < -WORLD_W/2) ddx += WORLD_W;
-  if (ddy > WORLD_H/2) ddy -= WORLD_H; else if (ddy < -WORLD_H/2) ddy += WORLD_H;
-  const dist = Math.hypot(ddx, ddy);
-
   ctx.save();
-  ctx.translate(beaconPos.x, beaconPos.y);
+  ctx.translate(dragPoint.x, dragPoint.y);
 
-  // ピン本体（リング・マーカー・旗ポール）はまとめて2倍サイズに
-  ctx.save();
-  ctx.scale(2, 2);
+  // 実際に玉が寄ってくる範囲（update()側のDRAG_PULL_Rと同じ130）
+  ctx.beginPath(); ctx.arc(0,0,130,0,Math.PI*2);
+  ctx.strokeStyle = 'rgba(160,220,255,0.16)'; ctx.lineWidth = 1;
+  ctx.setLineDash([6,8]); ctx.stroke(); ctx.setLineDash([]);
 
-  // 起動中のギミック装置のような、脈動する二重リング
-  ctx.beginPath(); ctx.arc(0,0,30*pulse,0,Math.PI*2);
-  ctx.strokeStyle = `rgba(120,255,180,${0.22*pulse})`; ctx.lineWidth = 1.2; ctx.stroke();
-  ctx.beginPath(); ctx.arc(0,0,22*pulse,0,Math.PI*2);
-  ctx.strokeStyle = `rgba(120,255,180,${0.5*pulse})`; ctx.lineWidth = 2; ctx.stroke();
-
-  // 軽量な円マーカー
-  ctx.beginPath(); ctx.arc(0,0,18,0,Math.PI*2);
-  ctx.strokeStyle = 'rgba(120,255,180,0.9)'; ctx.lineWidth = 2.2; ctx.stroke();
+  // 脈動する二重リング＋中心の小さな光点（箸の先でつまんでいるイメージ）
+  ctx.beginPath(); ctx.arc(0,0,26*pulse,0,Math.PI*2);
+  ctx.strokeStyle = `rgba(190,235,255,${0.3*pulse})`; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,16*pulse,0,Math.PI*2);
+  ctx.strokeStyle = `rgba(190,235,255,${0.6*pulse})`; ctx.lineWidth = 2; ctx.stroke();
   ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2);
-  ctx.fillStyle = 'rgba(120,255,180,0.95)'; ctx.fill();
-  // 縦の旗ポール風アイコン
-  ctx.beginPath(); ctx.moveTo(0,-4); ctx.lineTo(0,-24); ctx.strokeStyle='rgba(120,255,180,0.95)'; ctx.lineWidth=1.8; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0,-24); ctx.lineTo(12,-20); ctx.lineTo(0,-16); ctx.closePath();
-  ctx.fillStyle='rgba(120,255,180,0.95)'; ctx.fill();
-  ctx.restore();
-
-  // プレイヤーとの距離（ピンの右上。ピンが2倍になった分、位置も合わせてずらす）
-  ctx.font = 'bold 12px Courier New';
-  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-  ctx.fillStyle = 'rgba(20,20,20,0.85)';
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 3;
-  ctx.strokeText(`${Math.round(dist)}px`, 26, -44);
-  ctx.fillText(`${Math.round(dist)}px`, 26, -44);
+  ctx.fillStyle = 'rgba(230,250,255,0.95)'; ctx.fill();
 
   ctx.restore();
-
-  // 半径600px以内のアイテムを検知して表示（最大4個・アイコンで一目でわかるように）
-  const NEARBY_R = 600;
-  const nearbyItems = items.filter(it=>{
-    if(it.collecting) return false;
-    let idx = it.x-beaconPos.x, idy = it.y-beaconPos.y;
-    if (idx > WORLD_W/2) idx -= WORLD_W; else if (idx < -WORLD_W/2) idx += WORLD_W;
-    if (idy > WORLD_H/2) idy -= WORLD_H; else if (idy < -WORLD_H/2) idy += WORLD_H;
-    return Math.hypot(idx,idy) < NEARBY_R;
-  }).slice(0,4);
-
-  if(nearbyItems.length > 0){
-    ctx.save();
-    ctx.translate(beaconPos.x, beaconPos.y);
-    // 検知範囲を薄い破線円で表示
-    ctx.beginPath(); ctx.arc(0,0,NEARBY_R,0,Math.PI*2);
-    ctx.strokeStyle = 'rgba(120,255,180,0.14)'; ctx.lineWidth = 1;
-    ctx.setLineDash([8,10]); ctx.stroke(); ctx.setLineDash([]);
-    ctx.restore();
-
-    nearbyItems.forEach((it, idx)=>{
-      const img = (typeof IMAGE_ASSETS !== 'undefined') ? IMAGE_ASSETS.get('items', it.def.id) : null;
-      const spread = (idx - (nearbyItems.length-1)/2) * 26;
-      const bob = Math.sin(t*2 + idx*1.3)*2;
-      const px = beaconPos.x + spread, py = beaconPos.y - 62 + bob;
-      ctx.save();
-      ctx.translate(px, py);
-      // 吹き出し風の白丸バッジ
-      ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2);
-      ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(120,255,180,0.95)'; ctx.lineWidth = 1.6; ctx.stroke();
-      if(img && img.complete && img.naturalWidth>0){
-        ctx.drawImage(img, -8, -8, 16, 16);
-      } else {
-        ctx.fillStyle = it.def.color || '#1a1a1a';
-        ctx.beginPath(); ctx.arc(0,0,5,0,Math.PI*2); ctx.fill();
-      }
-      ctx.restore();
-    });
-  }
 }
 
 function drawWaveRings(){
@@ -8611,6 +8734,21 @@ function angleFromScreen(clientX, clientY) {
                     clientX - (rect.left + rect.width  / 2));
 }
 
+// フリーズハンド用：スクリーン座標(clientX/clientY)→ワールド座標。
+// draw()のカメラ変換（画面中心を原点に、player.wx/wyを基準にcam.zoom倍して描画）の逆変換。
+// angleFromScreenは角度だけなのでCSS表示サイズと内部解像度(W/H)の比率が相殺されるが、
+// 絶対座標が必要なここではその比率を明示的に補正する必要がある
+function worldFromScreen(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const scale = W / rect.width;
+  const sx = (clientX - rect.left - rect.width / 2) * scale;
+  const sy = (clientY - rect.top  - rect.height / 2) * scale;
+  return {
+    x: (((player.wx + sx / cam.zoom) % WORLD_W) + WORLD_W) % WORLD_W,
+    y: (((player.wy + sy / cam.zoom) % WORLD_H) + WORLD_H) % WORLD_H,
+  };
+}
+
 // ── 仮想スティック（右下・タッチデバイス用） ──
 const isTouchCapableDevice = window.matchMedia('(pointer: coarse)').matches
   || ('ontouchstart' in window && !window.matchMedia('(pointer: fine)').matches);
@@ -8705,6 +8843,14 @@ let chargeTimer = null;
 let chargeTouchId = null; // チャージ担当のタッチID
 
 canvas.addEventListener('touchstart', e => {
+  // フリーズハンド中：通常の旋回/チャージ用タッチとは完全に分け、触れた場所をそのまま
+  // 引き寄せ先(dragPoint)として拾うだけにする（既存のチャージ状態などに影響させないため）
+  if (dragFreezeActive) {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    if (t) dragPoint = worldFromScreen(t.clientX, t.clientY);
+    return;
+  }
   if (!gameRunning || gamePaused) return;
   e.preventDefault();
   for(const t of e.changedTouches){
@@ -8737,6 +8883,12 @@ canvas.addEventListener('touchstart', e => {
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
+  if (dragFreezeActive) {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    if (t) dragPoint = worldFromScreen(t.clientX, t.clientY);
+    return;
+  }
   if (!gameRunning || !touch.active) return;
   e.preventDefault();
   for(const t of e.changedTouches){
@@ -8760,6 +8912,7 @@ canvas.addEventListener('touchmove', e => {
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
+  if (dragFreezeActive) return;
   for(const t of e.changedTouches){
     if(t.identifier === chargeTouchId){
       clearTimeout(chargeTimer); chargeTimer = null;
@@ -8779,6 +8932,7 @@ canvas.addEventListener('touchend', e => {
 }, { passive: true });
 
 canvas.addEventListener('touchcancel', e => {
+  if (dragFreezeActive) return;
   for(const t of e.changedTouches){
     if(t.identifier === chargeTouchId){
       clearTimeout(chargeTimer); chargeTimer = null;
@@ -8794,6 +8948,7 @@ canvas.addEventListener('touchcancel', e => {
 // マウス操作（PC動作確認用）
 let mouseChargeTimer = null;
 canvas.addEventListener('mousedown', e => {
+  if (dragFreezeActive) { dragPoint = worldFromScreen(e.clientX, e.clientY); return; }
   if (!gameRunning || gamePaused) return;
   touch.active = true;
   touch.startX = e.clientX; touch.startY = e.clientY;
@@ -8810,6 +8965,7 @@ canvas.addEventListener('mousedown', e => {
   }, 200);
 });
 canvas.addEventListener('mousemove', e => {
+  if (dragFreezeActive) { if (e.buttons === 1) dragPoint = worldFromScreen(e.clientX, e.clientY); return; }
   if (!gameRunning || !touch.active) return;
   if (settings.dragMode === 'absolute'){
     // タッチ位置操作：常にカーソル位置を追従
@@ -8825,6 +8981,7 @@ canvas.addEventListener('mousemove', e => {
   }
 });
 canvas.addEventListener('mouseup', () => {
+  if (dragFreezeActive) return;
   clearTimeout(mouseChargeTimer); mouseChargeTimer = null;
   if(player.isCharging){
     player.isCharging = false;
@@ -8834,6 +8991,7 @@ canvas.addEventListener('mouseup', () => {
   floatStickHide();
 });
 canvas.addEventListener('mouseleave', () => {
+  if (dragFreezeActive) return;
   clearTimeout(mouseChargeTimer); mouseChargeTimer = null;
   player.isCharging = false; player.charge = 0;
   touch.active = false; touch.targetAngle = null;
@@ -8989,6 +9147,7 @@ function saveSettings(){ saveSaveData(); }
 
 function openOption(){
   document.getElementById('option-screen').classList.add('show');
+  renderFavoriteSkillOptions(); // 解放済みスキルの一覧は増えていく可能性があるため、開くたびに作り直す
   updateOptionUI();
 }
 function closeOption(){
@@ -9002,6 +9161,39 @@ function updateOptionUI(){
   document.getElementById('opt-bgm-off').classList.toggle('active', settings.bgmEnabled===false);
   document.getElementById('opt-se-on').classList.toggle('active', settings.seEnabled===true);
   document.getElementById('opt-se-off').classList.toggle('active', settings.seEnabled===false);
+}
+
+// ── お気に入りスキル選択（オプション画面最上部） ──────────
+// 所持中（unlockedSkills）のスキルをプルダウン（<select>）で選べるようにする。「なし」も選べる。
+// 選択結果はsettings.favoriteSkillIdに保存し、showSkillSelect()側が
+// 既に持っている「必ず抽選に含める」ロジックで読み取る。
+function renderFavoriteSkillOptions(){
+  const sel = document.getElementById('favorite-skill-select');
+  if (!sel) return;
+  const prevValue = settings.favoriteSkillId || '';
+  sel.innerHTML = '';
+  const noneOpt = document.createElement('option');
+  noneOpt.value = '';
+  noneOpt.textContent = 'なし';
+  sel.appendChild(noneOpt);
+  const ownedSkills = SKILL_DEFS.filter(s => (saveData.unlockedSkills || []).includes(s.id));
+  for (const def of ownedSkills){
+    const opt = document.createElement('option');
+    opt.value = def.id;
+    opt.textContent = `${def.icon} ${def.name}`;
+    sel.appendChild(opt);
+  }
+  // 所持していないスキルが選択済みだった場合（実績整合性が崩れた等の異常系）は「なし」に戻す保険
+  const validValue = ownedSkills.some(s => s.id === prevValue) ? prevValue : '';
+  sel.value = validValue;
+  if (validValue !== prevValue){ settings.favoriteSkillId = validValue; saveSettings(); }
+}
+const favoriteSkillSelectEl = document.getElementById('favorite-skill-select');
+if (favoriteSkillSelectEl){
+  favoriteSkillSelectEl.addEventListener('change', ()=>{
+    settings.favoriteSkillId = favoriteSkillSelectEl.value;
+    saveSettings();
+  });
 }
 
 // トグルボタン
@@ -9075,12 +9267,21 @@ function closeResetConfirm(){ resetConfirmOverlay.classList.remove('show'); }
   b.addEventListener('touchstart',e=>{e.preventDefault(); resetSaveData(); closeResetConfirm(); afterSaveDataReset();},{passive:false});
 });
 
+// スキル解放ポップアップのOKボタン：キューに次のスキルが残っていればそれを表示し、
+// なければ閉じる（advanceSkillUnlockPopup側で判定）
+const skillUnlockOkBtn = document.getElementById('skill-unlock-ok');
+if (skillUnlockOkBtn){
+  skillUnlockOkBtn.addEventListener('click', ()=>advanceSkillUnlockPopup());
+  skillUnlockOkBtn.addEventListener('touchstart', e=>{e.preventDefault(); advanceSkillUnlockPopup();}, {passive:false});
+}
+
 // セーブデータ初期化後の後処理：
 // ①ロック表示・発光演出などのDOM状態は saveData の値とは別に残り続けるので、
 //   ここで明示的に作り直さないと「データは初期化されたのにボタンは解放済みの
 //   見た目のまま」というバグになる
 // ②今どの画面を開いていたとしても、強制的にタイトル画面へ戻す
 function afterSaveDataReset(){
+  renderFavoriteSkillOptions(); // 所持スキルが初期3つに戻るため、チップ一覧も作り直す
   updateOptionUI();
   updatePlayerStatusBar();
   // 実績称号の未受け取りバッジ（.has-unclaimed）もDOM側に残り続けるクラスなので、
@@ -9108,7 +9309,7 @@ function afterSaveDataReset(){
   const statusBarAfterReset = document.getElementById('player-status-bar');
   if (statusBarAfterReset) statusBarAfterReset.style.display = '';
   gameRunning = false;
-  document.getElementById('title-screen').classList.remove('hide');
+  showTitleScreen();
 }
 
 // モード選択画面のオプションボタンは設定ボタンに統合済み
@@ -9241,20 +9442,23 @@ function showSkillSelect(){
 
 document.getElementById('skill-start-btn').addEventListener('click',()=>{
   document.getElementById('skill-select').classList.add('hide');
-  if (window.Achievements && selectedSkillId) window.Achievements.markSkillUsed(selectedSkillId); // 実績「収集開始/装備充実/完全武装」用
+  if (window.Achievements && selectedSkillId) {
+    window.Achievements.markSkillUsed(selectedSkillId);
+    window.Achievements.markSkillSelected(selectedSkillId); // 実績「〇〇の使い手」（スキルごとの選択回数）用
+  }
   initGame('endless');
 });
 
 // スキル選択→タイトルに戻る（モード選択は撤廃済みのため、直接タイトルへ戻す）
 document.getElementById('skill-back-btn').addEventListener('click',()=>{
   document.getElementById('skill-select').classList.add('hide');
-  document.getElementById('title-screen').classList.remove('hide');
+  showTitleScreen();
   updatePlayerStatusBar();
 });
 document.getElementById('skill-back-btn').addEventListener('touchstart',e=>{
   e.preventDefault();
   document.getElementById('skill-select').classList.add('hide');
-  document.getElementById('title-screen').classList.remove('hide');
+  showTitleScreen();
   updatePlayerStatusBar();
 },{passive:false});
 
@@ -9453,7 +9657,7 @@ document.getElementById('go-retry').addEventListener('click', withResultIntersti
 document.getElementById('go-retry').addEventListener('touchstart', withResultInterstitial(doGoRetry), {passive:false});
 function doGoMenu(){
   document.getElementById('gameover').classList.remove('show');
-  document.getElementById('title-screen').classList.remove('hide');
+  showTitleScreen();
   if (window.SoundBGM) window.SoundBGM.play('menu');
   updatePlayerStatusBar();
   gameRunning=false;
@@ -9490,12 +9694,12 @@ document.getElementById('title-achievement-btn').addEventListener('touchstart', 
 },{passive:false});
 document.getElementById('achievement-back').addEventListener('click', () => {
   document.getElementById('achievement-screen').classList.add('hide');
-  document.getElementById('title-screen').classList.remove('hide');
+  showTitleScreen();
 });
 document.getElementById('achievement-back').addEventListener('touchstart', e => {
   e.preventDefault();
   document.getElementById('achievement-screen').classList.add('hide');
-  document.getElementById('title-screen').classList.remove('hide');
+  showTitleScreen();
 },{passive:false});
 
 // ── 実績画面：タブ切り替え（記録／実績一覧） ──────────────────
@@ -9556,6 +9760,30 @@ function renderAchievementStatsTab(){
       ? window.Achievements.getStatValue('totalPlayTimeSec') : 0;
     ptEl.textContent = formatAchievementPlayTime(sec);
   }
+  renderSkillUnlockRefList();
+}
+
+// 記録タブ最下部：レベル解放スキル（SKILL_UNLOCK_LEVELS）が何レベで解放されるかの一覧。
+// 解放済みのスキルは、レベル表示の代わりに「解放済み」と薄く表示する。
+function renderSkillUnlockRefList(){
+  const wrap = document.getElementById('skill-unlock-ref-list');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const entries = Object.keys(SKILL_UNLOCK_LEVELS)
+    .map(id => ({ def: SKILL_DEFS.find(s => s.id === id), level: SKILL_UNLOCK_LEVELS[id] }))
+    .filter(e => e.def)
+    .sort((a, b) => a.level - b.level);
+  for (const { def, level } of entries) {
+    const owned = (typeof saveData !== 'undefined' && Array.isArray(saveData.unlockedSkills)) && saveData.unlockedSkills.includes(def.id);
+    const iconPath = (typeof IMAGE_ASSET_PATHS !== 'undefined') ? IMAGE_ASSET_PATHS.skills[def.id] : null;
+    const iconHtml = iconPath ? `<img src="${iconPath}" alt="">` : `<span>${def.icon}</span>`;
+    const row = document.createElement('div');
+    row.className = 'skill-unlock-ref-row';
+    row.innerHTML =
+      `<span class="skill-unlock-ref-name"><span class="skill-unlock-ref-icon">${iconHtml}</span>${def.name}</span>` +
+      `<span class="skill-unlock-ref-lv${owned ? ' owned' : ''}">${owned ? '解放済み' : 'Lv.' + level}</span>`;
+    wrap.appendChild(row);
+  }
 }
 
 // ── 実績画面タブ2「実績一覧」：js/achievements.jsのdefsから1件ずつカードを組み立てる ──
@@ -9596,9 +9824,14 @@ function renderAchievementListTab(){
       const state = window.Achievements.getState(def.id);
       const unlocked = !!state.unlocked;
       card.className = 'achv-card ' + (unlocked ? 'unlocked' : 'locked');
+      // 未解放のうちは称号名を伏せ字にし、解放条件だけを見せる（解放後は本来の称号名＋フレーバー文言に切り替わる）。
+      // 解放済みの場合も、後から見返した時に「何で取れたか」が分かるよう、条件文を薄い文字で下に添える。
+      const cardTitle = unlocked ? def.title : '？？？？？';
+      const conditionHtml = (unlocked && def.condition) ? `<div class="achv-condition">${def.condition}</div>` : '';
       card.innerHTML =
-        `<div class="achv-title">${def.title}</div>` +
-        `<div class="achv-desc">${unlocked ? def.desc : (def.condition || '')}</div>`;
+        `<div class="achv-title">${cardTitle}</div>` +
+        `<div class="achv-desc">${unlocked ? def.desc : (def.condition || '')}</div>` +
+        conditionHtml;
     }
     list.appendChild(card);
   }

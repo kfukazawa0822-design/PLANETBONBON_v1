@@ -49,7 +49,7 @@ const IMAGE_ASSET_PATHS = {
     typhoon:         'assets/skills/skill_typhoon.svg',
     shield:          'assets/skills/skill_shield.svg',
     bubble:          'assets/skills/skill_bubble.svg',
-    beacon:          'assets/skills/skill_beacon.svg',
+    beacon:          'assets/skills/skill_beacon.svg', // フリーズハンド専用（手で玉を寄せ集める）新アイコン。旧ワープビーコンの塔アイコンから差し替え済み
     sweep:           'assets/skills/skill_sweep.svg',
     energyConverter: 'assets/skills/skill_energyConverter.svg',
   },
