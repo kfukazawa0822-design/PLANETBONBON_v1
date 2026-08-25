@@ -278,15 +278,15 @@ canvas { display:block; width:100%; height:100%; }
   pointer-events:none; white-space:nowrap; z-index:46;
 }
 #bubble-aim-banner.hide { display:none; }
-#bubble-fire-btn {
+#bubble-fire-btn, #beacon-ok-btn {
   position:fixed; top:calc(64% + 56px); left:50%; transform:translate(-50%,-50%);
   background:#1c2438; border:3px solid #f5f7fa; border-radius:16px;
   padding:12px 34px; font-size:22px; font-weight:bold; color:#f5f7fa;
   cursor:pointer; z-index:47; box-shadow:0 4px 0 rgba(0,0,0,0.15);
   -webkit-tap-highlight-color:transparent; transition:transform 0.1s, box-shadow 0.1s;
 }
-#bubble-fire-btn:active { transform:translate(-50%,-50%) translateY(3px); box-shadow:none; }
-#bubble-fire-btn.hide { display:none; }
+#bubble-fire-btn:active, #beacon-ok-btn:active { transform:translate(-50%,-50%) translateY(3px); box-shadow:none; }
+#bubble-fire-btn.hide, #beacon-ok-btn.hide { display:none; }
 #gimmick-banner-label {
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
   font-size:12px; letter-spacing:6px;
@@ -505,14 +505,29 @@ canvas { display:block; width:100%; height:100%; }
   box-sizing:border-box;
 }
 #howtoplay-overlay.show { opacity:1; pointer-events:auto; }
+/* FB対応：「閉じるボタンが右上にあるが、このゲームは大体左上に統一されている」との指摘。
+   .subscreen-back/#skill-back-btnと同じtop:14px; left:6vw;の位置に揃える */
 #howtoplay-close {
-  position:fixed; top:calc(env(safe-area-inset-top, 0px) + 16px); right:16px;
+  position:fixed; top:14px; left:6vw;
   width:34px; height:34px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.35);
   background:#151b2c; color:#f5f7fa; font-size:16px; line-height:1;
   display:flex; align-items:center; justify-content:center; cursor:pointer;
   -webkit-tap-highlight-color:transparent; transition:background 0.12s;
 }
 #howtoplay-close:active { background:#1c2438; }
+/* FB対応：最後のページに到達した時だけ出す、大きく分かりやすい黄色の「とじる」ボタン */
+#howtoplay-finish-close {
+  margin-top:22px;
+  padding:14px 46px;
+  border-radius:999px; border:none;
+  background:#ffcc00; color:#0a0e1a;
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:16px; font-weight:bold; letter-spacing:4px;
+  cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,0.25);
+  -webkit-tap-highlight-color:transparent; transition:transform 0.1s, box-shadow 0.1s;
+}
+#howtoplay-finish-close:active { transform:translateY(3px); box-shadow:none; }
+#howtoplay-finish-close.hide { display:none; }
 #howtoplay-card {
   width:min(340px, 84vw);
   display:flex; flex-direction:column; align-items:center;
@@ -525,6 +540,13 @@ canvas { display:block; width:100%; height:100%; }
   overflow:hidden;
 }
 #howtoplay-image { width:100%; height:100%; object-fit:contain; display:block; }
+/* FB対応：チュートリアル文言を実際に組み込むにあたり追加。「パッと分かる」ための
+   一言キャッチを画像の上に大きく見せ、詳しい説明は下のcaptionに小さく添える2段構成にする */
+#howtoplay-title {
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:15px; font-weight:bold; letter-spacing:1px; line-height:1.5;
+  color:#f5f7fa; text-align:center; margin-bottom:14px;
+}
 #howtoplay-caption {
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
   font-size:12px; line-height:1.8; color:rgba(245,247,250,0.85); text-align:center;
@@ -650,7 +672,10 @@ canvas { display:block; width:100%; height:100%; }
 #psb-xp-remain-spacer { flex-shrink:0; width:30px; }
 #psb-xp-remain {
   flex:1; min-width:0; font-size:9px; letter-spacing:0.5px; line-height:1.4;
-  color:#ccc; text-align:right; white-space:nowrap; font-weight:bold;
+  color:#ccc; text-align:right; font-weight:bold;
+  /* FB対応：「スキル：〇〇獲得まで あと〇〇」はスキル名が長いと1行に収まらないことがあるため、
+     nowrap（従来の「レベルアップまで あと〇〇」は短く1行に収まる）から折り返し許可に変更 */
+  white-space:normal;
 }
 #psb-xp-remain b { font-size:11px; color:#fff; }
 /* 右端：設定ボタン（白背景ではなく、白い枠線＋内側はEXPトラックと同じ#2a2e38で統一） */
@@ -696,7 +721,9 @@ canvas { display:block; width:100%; height:100%; }
 
 /* ── 実績画面：2タブ（記録／実績一覧）── */
 #achievement-tabs {
-  display:flex; gap:8px; width:min(400px, 88vw); margin:0 0 20px;
+  display:flex; gap:8px; width:min(400px, 88vw);
+  /* FB対応：「タブ切り替えとレベルの間のスペースを大きめにゆとりを持たせたい」との要望で20px→40pxに拡大 */
+  margin:0 0 40px;
 }
 .achievement-tab-btn {
   flex:1; padding:8px 0; background:#151b2c; border:1.5px solid rgba(255,255,255,0.35); border-radius:999px;
@@ -714,6 +741,11 @@ canvas { display:block; width:100%; height:100%; }
   width:min(400px, 88vw); flex:1; min-height:0; overflow-y:auto;
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
 }
+/* FB対応：「記録タブ全体的に余白を持たせたい」との要望。.go-stat/.achv-section-blockは
+   リザルト画面(#gameover)側とも共用しているクラスのため、そちらに影響しないよう
+   記録タブ配下だけスコープしたセレクタで余白を広げる */
+#achv-tab-stats .go-stat { margin-bottom:16px; padding-bottom:14px; }
+#achv-tab-stats .achv-section-block { margin:22px 0; padding:16px 14px; }
 /* 実績一覧タブ：中の.subscreen-list(#achievement-list)がスクロールできるよう、
    このパネル自体もflexで高さを確保しておく（記録タブ(#achv-tab-stats)と同じ考え方）。
    これが無いとパネルが内容分だけ伸びてしまい、画面からあふれた分が見れなくなるバグになる */
@@ -721,9 +753,18 @@ canvas { display:block; width:100%; height:100%; }
   width:min(400px, 88vw); flex:1; min-height:0;
   display:flex; flex-direction:column;
 }
+/* FB対応：記録タブにもタイトル画面と同じ見た目のEXPバー本体を追加（#psb-xp-track/#psb-xp-fillと同系色） */
+#achv-stat-xp-track {
+  position:relative; height:12px; border-radius:6px;
+  background:#2a2e38; overflow:hidden; margin:2px 0 6px;
+}
+#achv-stat-xp-fill {
+  position:absolute; left:0; top:0; bottom:0; width:0%;
+  background:#00a5ad; border-radius:6px; transition:width 0.3s;
+}
 /* レベル行の下に添えるEXPの補足（必須ではないが分かりやすいので追加した表示） */
 #achv-stat-xp-sub {
-  font-size:10px; color:rgba(255,255,255,0.45); letter-spacing:1px; margin:-6px 0 10px;
+  font-size:10px; color:rgba(255,255,255,0.45); letter-spacing:1px; margin:0 0 16px;
 }
 .achv-section-block {
   margin:14px 0; padding:12px 14px;
@@ -741,6 +782,13 @@ canvas { display:block; width:100%; height:100%; }
 .skill-unlock-ref-icon img { width:16px; height:16px; object-fit:contain; }
 .skill-unlock-ref-lv { color:#8ff7ff; font-weight:bold; font-size:12px; letter-spacing:1px; }
 .skill-unlock-ref-lv.owned { color:rgba(255,255,255,0.35); font-weight:normal; }
+/* FB対応：タイトル画面の「スキル：〇〇獲得まであと〇〇」と同じ情報を、記録タブにも掲載する */
+#skill-unlock-next-hint {
+  font-size:11px; letter-spacing:0.5px; line-height:1.5;
+  color:#ccc; margin-bottom:10px; font-weight:bold;
+}
+#skill-unlock-next-hint b { color:#8ff7ff; font-size:12px; }
+#skill-unlock-next-hint.all-done { color:rgba(255,255,255,0.4); font-weight:normal; }
 
 /* チュートリアルカード（ボタンとして機能、押すと過去のポップを見返せる） */
 .tutorial-card {
@@ -2009,11 +2057,15 @@ canvas { display:block; width:100%; height:100%; }
 <div id="howtoplay-overlay">
   <button id="howtoplay-close" aria-label="閉じる">×</button>
   <div id="howtoplay-card">
+    <div id="howtoplay-title"></div>
     <div id="howtoplay-image-box">
       <img id="howtoplay-image" src="" alt="">
     </div>
     <div id="howtoplay-caption"></div>
   </div>
+  <!-- FB対応：最後のページまで読み進めたら、説明文とページドットの間に大きく分かりやすい
+       （黄色の）「とじる」ボタンを出す。最後のページ以外はhideで隠す -->
+  <button id="howtoplay-finish-close" class="hide">とじる</button>
   <div id="howtoplay-nav">
     <button id="howtoplay-prev" aria-label="前のページ">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2205,6 +2257,8 @@ canvas { display:block; width:100%; height:100%; }
       <span>レベル</span>
       <span class="go-stat-val" id="achv-stat-level">Lv.1</span>
     </div>
+    <!-- FB対応：記録タブにもタイトル画面と同じ見た目のEXPバー本体を追加 -->
+    <div id="achv-stat-xp-track"><div id="achv-stat-xp-fill"></div></div>
     <div id="achv-stat-xp-sub">EXP <span id="achv-stat-xp-val">0/100</span></div>
     <div class="achv-section-block">
       <div class="achv-section-label">自己ベストランキング</div>
@@ -2216,8 +2270,14 @@ canvas { display:block; width:100%; height:100%; }
       <span>プレイ時間</span>
       <span class="go-stat-val" id="achv-stat-playtime">0分</span>
     </div>
+    <!-- FB対応：実績達成率を記録タブに掲載 -->
+    <div class="go-stat">
+      <span>実績達成率</span>
+      <span class="go-stat-val" id="achv-stat-completion">0%</span>
+    </div>
     <div class="achv-section-block">
       <div class="achv-section-label">スキル解放レベル</div>
+      <div id="skill-unlock-next-hint"></div>
       <div id="skill-unlock-ref-list"></div>
     </div>
   </div>
@@ -2246,6 +2306,7 @@ canvas { display:block; width:100%; height:100%; }
 <!-- シャボン玉：狙い中に出す案内文と「発射！」ボタン -->
 <div id="bubble-aim-banner" class="hide">飛ばす方向を決めよう</div>
 <button id="bubble-fire-btn" class="hide">発射！</button>
+<button id="beacon-ok-btn" class="hide">OK</button>
 
 <!-- ギミック発動演出（画面中央・大きめ） -->
 <div id="gimmick-banner">
@@ -2275,7 +2336,11 @@ let ctx    = canvas.getContext('2d');
 // ── 定数 ─────────────────────────────────────────
 const WORLD_W = 3600, WORLD_H = 3600;
 const MARBLE_R = 21;
-const NORMAL_HUE = 41; // 磁晶核の色（画像からスポイトした値、固定1色）
+// FB対応：爆発演出を寒色に揃えた流れで、通常玉のリング線も暖色(アンバー系41°)から
+// 寒色(スカイブルー系205°)に変更。発光(createRadialGradient)を追加する案もあったが、
+// 通常玉は同時に150〜250個出ることがあり(replenishThreshold参照)、玉1個ごとに発光を
+// 追加すると軽くない負荷増になるため見送り、既存のstrokeの色相を変えるだけ（追加描画コストなし）にした
+const NORMAL_HUE = 205; // 磁晶核の色（寒色・スカイブルー系）
 // 通常玉（専用イラストなし・丸描画）も、他のイラスト付き玉と同じ「見た目＝当たり半径×係数」の関係に統一するための表示倍率
 const NORMAL_MARBLE_DISPLAY_MULT = 1.1; // 1.15→1.1：見た目はそのまま、当たり半径を少し大きくして密集時の詰まり感を緩和
 // イラスト付き玉（跳躍・重力・追尾・遅延・紅・金）の表示倍率。dispR(見た目) = 当たり半径 × この値、で描画する
@@ -2438,6 +2503,18 @@ const BUBBLE_SHOT_IMMUNITY_DURATION = 0.6; // 同じ発射由来の玉同士が�
 let cannonCharge     = null;  // 大砲：チャージ中の状態（null=非チャージ中）
 let dragFreezeActive  = false; // フリーズハンド：時間停止＋ドラッグ操作中フラグ（true中はupdate()の大部分をスキップし、ドラッグ操作だけ許可する）
 let dragPoint         = null;  // フリーズハンド：現在の引き寄せ先座標（ワールド座標）{x,y}
+let dragFreezeElapsed = 0;     // フリーズハンド：発動からの経過秒数（フリーズショットのbubbleAimElapsedと同じ、「OK」ボタンの表示タイミング用）
+// フリーズハンド：触れた場所から玉を引き寄せる範囲（ワールド座標の半径）。
+// FB対応：狭すぎるとのことで130→200→300へ拡大。update()側の引き寄せ判定と
+// drawDragFreeze()の見た目の円の両方がこの値を参照するよう1箇所にまとめた
+const DRAG_PULL_R = 300;
+// FB対応：「効く/効かないの境界を曖昧にしてほしい（広げる方向で）」。
+// DRAG_PULL_Rまでは今まで通り最大の効き目を維持しつつ、そこからさらにこの分だけ
+// 外側へ、じわじわ弱まりながら（0まで）効果が続く「ぼかし」の範囲を追加する
+const DRAG_PULL_SOFT_R = 150;
+// FB対応：「プレイヤーのSやブラックホールみたいに回転をかけることは可能？」。
+// 中心へ一直線に吸い込むのではなく、渦を巻きながら寄っていく接線方向の力の強さ
+const DRAG_SPIN_RATE = 0.035;
 let sweepEffects      = []; // マグネットスイープ：手描きの弧エフェクト {cx,cy,startAngle,endAngle,range,color,born,dur}
 
 let upgrades = { sBoost:1, nBoost:1, rangeUp:1, chainMulti:1, explodeUp:1, rareBoost:0, skillCharge:100 };
@@ -2614,10 +2691,17 @@ function checkPendingSkillUnlocks() {
   }
   saveData.pendingSkillUnlocks = [];
   saveSaveData();
+  // FB対応：「16レベになってもタイトル画面が『スキル：重力崩壊獲得まであと〇〇』のまま
+  // （実績タブは正しく次のスキル名になっている）」との報告。原因は、ここでunlockedSkillsに
+  // 新しいスキルを追加した後、タイトル画面のEXPバー下テキスト（updatePlayerStatusBar）を
+  // 再描画していなかったこと。実績タブは開くたびにrenderAchievementScreen()で作り直すため
+  // 最新の所持スキルを反映できていたが、タイトル画面側は次に何か別のイベントで
+  // updatePlayerStatusBar()が呼ばれるまで、解放前の「次に狙うスキル」表示のまま残っていた
   if (newlyUnlocked.length > 0) {
     if (window.Achievements) window.Achievements.syncOwnedSkillCount(saveData.unlockedSkills.length); // 実績「スキル収集家/スキルマスター/完全装備」用
     showSkillUnlockPopup(newlyUnlocked);
   }
+  if (typeof updatePlayerStatusBar === 'function') updatePlayerStatusBar();
 }
 
 // タイトル画面を表示する共通処理。単にhideクラスを外すだけでなく、
@@ -2651,16 +2735,51 @@ function advanceSkillUnlockPopup() {
   overlay.classList.add('show');
 }
 
+// FB対応：「スキル所持がまだ揃っていない場合は『レベルアップまであと〇〇』を
+// 『スキル：〇〇獲得まであと〇〇』に変更してほしい」との要望。まだ未解放のレベル解放スキルが
+// 残っている間は、単なる「次のレベルまで」ではなく「次に解放されるスキルまで」を見せた方が
+// 目的が伝わりやすいため、未解放スキルのうち解放レベルが最も近いものを探す
+function getNextLockedSkillInfo() {
+  const owned = (typeof saveData !== 'undefined' && Array.isArray(saveData.unlockedSkills)) ? saveData.unlockedSkills : [];
+  let best = null; // { def, level }
+  for (const id in SKILL_UNLOCK_LEVELS) {
+    if (owned.includes(id)) continue;
+    const level = SKILL_UNLOCK_LEVELS[id];
+    if (best && level >= best.level) continue;
+    const def = SKILL_DEFS.find(s => s.id === id);
+    if (def) best = { def, level };
+  }
+  return best;
+}
+// 現在のレベル・XPから、targetLevelに到達するまでに必要な累計XPを返す
+// （次のレベルまでだけでなく、複数レベル先のスキル解放レベルまでの合計にも対応）
+function getExpUntilLevel(targetLevel) {
+  let remain = xpNeededForLevel(playerProgress.level) - playerProgress.xp;
+  for (let lv = playerProgress.level + 1; lv < targetLevel; lv++) {
+    remain += xpNeededForLevel(lv);
+  }
+  return Math.max(0, Math.round(remain));
+}
+
 function updatePlayerStatusBar() {
   const lvEl = document.getElementById('psb-level-val');
   const xpFillEl = document.getElementById('psb-xp-fill');
-  const xpRemainEl = document.getElementById('psb-xp-remain-val');
+  const xpRemainRowEl = document.getElementById('psb-xp-remain');
   if (!lvEl) return;
   const needed = xpNeededForLevel(playerProgress.level);
   const remain = Math.max(0, needed - playerProgress.xp);
   lvEl.textContent = playerProgress.level;
   xpFillEl.style.width = `${Math.min(100, (playerProgress.xp / needed) * 100)}%`;
-  xpRemainEl.textContent = remain.toLocaleString();
+  if (xpRemainRowEl) {
+    const nextLocked = getNextLockedSkillInfo();
+    if (nextLocked) {
+      // FB対応：「スキル：〇〇獲得まで あと〇〇」（累計必要XP）を、目標レベルが直感的にわかる
+      // 「Lv.〇〇で、スキル：〇〇獲得」という表現に変更してほしいとの要望
+      xpRemainRowEl.innerHTML = `Lv.<b id="psb-xp-remain-val">${nextLocked.level}</b>で、スキル：${nextLocked.def.name}獲得`;
+    } else {
+      xpRemainRowEl.innerHTML = `レベルアップまで あと <b id="psb-xp-remain-val">${remain.toLocaleString()}</b>`;
+    }
+  }
 }
 // #player-status-barはタイトル画面と一緒に最初から表示されるため（旧モード選択画面経由でしか
 // 表示されなかった以前の仕様と異なり）、ページ読み込み時点で一度だけ内容を反映しておく。
@@ -2753,6 +2872,7 @@ const MARBLE_COLLISION_SCORE_BASE = 50;
 const PLAYER_TOUCH_POP_SCORE_BASE = 100;
 
 let chainCount = 0, maxChain = 0, maxChainCount = 0, chainTimer = 0, chainDisplay = '', chainTexts = [];
+let lastChainTextSpawnAt = -999; // 前回チェイン文字を生成したゲーム内時刻（playTime秒）。高速チェイン時の乱発間引き用
 let score = 0, currentChainDepth = 0;
 // ── デバッグ用：スコア内訳の集計（コンソールで確認するためだけの内部データ。ゲーム進行には影響しない）──
 let scoreDebug = {
@@ -2775,6 +2895,8 @@ let pulseFrame = { amp:0, jitter:0, time:0, visibility:0 }; // 現在の振幅�
 let cam = { zoom:1.0, targetZoom:1.0, baseZoom:1.0, shakeX:0, shakeY:0, zoomHoldTimer:0 };
 let bubbleZoomTarget = 1.0;   // シャボン玉発射時に引いた先のズーム値
 let bubbleZoomHoldTimer = 0;  // この時間が残っている間は、通常のズーム処理よりこちらを優先する
+let beaconZoomTarget = 1.0;   // フリーズハンド発動時に引いた先のズーム値（bubbleZoomTargetと同じ考え方）
+let beaconZoomHoldTimer = 0;  // この時間が残っている間は、通常のズーム処理よりこちらを優先する
 let resonanceEdgeFX = []; // 共鳴連鎖：画面外の共鳴岩の方向に出す波紋リング（水面の波紋イメージ）
 
 // ── 入力状態 ─────────────────────────────────────
@@ -2854,14 +2976,15 @@ function initGame(mode) {
   rockHitCooldown=0;
   playTime=0; batteryDrainBoostAnnounced=false; currentChainDepth=0; screenShake={x:0,y:0,power:0}; releaseGraceTimer=0;
   skillSP=0; skillStock=0; skillActive=false; skillTimer=0;
-  bubbleAiming=false; bubbleAimElapsed=0; bubbleFiring=false; bubbleFireQueue=[]; bubbleFireElapsed=0; dragFreezeActive=false; dragPoint=null;
-  { const b1=document.getElementById('bubble-aim-banner'), b2=document.getElementById('bubble-fire-btn');
-    if(b1) b1.classList.add('hide'); if(b2) b2.classList.add('hide'); }
+  bubbleAiming=false; bubbleAimElapsed=0; bubbleFiring=false; bubbleFireQueue=[]; bubbleFireElapsed=0; dragFreezeActive=false; dragPoint=null; dragFreezeElapsed=0;
+  { const b1=document.getElementById('bubble-aim-banner'), b2=document.getElementById('bubble-fire-btn'), b3=document.getElementById('beacon-ok-btn');
+    if(b1) b1.classList.add('hide'); if(b2) b2.classList.add('hide'); if(b3) b3.classList.add('hide'); }
   rockSpawnTimer=0; itemSpawnTimer=0; redBallCheckChain=0; goldBallCheckChain=0; comboItemCheckDepth=0; comboItemCooldown=0;
   marbleReplenishQueue=[]; marbleReplenishActive=false;
   holes=[]; holeActiveIdx=-1; holeOpenTimer=0; holeNextTimer=HOLE_GAP_DURATION; holeSequenceIdx=0;
   cam.zoom=cam.baseZoom; cam.targetZoom=cam.baseZoom; cam.zoomHoldTimer=0; cam.shakeX=0; cam.shakeY=0;
   bubbleZoomHoldTimer = 0; bubbleZoomTarget = cam.baseZoom;
+  beaconZoomHoldTimer = 0; beaconZoomTarget = cam.baseZoom;
   resonanceEdgeFX=[];
   activeWorldEvent=null; vortexEventDir=1;
   document.getElementById('gimmick-row').classList.add('hide');
@@ -3077,6 +3200,11 @@ const BH_DAMP_MULT        = 3.2; // 減速フィールドの半径 = rk.r * こ�
 // 実質的にほぼ中心の1点まで吸い込まれてびったり重なって見えていた。プレイヤーの渦と同じ比率(自身の半径の25%)で
 // コア領域を用意し、同じ考え方（コア圧で軽く押し返す）を適用して、中心付近でも玉同士に隙間ができるようにする
 const BH_CORE_MULT        = 0.25; // コア半径 = rk.r * この値（プレイヤーのVORTEX_CORE_R = player.r*0.25と揃えた比率）
+// FB対応：「プレイヤーが近くにいない（姿を捉えていない）ときは勝手に覚醝しないでほしい」との要望。
+// まだ覚醒していない(normal/omen)ブラックホールは、プレイヤーがこの範囲まで近づくまで
+// 覚醒カウントダウン自体を進めない（見つけていない間は覚醒しない）。BH_PULL_R(550)と
+// 同程度のスケール感にしつつ、少し広め＝「近づけばいずれ気づく」くらいの余裕を持たせた値
+const BH_AWAKEN_SIGHT_R   = 650;
 
 // ── 流体シェイプ（ブロブ）生成 ─────────────────────
 // baseRを中心に、angleごとにランダムな半径ゆらぎを持たせた点群を作る（ox,oyで中心をずらせる）
@@ -3614,17 +3742,24 @@ function triggerExplosion(x, y, power, chainDepth, isRock, playerCaused=false, g
   const baseR  = BASE_EXPLOSION_R * upgrades.explodeUp * (isRock?1.6:1) * evBlast;
   const chainR = EXPLOSION_CHAIN_R * upgrades.explodeUp * (isRock?1.5:1) * evChainR;
   // chainDepth>0の連鎖はplayerCausedを引き継ぐ（呼び出し元から渡される）
+  // FB対応：「歪みをやめて、A（エナジーリング）やE（デュアルパルス）っぽい方向がいい」。
+  // 手描き風の歪み(ringJitter)は廃止し、正円のリングのみで構成する（drawExplosions側で
+  // 2本目のリング・中心閃光もこのr/lifeから計算するので、ここで持たせる状態はこれだけで済む）
   explosions.push({x,y,r:0,maxR:baseR*(0.7+power*0.4),life:1,power,isRock:!!isRock,playerCaused:!!playerCaused,slowBlast:!!slowBlast});
   miniExplosions.push({x,y,r:0,maxR:baseR*0.3,life:1});
 
-  const pCnt=18+Math.floor(power*14);
+  // 見た目の主張は輪（上のexplosions）側に絞るため、飛び散る粒（フレック）は
+  // 3〜4個程度に絞る（以前は18〜32個。連鎖が続く場面での負荷軽減にもなる）
+  const pCnt=3+Math.floor(power*2);
   for(let i=0;i<pCnt;i++){
     const a=Math.random()*Math.PI*2, s=2+Math.random()*6*power;
     particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
       life:1,maxLife:0.6+Math.random()*0.4,r:2+Math.random()*3,
       hue:isRock?200+Math.random()*40:20+Math.random()*40});
   }
-  shockwaves.push({x,y,r:0,maxR:baseR*(0.9+power*0.3),life:1,slowBlast:!!slowBlast});
+  // FB対応：C案では輪(explosions)自体が波紋の役割を兼ねるため、これまで別途重ねていた
+  // 同心リング(shockwaves)は連鎖のたびの発生分だけ廃止（見た目の二重化解消＋負荷軽減）。
+  // ブラックホール崩壊などの単発の大きな演出（別の発生元）はそのまま残す
 
   const effR=chainR*(0.7+power*0.4);
   setTimeout(()=>{
@@ -3783,7 +3918,15 @@ function updateChainDisplay(n, depth, wx, wy, playerCaused=false) {
   else if (n <= 125) { size=20; bold=true;  color='#ffffff'; }
   else if (n <= 200) { size=24; bold=true;  color='#00a5ad'; }
   else               { size=28; bold=true;  color='#cca500'; }
-  chainTexts.push({ x: wx, y: wy - 30, text, size, color, bold, life: 1, vy: -0.4 });
+  // FB対応：非常に速いチェインだと1ヒットごとに文字を生成しており、短時間で
+  // 画面がMEGA CHAIN文字だらけになって見づらく＆重くなる原因になっていた。
+  // 序盤（n<=5）は手応えを保つため毎回表示し、それ以降は一定間隔（ゲーム内時間）を
+  // 空けて間引く。SP獲得は表示の有無に関わらず従来通り毎ヒット行う。
+  const CHAIN_TEXT_SPAWN_GAP_SEC = 0.09;
+  if (n <= 5 || (playTime - lastChainTextSpawnAt) >= CHAIN_TEXT_SPAWN_GAP_SEC) {
+    chainTexts.push({ x: wx, y: wy - 30, text, size, color, bold, life: 1, vy: -0.4 });
+    lastChainTextSpawnAt = playTime;
+  }
   // SP獲得：チェインのたびに+1SP
   if(selectedSkillId) gainSP(SP_RATE);
 }
@@ -3812,6 +3955,12 @@ function useSkill(){
   // シャボン玉：狙い中にもう一度押すと、5秒待たずにその場で確定して発射する
   if(selectedSkillId==='bubble' && bubbleAiming){
     finishBubbleAim();
+    return;
+  }
+  // フリーズハンド：時間停止中にもう一度押すと、5秒待たずにその場で解除して再開する
+  // （フリーズショットの「狙い中にもう一度押すと発射」と全く同じ考え方）
+  if(selectedSkillId==='beacon' && dragFreezeActive){
+    finishBeaconFreeze();
     return;
   }
   // 大砲チャージ中は再発動しない（ホールド中に連打されても新しいチャージを始めない）
@@ -4143,6 +4292,7 @@ function activateEnergyConverter(){
 // 実際の引き寄せ処理はupdate()側（dragFreezeActiveの分岐）で行う。ここでは発動処理だけ。
 function activateBeacon(){
   dragFreezeActive = true;
+  dragFreezeElapsed = 0;
   skillActive = true;
   skillTimer = 5.0; // フリーズショットと同じ長さ（時が止まっている時間）
   // タッチ前のデフォルト位置（自機の少し前方）。実際に画面へ触れた瞬間、そちらへ切り替わる
@@ -4150,8 +4300,27 @@ function activateBeacon(){
     x: (((player.wx + Math.cos(player.angle)*80) % WORLD_W) + WORLD_W) % WORLD_W,
     y: (((player.wy + Math.sin(player.angle)*80) % WORLD_H) + WORLD_H) % WORLD_H,
   };
+  // FB対応：「フリーズショットと全く同じ挙動にしてほしい」→ 発動時にカメラを引く処理も
+  // シャボン玉(activateBubble)と全く同じ式・考え方で追加
+  beaconZoomTarget = Math.max(cam.baseZoom * 0.65, cam.zoom * 0.72);
+  cam.targetZoom = beaconZoomTarget; // 瞬時に切り替えず、なめらかにこのズームへ寄せていく
+  beaconZoomHoldTimer = 2.5; // 発動〜解除〜少し見届ける時間ぶん、このズームを維持する
+  const okBtn = document.getElementById('beacon-ok-btn');
+  if (okBtn) okBtn.classList.add('hide'); // 1秒経つまでは非表示（フリーズショットの「発射！」ボタンと同じ）
   if (window.SoundSE) window.SoundSE.playBeaconSet(); // 既存の発動音（skillBeacon）を流用
   showSkillKanjiBanner('フリーズハンド！');
+}
+
+// フリーズハンド：時間停止を早めに解除して再開する（スキルボタン再タップ・「OK」ボタン・
+// 5秒経過のいずれからもここを通る。フリーズショットのfinishBubbleAim()と同じ位置づけ）
+function finishBeaconFreeze(){
+  if(!dragFreezeActive) return;
+  dragFreezeActive = false;
+  dragPoint = null;
+  skillActive = false;
+  skillTimer = 0;
+  const okBtn = document.getElementById('beacon-ok-btn');
+  if (okBtn) okBtn.classList.add('hide');
 }
 
 // ── SP獲得：赤玉・金玉破壊時 ────────────────────
@@ -4920,7 +5089,7 @@ function update(dt){
     if(skillTimer <= 0.0005){
       skillActive=false; skillTimer=0;
       if(selectedSkillId==='bubble' && bubbleAiming) finishBubbleAim(); // 狙い時間切れ→自動発射
-      if(selectedSkillId==='beacon' && dragFreezeActive){ dragFreezeActive=false; dragPoint=null; } // フリーズハンド：時間切れで解除
+      if(selectedSkillId==='beacon' && dragFreezeActive) finishBeaconFreeze(); // フリーズハンド：時間切れで解除
     }
   }
 
@@ -4955,21 +5124,40 @@ function update(dt){
   // 触れた場所(dragPoint、ワールド座標)は各種タッチ/マウスイベント側で設定される。
   // ラーメンの油を箸で寄せるイメージ＝一瞬で吸い込むのではなく、じわっと粘り気を持って寄っていく動き。
   if(dragFreezeActive){
+    // 通常のカメラズーム処理は時間停止中はスキップされてしまうため、
+    // シャボン玉の狙い中と全く同じ式で、ここでもなめらかにcam.zoomをcam.targetZoomへ寄せておく
+    const zoomSpeed = cam.targetZoom < cam.zoom ? 0.05 : 0.04;
+    cam.zoom += (cam.targetZoom - cam.zoom) * zoomSpeed * dt;
+    // 発動から1秒経ったら「OK」ボタンを表示する（フリーズショットの「発射！」ボタンと同じ考え方）
+    const wasBeforeOneSec = dragFreezeElapsed < 1;
+    dragFreezeElapsed += dtSec;
+    if (wasBeforeOneSec && dragFreezeElapsed >= 1){
+      const okBtn = document.getElementById('beacon-ok-btn');
+      if (okBtn) okBtn.classList.remove('hide');
+    }
     if(dragPoint){
-      const DRAG_PULL_R = 130;      // 狭い範囲でピンポイントに操作できるよう小さめにしている
       const DRAG_PULL_RATE = 0.06;  // 1フレームで距離をどれだけ詰めるか（小さいほど粘り気のある動きになる）
+      const DRAG_TOTAL_R = DRAG_PULL_R + DRAG_PULL_SOFT_R; // ここまでは弱まりつつ効果が及ぶ
       for(const m of marbles){
         if(!m.alive) continue;
         let dx = dragPoint.x - m.x, dy = dragPoint.y - m.y;
         if(dx>WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
         if(dy>WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
         const dist = Math.hypot(dx,dy);
-        if(dist < 1 || dist >= DRAG_PULL_R) continue;
+        if(dist < 1 || dist >= DRAG_TOTAL_R) continue;
+        // FB対応：「効く/効かないの境界を曖昧に、広げる方向で」。DRAG_PULL_Rまでは
+        // 今まで通り100%の効き目、そこから外側はDRAG_TOTAL_Rに向けてなだらかに0まで弱まる
+        const falloff = dist <= DRAG_PULL_R ? 1 : 1 - (dist - DRAG_PULL_R) / DRAG_PULL_SOFT_R;
         // 座標を直接動かす（時間停止中は通常の物理・速度を通さないため）。
         // 距離に比例して詰めるので、中心に近いほど動きがゆっくりになり吸い込まれるのではなく寄ってくる感触になる
-        const pull = Math.min(1, DRAG_PULL_RATE * dt);
-        m.x = (((m.x + dx*pull) % WORLD_W) + WORLD_W) % WORLD_W;
-        m.y = (((m.y + dy*pull) % WORLD_H) + WORLD_H) % WORLD_H;
+        const pull = Math.min(1, DRAG_PULL_RATE * dt) * falloff;
+        // FB対応：「プレイヤーのSやブラックホールみたいに回転をかけたい」。中心から見て
+        // 時計回りの接線方向（既存の渦・ブラックホールの吸引と同じ考え方）に、距離に比例した
+        // 移動量を加えることで、一直線ではなく渦を巻きながら寄っていく見た目にする
+        const tanX = -dy/dist, tanY = dx/dist;
+        const spin = Math.min(1, DRAG_SPIN_RATE * dt) * dist * falloff;
+        m.x = (((m.x + dx*pull + tanX*spin) % WORLD_W) + WORLD_W) % WORLD_W;
+        m.y = (((m.y + dy*pull + tanY*spin) % WORLD_H) + WORLD_H) % WORLD_H;
         m.vx *= 0.8; m.vy *= 0.8; // 解除後に元の勢いのまま暴れて飛んでいかないよう、引き寄せ中に少しずつ勢いを殺す
       }
     }
@@ -5851,6 +6039,17 @@ function update(dt){
     if(!rk.alive || rk.state === undefined) continue;
     // 共鳴岩はリーダー1体だけがタイマーを進め、他は後でリーダーに同期させる（下のsyncResonanceRocksで処理）
     if(rk.ability === 'resonance' && !rk.isResonanceLeader) continue;
+    // FB対応：「プレイヤーが近くにいない（姿を捉えていない）ときは勝手に覚醒しないでほしい」との要望。
+    // ブラックホールに限り、まだ覚醒していない間(normal/omen)はプレイヤーがBH_AWAKEN_SIGHT_R以内に
+    // 入るまで覚醒カウントダウン自体を進めない（＝見つけていない間は永遠にnormalのまま）。
+    // 覚醒後(awake)は従来通りプレイヤーが離れても既定の時間で自然に終わるようにし、ここでは
+    // 止めない（そうしないと覚醒したまま二度と終わらない個体が発生してしまう）
+    if(rk.ability === 'blackhole' && rk.state !== 'awake'){
+      let bdx = player.wx - rk.x, bdy = player.wy - rk.y;
+      if(bdx > WORLD_W/2) bdx -= WORLD_W; else if(bdx < -WORLD_W/2) bdx += WORLD_W;
+      if(bdy > WORLD_H/2) bdy -= WORLD_H; else if(bdy < -WORLD_H/2) bdy += WORLD_H;
+      if((bdx*bdx + bdy*bdy) >= BH_AWAKEN_SIGHT_R*BH_AWAKEN_SIGHT_R) continue; // まだ見つかっていないので覚醒タイマーは進めない
+    }
     rk.stateTimer -= dtSec;
 
     // ブラックホール岩：覚醒中は周囲の玉とプレイヤーを引き寄せ（波動の"反発"の逆＝"引力"）、
@@ -5981,7 +6180,11 @@ function update(dt){
           player.battery = Math.max(0, player.battery - BH_BATTERY_DRAIN_PS*dtSec);
         }
 
-        // 臨界：質量が閾値を超えたら崩壊（bhMassを即0に戻すので、同じ覚醒中でも条件が整えば何度でも崩壊できる）
+        // 臨界：質量が閾値を超えたら崩壊
+        // FB対応：「1回の覚醒で崩壊は1回限りにしてほしい」との要望。以前はbhMassを0に戻すだけで
+        // 覚醒(awake)状態自体は継続していたため、同じ覚醒中に条件が整えば何度でも崩壊できてしまっていた。
+        // 崩壊した瞬間にこの覚醒サイクル自体を終了させ(normalへ強制遷移)、次に正式に覚醒するまでは
+        // 崩壊が起きないようにする
         if(rk.bhMass >= BH_COLLAPSE_MASS){
           const captured = marbles.filter(m=>m.alive && m.bhOwner===rk);
           // FB対応：「崩壊したはずなのに何も起きていないように見える／崩壊ラベルが連続で出続ける」バグの本当の原因。
@@ -6022,6 +6225,10 @@ function update(dt){
           showGimmickBanner('ブラックホール崩壊！', '#b28cff', `+${BH_COLLAPSE_SCORE_BONUS.toLocaleString()}点`);
           rk.bhMass = 0;
           rk.bhCooldown = BH_COOLDOWN_SEC; // FB対応：崩壊直後は少し休止させ、間髪あけずに再吸引→再崩壊が続くのを防ぐ
+          // FB対応：1回の覚醒での崩壊を1回限りにするため、崩壊した瞬間にこの覚醒サイクルを終了させ、
+          // 通常状態(normal)へ戻す（次に正式に覚醒するまでは吸引・崩壊が起きない）
+          rk.state = 'normal';
+          rk.stateTimer = 15 + Math.random()*35; // 通常→予兆までの秒数（岩の初期生成時と同じ範囲）
         }
         } // クールタイム分岐（if(rk.bhCooldown > 0) ... else）の終わり
       } else {
@@ -6189,10 +6396,17 @@ function update(dt){
     bubbleZoomHoldTimer = Math.max(0, bubbleZoomHoldTimer - dtSec);
     cam.targetZoom = Math.min(cam.targetZoom, bubbleZoomTarget);
   }
+  // フリーズハンド解除後のカメラ引き：フリーズショットと全く同じ考え方で、
+  // 解除〜少し見届ける時間ぶんは通常のズームより引いている方を優先する
+  if(beaconZoomHoldTimer > 0){
+    beaconZoomHoldTimer = Math.max(0, beaconZoomHoldTimer - dtSec);
+    cam.targetZoom = Math.min(cam.targetZoom, beaconZoomTarget);
+  }
   // 共鳴連鎖の波紋リングは描画時にduration経過で自動的に間引かれるため、ここでの更新は不要
-  // ズームアウトはゆっくり、戻りは素早く（遅延後）。ただしシャボン玉スキルの引きは通常より速くする
+  // ズームアウトはゆっくり、戻りは素早く（遅延後）。ただしシャボン玉/フリーズハンドの引きは通常より速くする
   const zoomingOut = cam.targetZoom < cam.zoom;
-  const zoomSpeed = zoomingOut ? (bubbleZoomHoldTimer > 0 ? 0.05 : 0.015) : 0.04;
+  const skillZoomHolding = bubbleZoomHoldTimer > 0 || beaconZoomHoldTimer > 0;
+  const zoomSpeed = zoomingOut ? (skillZoomHolding ? 0.05 : 0.015) : 0.04;
   cam.zoom += (cam.targetZoom - cam.zoom) * zoomSpeed * dt;
 
   // スクリーンシェイク
@@ -6464,11 +6678,24 @@ function triggerHoleGimmick(hole) {
   // イベントごとの持続時間（超爆発ラッシュだけ15秒、他は30秒）
   const GIMMICK_DURATIONS = { overcharge:30, rock_awaken:30, vortex:30, marble_fever:30, resonance_run:15 };
   const DURATION = GIMMICK_DURATIONS[hole.gimmickId] || 30;
-  // 装置は即座にオフ状態になる（60秒カウンター自体は止めず、次の装置が早くオープンしないようにする）
+  // 装置は即座にオフ状態になる
   hole.isOpen = false;
   hole.animDir = -1;
   hole.points = 0;
   spawnHoleMarbleBurst(hole.x, hole.y, 20);
+  // FB対応：「まだイベント継続中なのに別の装置が起動していた」との報告。原因調査の結果、
+  // 以前はここでholeActiveIdx/holeOpenTimerをそのまま残していたため、次の装置が開くまでの
+  // 待ち時間が「たまたま元の60秒タイマーの残り時間＋3秒のギャップ」という、今回のギミックの
+  // 発動タイミング任せの不安定な値になっていた。60秒のうち後半（目安として発動が33秒以降）で
+  // ゲージが満タンになった場合、その残り時間＋3秒が今回発動した世界干渉ギミックの持続時間
+  // （30秒、共鳴ランのみ15秒）より短くなり、前のギミックが終わる前に次の装置が開いて
+  // しまっていた（さらに次の装置もすぐ発動すれば、2つの世界干渉ギミックが同時に走ってしまう）。
+  // 発動した瞬間にこの穴を明示的に「次を待つ」状態へ切り替え、次の装置が開くまでの
+  // 待ち時間を「今回のギミックの持続時間＋通常のギャップ(3秒)」に固定することで、
+  // 必ず今回の世界干渉ギミックが終わり切ってから次の装置が開くようにする
+  holeActiveIdx = -1;
+  holeOpenTimer = 0;
+  holeNextTimer = DURATION + HOLE_GAP_DURATION;
   // FB対応：「世界干渉ギミック、発動成功できたらバッテリーを回復とかでも良さそう」との要望。
   // 発電装置のゲージが満タンになり、世界干渉ギミック（オーバーチャージ／岩覚醒／渦／マーブルフィーバー／
   // 共鳴ラン等）が実際に発動した瞬間に、種類を問わず一律でバッテリーを回復する
@@ -6913,17 +7140,24 @@ function draw(){
     ctx.translate(ox, oy);
     drawHoles();
     drawRocks();
-    drawWaveRings();
     drawMarbles();
     drawItems();
-    drawPickupEffects();
-    drawShockwaves();
-    drawExplosions();
-    drawParticles();
-    drawChainTexts();
-    drawDragFreeze();
     ctx.restore();
   }
+
+  // 演出系（波紋・パーティクル・チェイン文字など）は実体を持つ玉/岩/装置と違い、
+  // ワールドの継ぎ目をまたいで複製表示する必要がない一時的なエフェクトのため、
+  // 上のオフセットループの外で実座標のまま1回だけ描画する。
+  // 以前はここも offsets の数だけ（プレイヤーが継ぎ目付近にいると2〜4倍）
+  // 丸ごと描き直しており、パーティクルやチェイン文字が多い場面で
+  // 無駄な負荷になっていた（重さ・カクつきの主因）。
+  drawWaveRings();
+  drawPickupEffects();
+  drawShockwaves();
+  drawExplosions();
+  drawParticles();
+  drawChainTexts();
+  drawDragFreeze();
 
   // プレイヤーは常に中心（オフセットなし）
   drawBlinkGhosts();
@@ -8113,21 +8347,85 @@ function drawItems(){
   }
 }
 
+// FB対応：「爆発のリングがたまに不発（見えない）」の原因調査で発見。
+// 今回のセッションの重さ対策で、waveRings/pickupEffects/shockwaves/explosions/
+// particles/chainTexts/dragFreezeは、holes/rocks/marbles/itemsのようにワールドの
+// 継ぎ目コピー分（getLoopOffsets()の数だけ）繰り返し描くのをやめ、実座標のまま
+// 1回だけ描くように変更していた。ところがプレイヤーが継ぎ目付近にいる時、
+// 「本来はプレイヤーのすぐ隣（継ぎ目の向こう側）」で起きたはずの爆発などが、
+// 補正なしの素の座標のままだと画面から遠く離れた場所に描かれてしまい、
+// 実質見えなくなっていた（＝「爆発が不発に見える」不具合の直接の原因）。
+// 一時エフェクトは常に1つしか描かないので、holes等のように全コピーを描き直す
+// 必要はなく、「プレイヤーから見て最短距離になる側」の1枚だけに座標を
+// 補正すれば十分（追加のstroke/fillは発生しないので負荷は増えない）。
+function wrapToPlayer(x, y) {
+  let dx = x - player.wx, dy = y - player.wy;
+  if (dx > WORLD_W / 2) dx -= WORLD_W; else if (dx < -WORLD_W / 2) dx += WORLD_W;
+  if (dy > WORLD_H / 2) dy -= WORLD_H; else if (dy < -WORLD_H / 2) dy += WORLD_H;
+  return [player.wx + dx, player.wy + dy];
+}
+
 function drawPickupEffects(){
   for(const p of pickupEffects){
-    ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);
+    const [dx, dy] = wrapToPlayer(p.x, p.y);
+    ctx.beginPath();ctx.arc(dx,dy,p.r*p.life,0,Math.PI*2);
     ctx.fillStyle=p.color+Math.floor(p.life*200).toString(16).padStart(2,'0');ctx.fill();
   }
 }
 
 
+// FB対応：爆発演出を「エナジーリング（A案）×デュアルパルス（E案）」に変更。
+// 手描き風の歪みはやめ、正円のリングのみで構成する（塗りfillは使わずstrokeのみ）。
+// ① 本体のリング（既存のr/lifeイージングをそのまま使用）をcyan→violetのグラデーションで描画
+// ② 1本目がある程度進んだ頃に発生する2本目の薄いリング（ソナーの波紋のような二重パルス）
+// ③ 発生直後の一瞬だけ中心に出す小さな閃光
+// いずれもe.r/e.lifeから計算するだけで、explosionオブジェクトに新しい状態は持たせていない。
+// FB対応：「暖色ではなく寒色にしたい」。以前は磁晶核の爆発だけgold→pinkの暖色にしていたが、
+// 両方とも青・シアン・紫系の寒色に統一。岩＝cyan寄り、磁晶核＝sky blue寄りで、
+// 見分けがつく程度の差だけ残している
 function drawExplosions(){
+  if (explosions.length === 0) return;
+  const RING2_DELAY = 0.22;  // 2本目のリングが遅れて発生するまでの、1本目のlife消費割合
+  const FLASH_WINDOW = 0.22; // 発生直後、この間だけ中心の閃光を見せる
   for(const e of explosions){
-    const alpha = e.life * 0.85;
-    // TODO: プラネットボンボン向けに新規描画実装が必要（旧マグネットボンボンのEXPLOSION_SKINS描画を仮の丸描画に差し替え）
-    ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI*2);
-    ctx.fillStyle = '#ffffff'; ctx.globalAlpha = alpha; ctx.fill();
-    ctx.globalAlpha = 1; ctx.lineWidth = 2; ctx.strokeStyle = '#000000'; ctx.stroke();
+    const alpha = Math.max(0, e.life);
+    if (alpha <= 0.01 || e.r <= 0.5) continue;
+    // FB対応：ワールドの継ぎ目付近だと素のe.x/e.yのままでは画面外に描かれ「不発」に
+    // 見えることがあったため、プレイヤーから見て最短距離側の座標に補正する
+    const [ex, ey] = wrapToPlayer(e.x, e.y);
+    const cA = e.isRock ? [0,200,220]  : [80,170,255];
+    const cB = e.isRock ? [150,120,255]: [190,110,255];
+
+    // ① 本体のリング
+    ctx.beginPath(); ctx.arc(ex, ey, e.r, 0, Math.PI*2);
+    const grad = ctx.createLinearGradient(ex - e.r, ey, ex + e.r, ey);
+    grad.addColorStop(0, `rgba(${cA.join(',')},${alpha*0.75})`);
+    grad.addColorStop(1, `rgba(${cB.join(',')},${alpha*0.75})`);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // ② 2本目のリング（同じ最大半径まで、時間差で追いかけるように広がる）
+    const elapsed2 = (1 - RING2_DELAY) - e.life;
+    if (elapsed2 > 0){
+      const life2 = Math.min(1, elapsed2 / (1 - RING2_DELAY));
+      const r2 = life2 * e.maxR;
+      const alpha2 = Math.max(0, 1 - life2) * 0.6;
+      if (alpha2 > 0.01){
+        ctx.beginPath(); ctx.arc(ex, ey, r2, 0, Math.PI*2);
+        ctx.strokeStyle = `rgba(${cA.join(',')},${alpha2})`;
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+      }
+    }
+
+    // ③ 発生直後の中心閃光
+    if (e.life > 1 - FLASH_WINDOW){
+      const flashA = (e.life - (1 - FLASH_WINDOW)) / FLASH_WINDOW;
+      ctx.beginPath(); ctx.arc(ex, ey, Math.max(0, 8*flashA), 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${Math.max(0, flashA*0.9)})`;
+      ctx.fill();
+    }
   }
 }
 
@@ -8138,12 +8436,20 @@ function drawDragFreeze(){
   if(!dragFreezeActive || !dragPoint) return;
   const t = Date.now()*0.004;
   const pulse = 0.7 + Math.sin(t)*0.3;
+  const [dpx, dpy] = wrapToPlayer(dragPoint.x, dragPoint.y);
 
   ctx.save();
-  ctx.translate(dragPoint.x, dragPoint.y);
+  ctx.translate(dpx, dpy);
 
-  // 実際に玉が寄ってくる範囲（update()側のDRAG_PULL_Rと同じ130）
-  ctx.beginPath(); ctx.arc(0,0,130,0,Math.PI*2);
+  // FB対応：境界を曖昧にしたのに合わせ、外側にもう1本、さらに薄い円を追加。
+  // DRAG_PULL_Rの外側からDRAG_PULL_R+DRAG_PULL_SOFT_Rにかけて、弱まりながらも
+  // 効果が及んでいることが見た目でも分かるようにする
+  ctx.beginPath(); ctx.arc(0,0,DRAG_PULL_R+DRAG_PULL_SOFT_R,0,Math.PI*2);
+  ctx.strokeStyle = 'rgba(160,220,255,0.07)'; ctx.lineWidth = 1;
+  ctx.setLineDash([6,10]); ctx.stroke(); ctx.setLineDash([]);
+
+  // 実際に玉が寄ってくる範囲（update()側と共通のDRAG_PULL_R）
+  ctx.beginPath(); ctx.arc(0,0,DRAG_PULL_R,0,Math.PI*2);
   ctx.strokeStyle = 'rgba(160,220,255,0.16)'; ctx.lineWidth = 1;
   ctx.setLineDash([6,8]); ctx.stroke(); ctx.setLineDash([]);
 
@@ -8162,15 +8468,16 @@ function drawWaveRings(){
   for(const wr of waveRings){
     const alpha = wr.life * 0.6;
     const progress = 1 - (wr.maxR - wr.r) / (wr.maxR - (wr.r < wr.maxR ? wr.r : 0) || 1);
+    const [dx, dy] = wrapToPlayer(wr.x, wr.y);
     ctx.beginPath();
-    ctx.arc(wr.x, wr.y, Math.max(wr.r, 1), 0, Math.PI*2);
+    ctx.arc(dx, dy, Math.max(wr.r, 1), 0, Math.PI*2);
     ctx.strokeStyle = `rgba(80,180,255,${alpha})`;
     ctx.lineWidth = 1.2;
     ctx.stroke();
     // 2本目：少し遅れて追従するリング
     if(wr.r > 80){
       ctx.beginPath();
-      ctx.arc(wr.x, wr.y, Math.max(wr.r * 0.75, 1), 0, Math.PI*2);
+      ctx.arc(dx, dy, Math.max(wr.r * 0.75, 1), 0, Math.PI*2);
       ctx.strokeStyle = `rgba(120,210,255,${alpha * 0.5})`;
       ctx.lineWidth = 0.8;
       ctx.stroke();
@@ -8180,16 +8487,18 @@ function drawWaveRings(){
 
 function drawShockwaves(){
   for(const s of shockwaves){
-    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    const [dx, dy] = wrapToPlayer(s.x, s.y);
+    ctx.beginPath();ctx.arc(dx,dy,s.r,0,Math.PI*2);
     ctx.strokeStyle=`rgba(230,234,245,${s.life*0.45})`;ctx.lineWidth=1.2*s.life;ctx.stroke();
-    ctx.beginPath();ctx.arc(s.x,s.y,s.r*0.7,0,Math.PI*2);
+    ctx.beginPath();ctx.arc(dx,dy,s.r*0.7,0,Math.PI*2);
     ctx.strokeStyle=`rgba(230,234,245,${s.life*0.25})`;ctx.lineWidth=0.8*s.life;ctx.stroke();
   }
 }
 
 function drawParticles(){
   for(const p of particles){
-    ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);
+    const [dx, dy] = wrapToPlayer(p.x, p.y);
+    ctx.beginPath();ctx.arc(dx,dy,p.r*p.life,0,Math.PI*2);
     ctx.fillStyle=`rgba(230,234,245,${p.life*0.75})`;ctx.fill();
   }
 }
@@ -8213,7 +8522,8 @@ function drawChainTexts() {
     const font = `${weight} ${ct.size}px 'Arial Black', 'Arial Bold', Arial, sans-serif`;
     if (font !== lastFont) { ctx.font = font; lastFont = font; }
     ctx.fillStyle = ct.color;
-    ctx.fillText(ct.text, ct.x, ct.y);
+    const [dx, dy] = wrapToPlayer(ct.x, ct.y);
+    ctx.fillText(ct.text, dx, dy);
   }
   ctx.restore();
 }
@@ -9180,7 +9490,8 @@ function renderFavoriteSkillOptions(){
   for (const def of ownedSkills){
     const opt = document.createElement('option');
     opt.value = def.id;
-    opt.textContent = `${def.icon} ${def.name}`;
+    // FB対応：「絵文字は消して、テキストだけにしてほしい」との要望
+    opt.textContent = def.name;
     sel.appendChild(opt);
   }
   // 所持していないスキルが選択済みだった場合（実績整合性が崩れた等の異常系）は「なし」に戻す保険
@@ -9392,6 +9703,17 @@ if (_bubbleFireBtn){
   _bubbleFireBtn.addEventListener('touchstart', e=>{
     e.preventDefault();
     if(bubbleAiming) finishBubbleAim();
+  }, {passive:false});
+}
+
+// フリーズハンド：「OK」ボタン（スキルボタン再タップ・5秒経過と同じくfinishBeaconFreeze()を呼ぶだけ。
+// フリーズショットの「発射！」ボタンと全く同じ考え方）
+const _beaconOkBtn = document.getElementById('beacon-ok-btn');
+if (_beaconOkBtn){
+  _beaconOkBtn.addEventListener('click', ()=>{ if(dragFreezeActive) finishBeaconFreeze(); });
+  _beaconOkBtn.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if(dragFreezeActive) finishBeaconFreeze();
   }, {passive:false});
 }
 
@@ -9740,11 +10062,13 @@ function formatAchievementPlayTime(totalSec){
 function renderAchievementStatsTab(){
   const lvEl = document.getElementById('achv-stat-level');
   const xpEl = document.getElementById('achv-stat-xp-val');
+  const xpFillEl = document.getElementById('achv-stat-xp-fill'); // FB対応：記録タブにもEXPバー本体を追加
   if (lvEl && typeof playerProgress !== 'undefined') {
     lvEl.textContent = 'Lv.' + playerProgress.level;
-    if (xpEl && typeof xpNeededForLevel === 'function') {
+    if (typeof xpNeededForLevel === 'function') {
       const needed = xpNeededForLevel(playerProgress.level);
-      xpEl.textContent = `${playerProgress.xp.toLocaleString()}/${needed.toLocaleString()}`;
+      if (xpEl) xpEl.textContent = `${playerProgress.xp.toLocaleString()}/${needed.toLocaleString()}`;
+      if (xpFillEl) xpFillEl.style.width = `${Math.min(100, (playerProgress.xp / needed) * 100)}%`;
     }
   }
   const bestScores = (typeof saveData !== 'undefined' && Array.isArray(saveData.bestScores)) ? saveData.bestScores : [];
@@ -9760,7 +10084,31 @@ function renderAchievementStatsTab(){
       ? window.Achievements.getStatValue('totalPlayTimeSec') : 0;
     ptEl.textContent = formatAchievementPlayTime(sec);
   }
+  // FB対応：実績達成率を記録タブに掲載（js/achievements.jsのgetCompletionRate()を利用。
+  // メタ実績「コンプリート」自身は分母に含めない仕様はgetCompletionRate側で対応済み）
+  const compEl = document.getElementById('achv-stat-completion');
+  if (compEl) {
+    const rate = (window.Achievements && typeof window.Achievements.getCompletionRate === 'function')
+      ? window.Achievements.getCompletionRate() : 0;
+    compEl.textContent = `${Math.round(rate * 100)}%`;
+  }
+  renderSkillUnlockNextHint();
   renderSkillUnlockRefList();
+}
+
+// FB対応：タイトル画面の「Lv.〇〇で、スキル：〇〇獲得」と同じ案内を、記録タブにも掲載する。
+// スキル解放レベル一覧のすぐ上に、直近で解放されるスキルが何レベで手に入るかを表示する
+function renderSkillUnlockNextHint(){
+  const el = document.getElementById('skill-unlock-next-hint');
+  if (!el) return;
+  const nextLocked = (typeof getNextLockedSkillInfo === 'function') ? getNextLockedSkillInfo() : null;
+  if (nextLocked) {
+    el.classList.remove('all-done');
+    el.innerHTML = `Lv.<b>${nextLocked.level}</b>で、スキル：${nextLocked.def.name}獲得`;
+  } else {
+    el.classList.add('all-done');
+    el.textContent = '全スキル解放済み！';
+  }
 }
 
 // 記録タブ最下部：レベル解放スキル（SKILL_UNLOCK_LEVELS）が何レベで解放されるかの一覧。
@@ -9845,23 +10193,50 @@ function renderAchievementScreen(){
   renderAchievementListTab();
 }
 
-// ── 遊び方オーバーレイ（オンボーディング型カルーセル：画像+キャプション+矢印+ドット） ──
-// ページ数・実際の説明文・画像はまだ未確定のため、5ページ分すべてプレースホルダーで仮組みしている。
-const HOWTOPLAY_PAGE_COUNT = 5;
-const HOWTOPLAY_PAGES = Array.from({ length: HOWTOPLAY_PAGE_COUNT }, (_, i) => {
-  const n = i + 1;
-  return {
-    image: `assets/tutorial/page${n}.webp`, // 実ファイルは.webpで格納されている
-    caption: `ページ${n}：（ここに説明テキストが入ります）`,
-  };
-});
+// ── 遊び方オーバーレイ（オンボーディング型カルーセル：タイトル+画像+キャプション+矢印+ドット） ──
+// FB対応：初見・ゲーム未経験の50代でも一目で分かることを目標に、5ページ分の説明文を確定。
+// 各ページ「1つの操作・1つの概念」だけに絞り、専門用語（チェイン数・SPゲージ等）は避けている。
+// title＝画像の上に大きく出す一言キャッチ、caption＝画像の下に添える詳しい説明。
+// 画像はいずれもプレースホルダーとしてassets/tutorial/page1〜5.webpに仮格納中（後日差し替え予定）。
+// 想定サイズ：1200×900px（4:3、#howtoplay-image-boxのaspect-ratio:4/3に合わせる）程度のwebp。
+// object-fit:containで表示するため多少比率がずれても崩れないが、4:3に近いほど余白なく綺麗に収まる。
+const HOWTOPLAY_PAGES = [
+  {
+    image: 'assets/tutorial/page1.webp',
+    title: 'きらめく玉が漂う宇宙を、小さな船で駆けろ！',
+    caption: 'ここは、色とりどりの玉「磁晶核（じしょうかく）」が漂う宇宙。あなたは小さな宇宙船に乗り、玉を集めながら宇宙を飛びまわります。玉をたくさんつなげて弾くほど、高得点になります。',
+  },
+  {
+    image: 'assets/tutorial/page2.webp',
+    title: '指でなぞって、押して、離すだけ',
+    caption: '①画面を指でなぞると、その方向へ船が進みます（船は自動で前に進み続けます）。②画面を押さえている間は玉を引き寄せます（S極）。③指を離すと、集めた玉を勢いよく打ち出します（N極）。',
+  },
+  {
+    image: 'assets/tutorial/page3.webp',
+    title: '玉をぶつけて弾くほど、得点がどんどん増える',
+    caption: '漂っている玉を引き寄せて、まとめて弾いてみましょう。玉どうしがぶつかると弾け（爆発し）、次々に連鎖するほど得点が大きくなります。赤色や金色の特別な玉は、弾くと特に高得点。できるだけ長くつなげるのが目標です！',
+  },
+  {
+    image: 'assets/tutorial/page4.webp',
+    title: '岩には気をつけて。でも、光りだしたらチャンス！',
+    caption: '宇宙には壊せない岩が浮かんでいます。ぶつかると少しダメージ（バッテリー減）を受けるので注意しましょう。岩がまれに光って震えることがあり、これは「覚醒」のサイン。覚醒中の岩は玉を跳ね返したり増やしたりと特別な効果を起こし、うまく使えば得点チャンスになります。近くの大きな装置も、玉を弾くたびにエネルギーが溜まり、たまると宇宙に大きな変化（パワーアップ）が起こります。',
+  },
+  {
+    image: 'assets/tutorial/page5.webp',
+    title: 'ボタンを押すと、特別な一撃！',
+    caption: '画面のスキルボタンを押すと、選んでおいた特別な技が使えます。時間を止めたり、船を速くしたり、玉を一気に吹き飛ばしたりと、技の種類はいろいろ。プレイ前に好きなスキルを選んでおけます。まずは1つ試して、自分に合うものを見つけましょう！',
+  },
+];
+const HOWTOPLAY_PAGE_COUNT = HOWTOPLAY_PAGES.length;
 let howToPlayPageIndex = 0;
 
 function renderHowToPlayPage(){
   const page = HOWTOPLAY_PAGES[howToPlayPageIndex];
   if (!page) return;
+  const titleEl = document.getElementById('howtoplay-title');
   const imgEl = document.getElementById('howtoplay-image');
   const capEl = document.getElementById('howtoplay-caption');
+  if (titleEl) titleEl.textContent = page.title;
   if (imgEl) imgEl.src = page.image;
   if (capEl) capEl.textContent = page.caption;
   const prevBtn = document.getElementById('howtoplay-prev');
@@ -9878,6 +10253,9 @@ function renderHowToPlayPage(){
       dotsEl.appendChild(dot);
     });
   }
+  // FB対応：最後のページに到達した時だけ、大きな黄色の「とじる」ボタンを表示する
+  const finishCloseBtn = document.getElementById('howtoplay-finish-close');
+  if (finishCloseBtn) finishCloseBtn.classList.toggle('hide', howToPlayPageIndex !== HOWTOPLAY_PAGES.length - 1);
 }
 function howToPlayGoTo(index){
   howToPlayPageIndex = Math.max(0, Math.min(HOWTOPLAY_PAGES.length - 1, index));
@@ -9902,6 +10280,8 @@ document.getElementById('title-howtoplay-btn').addEventListener('touchstart', e 
 },{passive:false});
 document.getElementById('howtoplay-close').addEventListener('click', () => closeHowToPlay());
 document.getElementById('howtoplay-close').addEventListener('touchstart', e => { e.preventDefault(); closeHowToPlay(); },{passive:false});
+document.getElementById('howtoplay-finish-close').addEventListener('click', () => closeHowToPlay());
+document.getElementById('howtoplay-finish-close').addEventListener('touchstart', e => { e.preventDefault(); closeHowToPlay(); },{passive:false});
 document.getElementById('howtoplay-prev').addEventListener('click', () => howToPlayGoTo(howToPlayPageIndex - 1));
 document.getElementById('howtoplay-prev').addEventListener('touchstart', e => { e.preventDefault(); howToPlayGoTo(howToPlayPageIndex - 1); },{passive:false});
 document.getElementById('howtoplay-next').addEventListener('click', () => howToPlayGoTo(howToPlayPageIndex + 1));
