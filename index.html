@@ -541,16 +541,30 @@ canvas { display:block; width:100%; height:100%; }
 }
 #howtoplay-image { width:100%; height:100%; object-fit:contain; display:block; }
 /* FB対応：チュートリアル文言を実際に組み込むにあたり追加。「パッと分かる」ための
-   一言キャッチを画像の上に大きく見せ、詳しい説明は下のcaptionに小さく添える2段構成にする */
+   一言キャッチを画像の上に大きく見せ、詳しい説明は下のcaptionに小さく添える2段構成にする。
+   FB対応②：文字は中央揃えではなく左揃えに統一（キャッチ・見出し・本文とも）。 */
+/* FB対応：#howtoplay-cardがalign-items:centerのflexコンテナのため、幅を指定しない
+   div は中身の文字数ぶんだけの幅（shrink-to-fit）になり、特に短い見出しでは箱ごと中央に
+   寄って見えていた（text-align:leftが効く前提の「箱の幅いっぱい」になっていなかった）。
+   width:100%を明示して、必ずカード幅いっぱいの箱にしてから左揃えする */
+/* FB対応：キャッチコピーの色を黄色に変更。#ffd700はLv MAX表示などで既に使っている
+   「強調テキスト」用のゴールドイエローで、それに合わせている */
 #howtoplay-title {
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
   font-size:15px; font-weight:bold; letter-spacing:1px; line-height:1.5;
-  color:#f5f7fa; text-align:center; margin-bottom:14px;
+  color:#ffd700; text-align:left; margin-bottom:6px; width:100%;
+}
+/* FB対応：キャッチコピーの下に、ページの見出し（例：「世界観について」）を追加。
+   文字サイズは44px→#skill-select-titleと同じ22px→24pxとFBを反映して調整 */
+#howtoplay-heading {
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:24px; font-weight:bold; line-height:1.3;
+  color:#f5f7fa; text-align:left; margin-bottom:14px; width:100%;
 }
 #howtoplay-caption {
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
-  font-size:12px; line-height:1.8; color:rgba(245,247,250,0.85); text-align:center;
-  margin-top:20px; min-height:3.6em;
+  font-size:12px; line-height:1.8; color:rgba(245,247,250,0.85); text-align:left;
+  margin-top:20px; min-height:3.6em; width:100%;
 }
 #howtoplay-nav {
   display:flex; align-items:center; gap:18px; margin-top:26px;
@@ -921,6 +935,35 @@ canvas { display:block; width:100%; height:100%; }
   display:flex; align-items:center; justify-content:center; cursor:pointer; -webkit-tap-highlight-color:transparent;
 }
 
+/* ── バッテリー切れ直後の静止演出（決戦フェーズに入る前の「間」）専用オーバーレイ ── */
+/* FB対応：「決戦フェーズに移行する直前がゆとり無い」との指摘。バッテリーが0になった瞬間、
+   決戦フェーズの暗転を始める前に画面をその場で静止させ、赤みを点滅させて「バッテリー切れ」を
+   強調する4秒間を挟む。通常はJSでdisplay:none/opacity:0。詳細は battery<=0 の判定部を参照。 */
+#battery-empty-flash {
+  position:fixed; inset:0; z-index:97; display:none; pointer-events:none;
+  background:radial-gradient(ellipse at center, rgba(255,30,30,0) 45%, rgba(255,20,20,0.6) 100%);
+  opacity:0;
+}
+#battery-empty-flash.show {
+  display:block; animation:batteryEmptyPulse 1s ease-in-out infinite;
+}
+@keyframes batteryEmptyPulse {
+  0%, 100% { opacity:0.45; }
+  50% { opacity:0.85; }
+}
+
+/* ── 決戦フェーズ（バッテリー切れ→リザルトの間に挟む一撃貫通演出）専用オーバーレイ ── */
+/* 通常は非表示。playShowdownPhase()実行中だけJSでdisplay:blockにする、本編loop/drawとは
+   完全に独立した自前アニメーションキャンバス（詳細はplayShowdownPhaseの定義部を参照）。 */
+#showdown-canvas {
+  position:fixed; inset:0; z-index:96; display:none;
+  transition:filter 0.5s ease;
+}
+/* 演出が終わった直後、リザルト（#gameover-box）の背景としてそのまま残す際に、
+   ぼかし・減光してリザルトを引き立てる（画面遷移はせず、その場の絵を背景として残し続ける）。
+   詳細はplayShowdownPhaseの定義部・#gameover.showdown-revealを参照。 */
+#showdown-canvas.dimmed { filter:blur(6px) brightness(0.45); }
+
 /* ── リザルト画面 ── */
 #gameover {
   position:fixed; inset:0; background:rgba(255,255,255,0);
@@ -929,6 +972,18 @@ canvas { display:block; width:100%; height:100%; }
   transition:opacity 0.6s, background 0.6s;
 }
 #gameover.show { opacity:1; pointer-events:auto; background:rgba(6,9,18,0.96); }
+/* 決戦フェーズ経由のFINISH表示だけに適用する見た目バリエーション。#gameoverの既定
+   （他経路・例：quitFromPause()経由の通常表示）には一切影響しないよう専用クラスでスコープ
+   している。背景を暗転させず、決戦フェーズの最終カット（#showdown-canvas.dimmedで
+   ぼかし・減光した絵）をそのまま背景として見せながら、#gameover-boxだけを画面下から
+   スライドインさせる（画面遷移せず、その場の絵を背景に残したいという要望に対応）。 */
+#gameover.showdown-reveal { transition:none; }
+#gameover.showdown-reveal.show { background:transparent; }
+#gameover.showdown-reveal #gameover-box {
+  transform:translateY(120vh);
+  transition:transform 0.55s cubic-bezier(.2,.9,.25,1.05);
+}
+#gameover.showdown-reveal.show #gameover-box { transform:translateY(0); }
 #gameover-box {
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif; color:#111; text-align:center;
   padding:36px 24px;
@@ -1811,6 +1866,12 @@ canvas { display:block; width:100%; height:100%; }
 <!-- ボイルアニメーション用キャンバス（モード選択ボタンの枠線を手描き風にブルブルさせる演出） -->
 <canvas id="boil-canvas" style="position:fixed;inset:0;pointer-events:none;z-index:500;"></canvas>
 
+<!-- バッテリー切れ直後、決戦フェーズの暗転が始まる前の静止＋赤み演出（battery<=0の判定部を参照） -->
+<div id="battery-empty-flash"></div>
+
+<!-- 決戦フェーズ演出用キャンバス（バッテリー切れ→リザルトの間だけ表示。playShowdownPhase()参照） -->
+<canvas id="showdown-canvas"></canvas>
+
 <!-- カオスオーバーレイ -->
 <div id="chaos-overlay"></div>
 
@@ -2058,6 +2119,7 @@ canvas { display:block; width:100%; height:100%; }
   <button id="howtoplay-close" aria-label="閉じる">×</button>
   <div id="howtoplay-card">
     <div id="howtoplay-title"></div>
+    <div id="howtoplay-heading"></div>
     <div id="howtoplay-image-box">
       <img id="howtoplay-image" src="" alt="">
     </div>
@@ -2468,7 +2530,7 @@ const SKILL_DEFS = [
   { id:'typhoon', name:'重力崩壊',     icon:'🌪', spCost:200, maxStock:1, desc:'約3秒間、周囲の玉とアイテムを引き寄せる' },
   { id:'shield',  name:'シールド',     icon:'🛡', spCost:100, maxStock:2, desc:'約10秒間、Sで引き寄せた玉を保護。バッテリーのハズレも無効化' },
   { id:'bubble',  name:'フリーズショット', icon:'🫧', spCost:100,  maxStock:1, desc:'狙いを定め、玉を勢いよく前方に飛ばす' },
-  { id:'beacon',  name:'フリーズハンド', icon:'🥢', spCost:100, maxStock:1, desc:'約5秒間、時を止めて、触れた場所の近くに玉を寄せ集める' },
+  { id:'beacon',  name:'フリーズハンド', icon:'🥢', spCost:100, maxStock:1, desc:'約7秒間、時を止めて、触れた場所の近くに玉を寄せ集める' },
   { id:'sweep',   name:'スターウェーブ', icon:'🧹', spCost:100, maxStock:2, desc:'前方を薙ぎ払い、玉を吹き飛ばす' },
   { id:'energyConverter', name:'エネルギー変換器', icon:'🔌', spCost:150, maxStock:1, desc:'約10秒間、爆発ごとにバッテリーを回復する' },
 ];
@@ -2837,7 +2899,7 @@ let holeOpenTimer  = 0;   // 開放残り時間
 let holeNextTimer  = 3;   // 次の穴が開くまでの間隔（秒）
 const HOLE_OPEN_DURATION = 60; // 穴が開いている時間（秒）
 const HOLE_GAP_DURATION  = 3;  // 穴が閉じてから次が開くまで（秒）
-const HOLE_GOAL_POINTS   = 20; // 発動に必要なポイント
+const HOLE_GOAL_POINTS   = 25; // 発動に必要なポイント（FB対応：20→25）
 const HOLE_R             = 96; // 穴の半径（プレイヤーと同等）
 // ギミック定義
 const HOLE_GIMMICKS = [
@@ -3016,7 +3078,9 @@ function initGame(mode) {
   document.getElementById('skill-stocks').innerHTML = '';
   document.getElementById('skill-btn').classList.remove('holding');
   document.getElementById('skill-ui').classList.add('hide');
-  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('gameover').classList.remove('show', 'showdown-reveal');
+  { const sdc = document.getElementById('showdown-canvas'); sdc.style.display = 'none'; sdc.classList.remove('dimmed'); }
+  document.getElementById('battery-empty-flash').classList.remove('show');
   document.getElementById('title-screen').classList.add('hide');
   document.getElementById('skill-select').classList.add('hide');
   const td = document.getElementById('hud-timer');
@@ -4294,7 +4358,7 @@ function activateBeacon(){
   dragFreezeActive = true;
   dragFreezeElapsed = 0;
   skillActive = true;
-  skillTimer = 5.0; // フリーズショットと同じ長さ（時が止まっている時間）
+  skillTimer = 7.0; // FB対応：5秒→7秒に延長（時が止まっている時間）
   // タッチ前のデフォルト位置（自機の少し前方）。実際に画面へ触れた瞬間、そちらへ切り替わる
   dragPoint = {
     x: (((player.wx + Math.cos(player.angle)*80) % WORLD_W) + WORLD_W) % WORLD_W,
@@ -4312,7 +4376,7 @@ function activateBeacon(){
 }
 
 // フリーズハンド：時間停止を早めに解除して再開する（スキルボタン再タップ・「OK」ボタン・
-// 5秒経過のいずれからもここを通る。フリーズショットのfinishBubbleAim()と同じ位置づけ）
+// 7秒経過のいずれからもここを通る。フリーズショットのfinishBubbleAim()と同じ位置づけ）
 function finishBeaconFreeze(){
   if(!dragFreezeActive) return;
   dragFreezeActive = false;
@@ -4343,6 +4407,732 @@ function calcDensity() {
   }
   return Math.min(1,d/12);
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// 決戦フェーズ（エネルギー砲・一発貫通版）
+// バッテリーが尽きた瞬間、リザルト表示の直前に挟む短い演出。①バッテリー切れの瞬間の画面を
+// キャプチャして暗転の下敷きにし、自機だけを浮かび上がらせる→②自機が定位置へスライドして
+// くると同時に、敵編隊が手前（プレイヤーに近い雑魚）から順に上から降ってくる（着地まで
+// 全体で1秒未満）→③自機の目の前でスコア分のエネルギーを1回だけチャージ（ためている間は
+// 尾を引かず、光る球が育つだけ。発射の瞬間だけ尾が出る。1秒固定）→④一発だけ発射。その
+// 一撃が敵の列（雑魚→精鋭→中ボス→BOSS）を貫通しながら1体ずつ砕いていく→⑤到達ランクを
+// スタンプ→⑥画面遷移はせず、その場の絵をぼかし・減光した背景として残したまま、本編と
+// 同じFINISHパネル（#gameover-box）を画面下からスライドインさせる。演出そのものはプレイ
+// ヤー操作の影響を受けず、結果はこれまで通りスコアのみで決まる（triggerGameOver()の判定・
+// スコア計算には一切手を加えていない）。
+// 専用のオーバーレイキャンバス（#showdown-canvas）に完結して描画するため、本編のゲーム
+// ループ（loop/update/draw）やcam・player等の状態には一切触れない。
+// 実装は proposals/kessen_phase_prototype.html の決戦フェーズ試作をそのまま移植したもの
+// （見た目・タイミングは試作と同一。試作の340×604キャンバス基準の「空間量」は、実機の
+// 画面の高さ（H）を基準にH/604倍（=S）して、機種ごとの画面サイズ・アスペクト比に関わらず
+// 試作と同じ見え方になるよう換算している。「時間の長さ」（ms）は空間量ではないためSは
+// 掛けていない）。敵の見た目はまだ専用イラストが無いため、試作と同じ簡易プレースホルダー
+// （色付きの丸＋目）のまま。イラストが用意でき次第、drawEnemy()を差し替えるだけで済むように
+// してある。
+// ══════════════════════════════════════════════════════════════════════
+const playShowdownPhase = (() => {
+  const sdCanvas = document.getElementById('showdown-canvas');
+  const sctx = sdCanvas.getContext('2d');
+  let W = 0, H = 0, S = 1; // S：試作(340×604)基準からの換算倍率（=H/604）
+
+  // ── 直前フレームのスナップショット（暗転演出用） ──
+  // バッテリー切れの瞬間、update(dt)冒頭でgameRunning=falseにするため、loop()側の
+  // 「if(gameRunning && !gamePaused) update(dt);」「if((gameRunning && !gamePaused) || introState) draw();」
+  // により本編のシミュレーション・描画は次のフレームから即座に止まる。つまり#c（本編キャンバス）は
+  // その時点の絵のまま固まっている。ここではその固まった絵をそのままキャプチャして、暗転演出の
+  // 下敷きとして使う（唐突に別の絵へ切り替わる違和感を消すため）。
+  const snapshotCanvas = document.createElement('canvas');
+  const snapshotCtx = snapshotCanvas.getContext('2d');
+  function captureSnapshot() {
+    const gameCanvas = document.getElementById('c');
+    snapshotCanvas.width = gameCanvas.width;
+    snapshotCanvas.height = gameCanvas.height;
+    snapshotCtx.drawImage(gameCanvas, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+  }
+
+  // ゾーン定義：C=青/10万・B=本編のブランドカラーである青緑(#00a5ad)/50万・A=黄色/200万・
+  // S=ビビッドな赤紫/1000万（試作で詰めた配色・閾値をそのまま採用）
+  const ZONES = [
+    { key:'C', label:'漂流する敵影',    enemyLabel:'雑魚複数体',   need:100000,   color:'#5aa4ff', enemyCount:5, kind:'swarm' },
+    { key:'B', label:'少数精鋭部隊',    enemyLabel:'少数精鋭2〜3体', need:500000, color:'#00a5ad', enemyCount:3, kind:'squad' },
+    { key:'A', label:'中型の脅威',      enemyLabel:'中ボス',        need:2000000, color:'#ffd700', enemyCount:1, kind:'midboss' },
+    { key:'S', label:'深宇宙の覇者',    enemyLabel:'BOSS',          need:10000000, color:'#e91e8c', enemyCount:1, kind:'boss' },
+  ];
+
+  function computeRun(sc) {
+    sc = Math.max(0, sc);
+    let prevThreshold = 0;
+    const cleared = [];
+    for (let i = 0; i < ZONES.length; i++) {
+      const z = ZONES[i];
+      if (sc >= z.need) { cleared.push(z.key); prevThreshold = z.need; continue; }
+      const span = z.need - prevThreshold;
+      const progress = span > 0 ? (sc - prevThreshold) / span : 1;
+      return { zoneIndex:i, zone:z, progress: Math.max(0, Math.min(1, progress)), cleared, fullClear:false };
+    }
+    return { zoneIndex:ZONES.length - 1, zone:ZONES[ZONES.length - 1], progress:1, cleared, fullClear:true };
+  }
+
+  function sdHexToRgb(hex) {
+    const v = parseInt(hex.slice(1), 16);
+    return [(v>>16)&255, (v>>8)&255, v&255];
+  }
+
+  let stars = [];
+  function buildStars() {
+    stars = Array.from({length:70}, () => ({
+      x: Math.random()*W, y: Math.random()*H, r: Math.random()*1.4+0.3, a: Math.random()*0.5+0.2
+    }));
+  }
+  function drawStarfield(tint) {
+    sctx.fillStyle = '#0a0e1a';
+    sctx.fillRect(-W, -H, W*3, H*3);
+    if (tint) {
+      const g = sctx.createRadialGradient(W/2,H*0.4,10,W/2,H*0.4,H*0.7);
+      g.addColorStop(0, tint + '33');
+      g.addColorStop(1, 'transparent');
+      sctx.fillStyle = g; sctx.fillRect(-W, -H, W*3, H*3);
+    }
+    for (const s of stars) {
+      sctx.beginPath(); sctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      sctx.fillStyle = `rgba(245,247,250,${s.a})`; sctx.fill();
+    }
+  }
+
+  function drawBurst(x, y, r, life, cA, cB) {
+    const alpha = Math.max(0, life);
+    if (alpha <= 0.01 || r <= 0.5) return;
+    sctx.beginPath(); sctx.arc(x, y, r, 0, Math.PI*2);
+    const grad = sctx.createLinearGradient(x-r, y, x+r, y);
+    grad.addColorStop(0, `rgba(${cA.join(',')},${alpha*0.85})`);
+    grad.addColorStop(1, `rgba(${cB.join(',')},${alpha*0.85})`);
+    sctx.strokeStyle = grad; sctx.lineWidth = 2.2; sctx.stroke();
+    if (life > 0.6) {
+      const flashA = (life - 0.6) / 0.4;
+      sctx.beginPath(); sctx.arc(x, y, Math.max(0, r*0.4*flashA), 0, Math.PI*2);
+      sctx.fillStyle = `rgba(255,255,255,${flashA*0.9})`; sctx.fill();
+    }
+  }
+
+  // 敵の見た目（簡易プレースホルダー：形とサイズだけでタイプを区別。専用イラスト実装待ち）
+  function drawEnemy(x, y, radius, color, hitFlash) {
+    sctx.save();
+    sctx.translate(x, y);
+    const rgb = sdHexToRgb(color);
+    const glowR = radius * (1.5 + Math.sin(Date.now()*0.004)*0.08);
+    const g = sctx.createRadialGradient(0,0,0,0,0,glowR);
+    g.addColorStop(0, `rgba(${rgb.join(',')},0.35)`);
+    g.addColorStop(1, 'transparent');
+    sctx.beginPath(); sctx.arc(0,0,glowR,0,Math.PI*2); sctx.fillStyle=g; sctx.fill();
+
+    sctx.beginPath();
+    sctx.arc(0, 0, radius, 0, Math.PI*2);
+    sctx.fillStyle = hitFlash > 0 ? `rgba(255,255,255,${hitFlash})` : '#12182a';
+    sctx.fill();
+    sctx.lineWidth = 2;
+    sctx.strokeStyle = color;
+    sctx.stroke();
+    sctx.fillStyle = color;
+    const eyeR = Math.max(1.5, radius*0.14);
+    sctx.beginPath(); sctx.arc(-radius*0.3, -radius*0.08, eyeR, 0, Math.PI*2); sctx.fill();
+    sctx.beginPath(); sctx.arc(radius*0.3, -radius*0.08, eyeR, 0, Math.PI*2); sctx.fill();
+    sctx.restore();
+  }
+
+  function drawHpBar(x, y, w, h, ratio, color) {
+    sctx.fillStyle = 'rgba(255,255,255,0.12)';
+    sctx.fillRect(x, y, w, h);
+    sctx.fillStyle = color;
+    sctx.fillRect(x, y, Math.max(0, w*ratio), h);
+    sctx.strokeStyle = 'rgba(255,255,255,0.35)'; sctx.lineWidth = 1;
+    sctx.strokeRect(x+0.5, y+0.5, w-1, h-1);
+  }
+
+  function drawLabel(text, y, size, color, alpha=1, weight='bold', spacing=1) {
+    sctx.save();
+    sctx.globalAlpha = alpha;
+    sctx.font = `${weight} ${size}px 'Courier New', monospace`;
+    sctx.fillStyle = color;
+    sctx.textBaseline = 'middle';
+    const chars = [...text];
+    let totalW = 0;
+    const widths = chars.map(c => { const w = sctx.measureText(c).width; totalW += w + spacing; return w; });
+    let cx = W/2 - totalW/2;
+    for (let i=0;i<chars.length;i++){
+      sctx.textAlign = 'left';
+      sctx.fillText(chars[i], cx, y);
+      cx += widths[i] + spacing;
+    }
+    sctx.restore();
+  }
+
+  let FLIGHT_LANE_X, SHIP_HOME_Y, HUD_Y, CAMERA_PIVOT_Y, STANDOFF, CAMERA_FRAME_STANDOFF;
+  const ZOOM = 1.85;
+
+  // 自機（簡易プレースホルダー：試作と同じ三角形）
+  function drawShip(x, y, glow, angle=0) {
+    sctx.save();
+    sctx.translate(x, y);
+    if (angle) sctx.rotate(angle);
+    if (glow > 0) {
+      const gr = 32*S;
+      const g = sctx.createRadialGradient(0,0,0,0,0,gr);
+      g.addColorStop(0, `rgba(255,215,0,${0.55*glow})`);
+      g.addColorStop(1, 'transparent');
+      sctx.beginPath(); sctx.arc(0,0,gr,0,Math.PI*2); sctx.fillStyle=g; sctx.fill();
+    }
+    sctx.beginPath();
+    sctx.moveTo(0,-20*S);
+    sctx.lineTo(15*S,14*S);
+    sctx.lineTo(0,6*S);
+    sctx.lineTo(-15*S,14*S);
+    sctx.closePath();
+    sctx.fillStyle = '#dfe6f2';
+    sctx.fill();
+    sctx.strokeStyle = '#8fa2c8'; sctx.lineWidth = 1.5; sctx.stroke();
+    sctx.beginPath(); sctx.arc(0,-3*S,3.6*S,0,Math.PI*2); sctx.fillStyle = '#5aa4ff'; sctx.fill();
+    sctx.restore();
+  }
+
+  // 発射された弾そのもの（チャージ中〜貫通中〜撃破後まで一貫して同じ見た目）：
+  // 玉ではなく尾を引くビーム。進行方向は常に「上（Yが小さくなる方向）」なので、
+  // 尾は常に頭の位置から+Y側（下＝後方）へ伸ばす。tailLenが十分小さい間（＝チャージ中）は
+  // 尾を出さず、ただ光る球（芯）が育っていくだけの見た目にする
+  // （「ためてる間は尾を引かない。発射時に尾を出す」ため）。
+  function drawBeam(x, y, r, tailLen, glowBoost) {
+    if (r <= 0.4) return;
+    const hasTail = tailLen > 0.5*S;
+    sctx.save();
+    if (!hasTail) {
+      const glowR = r*1.6;
+      const glowGrad = sctx.createRadialGradient(x,y,0,x,y,glowR);
+      glowGrad.addColorStop(0, `rgba(255,170,60,${0.42*Math.max(0,glowBoost)})`);
+      glowGrad.addColorStop(1, 'rgba(255,170,60,0)');
+      sctx.fillStyle = glowGrad;
+      sctx.beginPath(); sctx.arc(x,y,glowR,0,Math.PI*2); sctx.fill();
+
+      const coreGrad = sctx.createRadialGradient(x,y,0,x,y,r);
+      coreGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+      coreGrad.addColorStop(0.5, 'rgba(255,205,130,0.92)');
+      coreGrad.addColorStop(1, 'rgba(255,170,60,0.85)');
+      sctx.fillStyle = coreGrad;
+      sctx.beginPath(); sctx.arc(x,y,r,0,Math.PI*2); sctx.fill();
+
+      sctx.strokeStyle = 'rgba(0,0,0,0.55)';
+      sctx.lineWidth = Math.max(1.2, r*0.1);
+      sctx.beginPath(); sctx.arc(x, y, r, 0, Math.PI*2); sctx.stroke();
+      sctx.restore();
+      return;
+    }
+    const tailY = y + tailLen;
+    const glowGrad = sctx.createLinearGradient(x, y, x, tailY);
+    glowGrad.addColorStop(0, `rgba(255,170,60,${0.42*Math.max(0,glowBoost)})`);
+    glowGrad.addColorStop(1, 'rgba(255,170,60,0)');
+    sctx.fillStyle = glowGrad;
+    beamCapsule(r*1.6);
+    sctx.fill();
+    const coreGrad = sctx.createLinearGradient(x, y, x, tailY);
+    coreGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    coreGrad.addColorStop(0.18, 'rgba(255,205,130,0.92)');
+    coreGrad.addColorStop(1, 'rgba(255,170,60,0)');
+    sctx.fillStyle = coreGrad;
+    beamCapsule(r);
+    sctx.fill();
+    sctx.strokeStyle = 'rgba(0,0,0,0.55)';
+    sctx.lineWidth = Math.max(1.2, r*0.1);
+    sctx.beginPath(); sctx.arc(x, y, r, 0, Math.PI*2); sctx.stroke();
+    sctx.restore();
+
+    function beamCapsule(rad) {
+      sctx.beginPath();
+      sctx.moveTo(x - rad, y);
+      sctx.arc(x, y, rad, Math.PI, 0, false);
+      sctx.lineTo(x + rad, tailY);
+      sctx.lineTo(x - rad, tailY);
+      sctx.closePath();
+    }
+  }
+
+  // 命中の瞬間に走るヒビ（瓦割りの「割れる前」を表現）
+  function drawCracks(x, y, radius, angles, growth, alpha) {
+    if (growth <= 0.01) return;
+    sctx.save();
+    sctx.globalAlpha = alpha;
+    sctx.strokeStyle = 'rgba(255,255,255,0.92)';
+    sctx.lineWidth = 1.6;
+    sctx.lineJoin = 'round';
+    angles.forEach((ang, idx) => {
+      const len = radius * growth;
+      const jag = radius * 0.2;
+      const midAng = ang + (idx % 2 === 0 ? 0.16 : -0.16);
+      sctx.beginPath();
+      sctx.moveTo(x, y);
+      sctx.lineTo(
+        x + Math.cos(midAng)*len*0.55 + Math.cos(midAng+1.4)*jag*0.4,
+        y + Math.sin(midAng)*len*0.55 + Math.sin(midAng+1.4)*jag*0.4
+      );
+      sctx.lineTo(x + Math.cos(ang)*len, y + Math.sin(ang)*len);
+      sctx.stroke();
+    });
+    sctx.restore();
+  }
+
+  // 瓦割りのように、命中した敵が破片となって砕け散る演出。opts.count/spreadで派手さを
+  // 調整できる（最後の1体はより多く・より広く砕け散るようstageBarrage側で強めに指定する）。
+  function drawShatter(x, y, radius, color, t, opts = {}) {
+    const K = opts.count || 8;
+    const spread = opts.spread || 1.3;
+    const rgb = sdHexToRgb(color);
+    const ease = 1 - Math.pow(1-t, 2);
+    for (let k = 0; k < K; k++) {
+      const a0 = (k/K)*Math.PI*2, a1 = ((k+1)/K)*Math.PI*2;
+      const mid = (a0+a1)/2;
+      const jitter = Math.sin(k*12.9898 + radius*0.7) * 0.5;
+      const push = ease * (radius*2.6 + 46*S) * spread * (0.7 + 0.5*(jitter+0.5));
+      const fx = x + Math.cos(mid)*push;
+      const fy = y + Math.sin(mid)*push;
+      const rot = t * (k % 2 === 0 ? 3.4 : -3.4) * (1 + jitter*0.5);
+      const scale = Math.max(0, 1 - t*0.3);
+      sctx.save();
+      sctx.globalAlpha = Math.max(0, 1-t*0.92);
+      sctx.translate(fx, fy);
+      sctx.rotate(rot);
+      sctx.beginPath();
+      sctx.moveTo(0,0);
+      sctx.arc(0, 0, radius*scale, a0, a1);
+      sctx.closePath();
+      sctx.fillStyle = `rgba(${rgb.join(',')},0.85)`;
+      sctx.fill();
+      sctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      sctx.lineWidth = 1.4;
+      sctx.stroke();
+      sctx.restore();
+    }
+  }
+
+  // ── 敵編隊（縦一列）：C=雑魚5体→B=精鋭3体→A=中ボス1体→S=BOSS1体、手前（下）から奥（上）へ一列で配置 ──
+  const RADIUS_BASE = { swarm:11, squad:15, midboss:27, boss:36 }; // 試作(H=604)基準。実機ではH/604倍する
+  const BEAT_BY_KIND = {
+    swarm:   { pan:144, charge:136, fire:56, hitstop:44, break:152, hold:48 },
+    squad:   { pan:160, charge:168, fire:68, hitstop:52, break:184, hold:64 },
+    midboss: { pan:208, charge:272, fire:96, hitstop:72, break:256, hold:104 },
+    boss:    { pan:240, charge:368, fire:120, hitstop:96, break:336, hold:160 },
+  };
+  const FINAL_STRAIN_BY_KIND = { swarm:700, squad:820, midboss:980, boss:1150 };
+  // FB対応：「敵を倒し終えた後、すぐスタンプ演出に切り替わって間隔が早すぎる」との指摘。
+  // 最後の1体が砕けるバースト演出（tierBeat.break）が終わった後、スタンプ演出（stageStamp）に
+  // 移るまでの「間」を確保するための固定ホールド時間（旧：176固定）。
+  const FINAL_BURST_HOLD_MS = 650;
+
+  let ROSTER = [], TOTAL_ENEMIES = 0, states = [];
+
+  function buildRoster() {
+    const nodes = [];
+    ZONES.forEach((zone, zi) => {
+      for (let i = 0; i < zone.enemyCount; i++) {
+        nodes.push({ zone, zoneIndex: zi, kind: zone.kind, isBoss: zone.kind === 'midboss' || zone.kind === 'boss' });
+      }
+    });
+    const n = nodes.length;
+    const yNear = H*0.68, yFar = H*0.20;
+    nodes.forEach((node, i) => {
+      const t = n > 1 ? i/(n-1) : 0;
+      node.baseY = yNear + (yFar - yNear) * t;
+      node.baseX = FLIGHT_LANE_X;
+      node.radius = RADIUS_BASE[node.kind] * S;
+      node.dir = (i % 2 === 0) ? 1 : -1;
+      node.crackAngles = [0,1,2,3].map(k => (k/4)*Math.PI*2 + i*0.7);
+    });
+    return nodes;
+  }
+
+  function freshStates() {
+    return ROSTER.map(() => ({ done:false, hitFlash:0, hpRatio:undefined, breakT:0, crackGrowth:0, shakeX:0, shatterOpts:null, fallY:undefined }));
+  }
+
+  function drawChain() {
+    sctx.save();
+    sctx.strokeStyle = 'rgba(255,255,255,0.14)';
+    sctx.lineWidth = 1.5;
+    sctx.setLineDash([4,4]);
+    sctx.beginPath();
+    let first = true;
+    for (let i = 0; i < ROSTER.length; i++) {
+      if (states[i].done) continue;
+      const n = ROSTER[i];
+      const ny = states[i].fallY !== undefined ? states[i].fallY : n.baseY;
+      if (first) { sctx.moveTo(n.baseX, ny); first = false; }
+      else sctx.lineTo(n.baseX, ny);
+    }
+    sctx.stroke();
+    sctx.restore();
+  }
+
+  function drawNode(node, st) {
+    if (st.done) return;
+    const x = node.baseX + (st.shakeX || 0);
+    const y = st.fallY !== undefined ? st.fallY : node.baseY;
+    const { radius, zone } = node;
+    if (st.breakT > 0) {
+      const t = Math.min(1, st.breakT);
+      drawShatter(x, y, radius, zone.color, t, st.shatterOpts || undefined);
+      if (t >= 1) st.done = true;
+      return;
+    }
+    drawEnemy(x, y, radius, zone.color, st.hitFlash);
+    if (st.crackGrowth > 0) drawCracks(x, y, radius, node.crackAngles, st.crackGrowth, 0.9);
+    if (node.isBoss || st.hpRatio !== undefined) {
+      drawHpBar(x - radius, y + radius + 9*S, radius*2, 6*S, st.hpRatio !== undefined ? st.hpRatio : 1, zone.color);
+    }
+  }
+
+  let currentScore = 0;
+  function renderScene(opts = {}) {
+    const { tint = null, showScore = true, shake = 0, ship = null, camera = null, extra = null } = opts;
+    sctx.save();
+    if (shake > 0) {
+      sctx.translate((Math.random()-0.5) * 5*S * shake, (Math.random()-0.5) * 5*S * shake);
+    }
+    sctx.save();
+    if (camera) {
+      sctx.translate(FLIGHT_LANE_X, CAMERA_PIVOT_Y);
+      sctx.scale(camera.zoom, camera.zoom);
+      sctx.translate(-FLIGHT_LANE_X, -camera.y);
+    }
+    drawStarfield(tint);
+    drawChain();
+    for (let i = ROSTER.length - 1; i >= 0; i--) drawNode(ROSTER[i], states[i]);
+    if (ship) drawShip(ship.x, ship.y, ship.glow || 0, ship.angle || 0);
+    if (extra) extra();
+    sctx.restore();
+    if (showScore) {
+      drawLabel('SCORE', HUD_Y, 10*S, 'rgba(245,247,250,0.6)', 1, 'bold', 2);
+      drawLabel(currentScore.toLocaleString(), HUD_Y + 22*S, 16*S, '#ffd700', 1, 'bold', 1);
+    }
+    sctx.restore();
+  }
+
+  // ── アニメーション制御（runId世代カウンタでの多重発火対策込み。試作と同じ仕組み） ──
+  let sdRaf = null;
+  let runId = 0;
+  function stopAnim(){ if (sdRaf) cancelAnimationFrame(sdRaf); sdRaf = null; }
+  function wait(ms){ return new Promise(res => setTimeout(res, ms)); }
+
+  function animate(durationMs, draw, token) {
+    return new Promise(resolve => {
+      const t0 = performance.now();
+      function frame(now){
+        if (token !== undefined && token !== runId) { resolve(); return; }
+        const t = Math.min(1, (now - t0) / durationMs);
+        draw(t);
+        if (t < 1) { sdRaf = requestAnimationFrame(frame); }
+        else resolve();
+      }
+      sdRaf = requestAnimationFrame(frame);
+    });
+  }
+
+  // ①②③ 出現〜チャージ〜発射〜貫通：バッテリー切れの瞬間の画面を下敷きに暗転し、自機だけが
+  // 見える状態から、自機が定位置へスライドしてくると同時に敵編隊が手前（プレイヤーに近い雑魚）
+  // から順に上から降ってくる（着地まで全体で1秒未満）。着地したら間を置かずスコア分のエネル
+  // ギーをチャージし（1秒。チャージ中は尾を引かず、光る球（芯）が育つだけ）→発射。以降は
+  // この一撃が列を貫通しながら1体ずつドアップで映していく。倒しきれない場合は、最後に
+  // 当たった敵はヒビ止まりで力尽きる（追加のチャージ・発射はしない）。
+  async function stageBarrage(run, score, myId) {
+    if (myId !== runId) return;
+    currentScore = score;
+    states = freshStates();
+
+    let defeated = 0;
+    for (let i = 0; i < run.zoneIndex; i++) defeated += ZONES[i].enemyCount;
+    const zoneCount = ZONES[run.zoneIndex].enemyCount;
+    const rawInZone = zoneCount * (run.fullClear ? 1 : run.progress);
+    defeated += Math.floor(rawInZone);
+    defeated = Math.min(TOTAL_ENEMIES, defeated);
+    const fraction = rawInZone - Math.floor(rawInZone);
+    const fullClear = defeated >= TOTAL_ENEMIES;
+
+    const sequence = [];
+    for (let i = 0; i < defeated; i++) sequence.push({ index: i, full: true });
+    if (!fullClear) sequence.push({ index: defeated, full: false });
+
+    const firstNode = ROSTER[sequence[0].index];
+    const lastNode = ROSTER[sequence[sequence.length-1].index];
+    const shipY = firstNode.baseY + STANDOFF;
+    const muzzleY = shipY - 26*S;
+    const chargeR = lastNode.radius * 0.9;
+    const BALL_SPEED = 0.5 * S; // 宇宙空間なので等速。Sで換算し、機種が違ってもテンポが変わらないようにする
+    // カメラの狙いどころは自機の見た目位置（shipY）ではなく、CAMERA_FRAME_STANDOFFという
+    // 固定の基準値だけで決める。こうしないと自機を画面下へ下げるほどカメラの構図まで
+    // 引きずられて下がり、編隊の奥（中ボス・BOSS側）が画面外にクロップされてしまう。
+    const camYTarget = firstNode.baseY + CAMERA_FRAME_STANDOFF / 2;
+
+    // ── ①暗転：バッテリー切れの瞬間の画面をそのまま下敷きに使い、暗くしていく。
+    //    自機だけはそこに浮かんだまま見えている（唐突に別の絵へ切り替わる違和感を消すため）──
+    const DARKEN_MS = 180;
+    await animate(DARKEN_MS, (t) => {
+      sctx.drawImage(snapshotCanvas, 0, 0, W, H);
+      sctx.fillStyle = `rgba(4,6,12,${0.88*t})`;
+      sctx.fillRect(0, 0, W, H);
+      drawShip(FLIGHT_LANE_X, H*0.5, t, 0);
+    }, myId);
+    if (myId !== runId) return;
+
+    // ── ②編隊登場：自機は定位置へスライド、敵は手前（プレイヤーに近い雑魚）から順に
+    //    上から降りてきて、奥（BOSS側）ほど遅れて着地する。プレイヤーに近い＝画面上で大きく
+    //    見える敵から先に降りてくるほうが「何かが迫ってきた」と一目でわかりやすいため、
+    //    着地タイミングをずらすことで「降り注ぐ」流れを作りつつ、全体は1秒未満で収める ──
+    const CASCADE_MS = 720;
+    const SPAWN_Y = -60*S;
+    const STAGGER_STEP = 45;
+    const FALL_DUR_BY_KIND = { swarm:260, squad:290, midboss:320, boss:360 };
+    const fallers = ROSTER.map((node, i) => ({
+      node, st: states[i],
+      startDelay: i * STAGGER_STEP, // 列の手前（プレイヤーに近い＝index0）ほど早く降り始める
+      dur: FALL_DUR_BY_KIND[node.kind],
+    }));
+    await animate(CASCADE_MS, (t) => {
+      const nowMs = t * CASCADE_MS;
+      for (const f of fallers) {
+        const lt = Math.max(0, Math.min(1, (nowMs - f.startDelay) / f.dur));
+        const eased = 1 - Math.pow(1-lt, 3);
+        f.st.fallY = SPAWN_Y + (f.node.baseY - SPAWN_Y) * eased;
+      }
+      const shipEase = 1 - Math.pow(1-t, 3);
+      const shipYNow = H*0.5 + (shipY - H*0.5) * shipEase;
+      const camEase = 1 - Math.pow(1-t, 2);
+      renderScene({
+        showScore: true,
+        camera: { y: CAMERA_PIVOT_Y + (camYTarget-CAMERA_PIVOT_Y)*camEase, zoom: 1 + (ZOOM-1)*camEase },
+        ship: { x: FLIGHT_LANE_X, y: shipYNow, glow: 1 }
+      });
+    }, myId);
+    if (myId !== runId) return;
+    fallers.forEach(f => { f.st.fallY = f.node.baseY; });
+    let camY = camYTarget;
+
+    // ── ③チャージ：機体の目の前でエネルギー（スコア）を1回だけ溜める。ためている間は
+    //    尾を引かず、ただ光る球（芯）が育っていくだけの見た目にする（尾は発射の瞬間に出す）──
+    const CHARGE_MS = 1000;
+    await animate(CHARGE_MS, (t) => {
+      const eased = 1 - Math.pow(1-t, 2);
+      const r = chargeR*eased;
+      renderScene({
+        showScore: true,
+        camera: { y: camY, zoom: ZOOM },
+        ship: { x: FLIGHT_LANE_X, y: shipY, glow: eased },
+        extra: () => drawBeam(FLIGHT_LANE_X, muzzleY, r, 0, eased)
+      });
+    }, myId);
+    if (myId !== runId) return;
+
+    // ── 発射：1発だけ撃ち込む。カメラも弾と同じ歩調で最初の的の実座標へ寄せておく
+    //    （ズレたまま2体目へ向かうと「ロールバック」して見えてしまうため） ──
+    const fireDist = Math.abs(firstNode.baseY - muzzleY);
+    const fireDuration = Math.max(40, fireDist / BALL_SPEED);
+    const camBeforeFire = camY;
+    await animate(fireDuration, (t) => {
+      const px = FLIGHT_LANE_X + (firstNode.baseX-FLIGHT_LANE_X)*t;
+      const py = muzzleY + (firstNode.baseY-muzzleY)*t;
+      const cy = camBeforeFire + (firstNode.baseY-camBeforeFire)*t;
+      renderScene({
+        showScore: true,
+        camera: { y: cy, zoom: ZOOM },
+        ship: { x: FLIGHT_LANE_X, y: shipY, glow: 1 },
+        extra: () => { drawBeam(px, py, chargeR, Math.min(130*S, chargeR*6), 1); }
+      });
+    }, myId);
+    if (myId !== runId) return;
+    camY = firstNode.baseY;
+
+    // ── 最後の1体の手前までは、カメラ（＝弾）を止めずに常にBALL_SPEEDで走らせ続ける。
+    //    通り過ぎる敵は弾が到達したタイミングでそれぞれ自分のタイマーでヒビ→粉砕を再生 ──
+    const intermediates = sequence.slice(0, sequence.length - 1);
+    const finalItem = sequence[sequence.length - 1];
+    const finalNode = ROSTER[finalItem.index];
+
+    if (intermediates.length > 0) {
+      const pathStartY = camY;
+      const pathEndY = finalNode.baseY;
+      const totalDist = Math.abs(pathEndY - pathStartY);
+      const totalDuration = Math.max(60, totalDist / BALL_SPEED);
+      const legs = intermediates.map(item => {
+        const node = ROSTER[item.index];
+        const distFromStart = Math.abs(node.baseY - pathStartY);
+        return {
+          node, st: states[item.index], localBeat: BEAT_BY_KIND[node.kind],
+          hitAtMs: totalDist > 0 ? (distFromStart/totalDist)*totalDuration : 0,
+        };
+      });
+
+      await animate(totalDuration, (t) => {
+        const cy = pathStartY + (pathEndY-pathStartY)*t;
+        const nowMs = t*totalDuration;
+        let frameShake = 0;
+        for (const leg of legs) {
+          const localElapsed = nowMs - leg.hitAtMs;
+          if (localElapsed < 0) continue;
+          const { hitstop, break: breakMs } = leg.localBeat;
+          if (localElapsed < hitstop) {
+            const lt = localElapsed/hitstop;
+            leg.st.hitFlash = 1;
+            leg.st.crackGrowth = Math.min(1, lt*1.3);
+            leg.st.shakeX = Math.sin(lt*Math.PI*5) * 5*S * leg.node.dir * (1-lt);
+            frameShake = Math.max(frameShake, 0.7);
+          } else if (localElapsed < hitstop + breakMs) {
+            const lt = (localElapsed-hitstop)/breakMs;
+            leg.st.hitFlash = 0;
+            leg.st.shakeX = 0;
+            leg.st.breakT = lt;
+            frameShake = Math.max(frameShake, 1.3*(1-lt*2.2));
+          } else {
+            leg.st.breakT = 1;
+          }
+        }
+        renderScene({
+          showScore: true,
+          camera: { y: cy, zoom: ZOOM },
+          shake: Math.max(0, frameShake),
+          extra: () => {
+            drawBeam(FLIGHT_LANE_X, cy, chargeR*0.85, Math.min(130*S, chargeR*0.85*6), 1);
+            for (const leg of legs) {
+              if (leg.st.breakT > 0 && leg.st.breakT < 1) {
+                drawBurst(leg.node.baseX, leg.node.baseY, leg.node.radius*1.6*leg.st.breakT, 1-leg.st.breakT, sdHexToRgb(leg.node.zone.color), [255,255,255]);
+              }
+            }
+          }
+        });
+      }, myId);
+      if (myId !== runId) return;
+      camY = pathEndY;
+      // 通過し切れず割れ演出が途中だった分は取りこぼさず砕き切る（安全弁）
+      legs.forEach(leg => { leg.st.breakT = 1; leg.st.hitFlash = 0; leg.st.shakeX = 0; });
+    }
+    if (myId !== runId) return;
+
+    // ── 列の最後の1体だけは「ぐぐぐ…」と粘る特別演出。弾がめり込んだままHPバーを削り、
+    //    0になった瞬間だけ撃破する。0まで届かなければヒビ止まりで、あと一歩の踏みとどまりを
+    //    HPバーの残量でそのまま説明できる（唯一の一時停止ポイント）──
+    const node = finalNode, st = states[finalItem.index], full = finalItem.full;
+    const tierBeat = BEAT_BY_KIND[node.kind];
+    const targetRatio = full ? 0 : Math.max(0.02, 1 - fraction);
+    const strainMs = FINAL_STRAIN_BY_KIND[node.kind];
+    st.hpRatio = 1;
+    // 最後の1体は撃破時の破片を他より多く・広く飛び散らせる（「特に最後の敵」の派手さ強調）
+    if (full) st.shatterOpts = { count: 14, spread: 2.1 };
+    await animate(strainMs, (t) => {
+      const eased = 1 - Math.pow(1-t, 3);
+      const wobbleEnv = Math.sin(t*Math.PI) * (1-t) * 0.05;
+      const wobble = Math.sin(t*38) * wobbleEnv;
+      st.hpRatio = Math.max(0, Math.min(1, 1 + (targetRatio-1)*eased + wobble));
+      st.hitFlash = 0.5 + 0.5*Math.sin(t*20)*(1-t);
+      st.crackGrowth = Math.min(1, eased*1.05) * (full ? 1 : 0.7);
+      st.shakeX = Math.sin(t*Math.PI*10) * 4*S * node.dir * (1 - t*0.4);
+      renderScene({
+        showScore: true,
+        camera: { y: camY, zoom: ZOOM },
+        shake: 0.5 + 0.6*eased,
+        extra: () => drawBeam(node.baseX, node.baseY, chargeR*0.85, Math.min(130*S, chargeR*0.85*6), 1)
+      });
+    }, myId);
+    st.shakeX = 0;
+    st.hitFlash = 0;
+    if (myId !== runId) return;
+
+    if (full) {
+      // 撃破の瞬間にドンと大きく震えて、すぐ収まる。弾は砕けた後もその場に残す
+      await animate(tierBeat.break, (t) => {
+        st.breakT = t;
+        renderScene({
+          showScore: true,
+          camera: { y: camY, zoom: ZOOM },
+          shake: Math.max(0, 1.3*(1-t*2.2)),
+          extra: () => {
+            drawBurst(node.baseX, node.baseY, node.radius*2.6*t, 1-t, sdHexToRgb(node.zone.color), [255,255,255]);
+            drawBeam(node.baseX, node.baseY, chargeR*0.85, Math.min(130*S, chargeR*0.85*6), 1);
+          }
+        });
+      }, myId);
+      st.hitFlash = 0;
+    }
+    if (myId !== runId) return;
+
+    await wait(tierBeat.hold);
+    await wait(FINAL_BURST_HOLD_MS);
+  }
+
+  // ④ ランク確定スタンプ
+  async function stageStamp(run, myId) {
+    if (myId !== runId) return;
+    const zone = run.zone;
+    const cleared = run.fullClear || run.progress >= 0.999;
+    await animate(72, () => { sctx.fillStyle='rgba(255,255,255,0.9)'; sctx.fillRect(0,0,W,H); }, myId);
+    await animate(400, (t) => {
+      drawStarfield(zone.color);
+      const scale = 1 + (1-t)*0.6;
+      const bounce = t < 1 ? Math.sin(t*Math.PI) * (1-t) * 10*S : 0;
+      sctx.save();
+      sctx.translate(W/2, H*0.4 + bounce);
+      sctx.scale(scale, scale);
+      sctx.rotate((1-t) * -0.15);
+      sctx.font = `bold ${92*S}px 'Courier New', monospace`;
+      sctx.textAlign = 'center'; sctx.textBaseline = 'middle';
+      sctx.fillStyle = zone.color;
+      sctx.globalAlpha = Math.min(1, t*2);
+      sctx.fillText(zone.key, 0, 0);
+      sctx.restore();
+      drawLabel(cleared ? (zone.key+'ランク 撃破！' ) : '到達ランク：'+zone.key, H*0.6, 14*S, '#f5f7fa', Math.min(1,t*2), 'bold', 1);
+    }, myId);
+    await wait(360);
+  }
+
+  function sizeCanvas() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    sdCanvas.width = W * DPR;
+    sdCanvas.height = H * DPR;
+    sdCanvas.style.width = W + 'px';
+    sdCanvas.style.height = H + 'px';
+    sctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    S = H / 604; // 試作の604px高キャンバスを基準に、実機の画面の高さへ換算
+    FLIGHT_LANE_X = W*0.5;
+    SHIP_HOME_Y = H*0.88;
+    HUD_Y = H*0.05;
+    CAMERA_PIVOT_Y = H*0.44;
+    STANDOFF = 150*S;           // 自機の見た目の位置（画面上でどれだけ低い位置に見えるか）
+    CAMERA_FRAME_STANDOFF = 88*S; // カメラの構図（編隊全体がどれだけ画面に収まるか）専用の基準値
+    buildStars();
+    ROSTER = buildRoster();
+    TOTAL_ENEMIES = ROSTER.length;
+    states = freshStates();
+  }
+
+  // 唯一の外部公開エントリポイント。呼び出し側（バッテリー切れハンドラ）は
+  // playShowdownPhase(score).then(triggerGameOver) のように使う。
+  // 演出が終わった後もキャンバスは非表示にせず、ぼかし・減光した背景として残したまま
+  // #gameoverに'showdown-reveal'クラスを付けておく（CSS側：#gameover.showdown-reveal）。
+  // これにより、直後にtriggerGameOver()が呼ばれてFINISHパネルが表示される際、画面遷移
+  // せずその場の絵を背景にパネルだけが下からスライドインする見た目になる（#gameoverの
+  // 既定の動作＝他経路（quitFromPause()等）での通常表示には一切影響しない）。
+  return async function playShowdownPhase(score) {
+    const myId = ++runId;
+    stopAnim();
+    captureSnapshot();
+    sizeCanvas();
+    sdCanvas.classList.remove('dimmed');
+    sdCanvas.style.display = 'block';
+
+    const run = computeRun(score);
+    await stageBarrage(run, score, myId);
+    if (myId !== runId) { sdCanvas.style.display = 'none'; return; }
+    await stageStamp(run, myId);
+    if (myId !== runId) { sdCanvas.style.display = 'none'; return; }
+
+    sdCanvas.classList.add('dimmed');
+    document.getElementById('gameover').classList.add('showdown-reveal');
+  };
+})();
 
 // ── リザルト表示 ─────────────────────────────────
 function triggerGameOver() {
@@ -5282,7 +6072,15 @@ function update(dt){
     fill.style.width = '0%';
     document.getElementById('battery-row').classList.remove('low-battery');
     gameRunning=false;
-    setTimeout(()=>{ triggerGameOver(); }, 200); // ゲージが空になった直後にリザルト
+    // FB対応：決戦フェーズ（暗転〜一撃貫通演出）に移る前に、画面をその場で静止させたまま
+    // 4秒間、赤みを点滅させて「バッテリー切れ」をしっかり見せる「間」を挟む
+    // （以前は200msとほぼ即座に決戦フェーズへ切り替わっており、ゆとりが無いとの指摘）。
+    const emptyFlash = document.getElementById('battery-empty-flash');
+    emptyFlash.classList.add('show');
+    setTimeout(()=>{
+      emptyFlash.classList.remove('show');
+      playShowdownPhase(score).then(triggerGameOver);
+    }, 4000);
     return;
   }
 
@@ -9601,7 +10399,9 @@ function afterSaveDataReset(){
   // （旧モード選択ボタンの発光演出(.story-glow)クリア処理は、ボタン自体の撤廃に伴い削除済み）
   // 開いていた可能性がある画面を全て閉じて、タイトル画面だけを表示する
   document.getElementById('option-screen').classList.remove('show');
-  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('gameover').classList.remove('show', 'showdown-reveal');
+  { const sdc = document.getElementById('showdown-canvas'); sdc.style.display = 'none'; sdc.classList.remove('dimmed'); }
+  document.getElementById('battery-empty-flash').classList.remove('show');
   [
     'tutorial-screen','achievement-screen','skill-select',
   ].forEach(id=>{
@@ -9968,7 +10768,9 @@ function withResultInterstitial(action){
   };
 }
 function doGoRetry(){
-  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('gameover').classList.remove('show', 'showdown-reveal');
+  { const sdc = document.getElementById('showdown-canvas'); sdc.style.display = 'none'; sdc.classList.remove('dimmed'); }
+  document.getElementById('battery-empty-flash').classList.remove('show');
   if(gameMode === 'endless'){
     showSkillSelect();
   } else {
@@ -9978,7 +10780,9 @@ function doGoRetry(){
 document.getElementById('go-retry').addEventListener('click', withResultInterstitial(doGoRetry));
 document.getElementById('go-retry').addEventListener('touchstart', withResultInterstitial(doGoRetry), {passive:false});
 function doGoMenu(){
-  document.getElementById('gameover').classList.remove('show');
+  document.getElementById('gameover').classList.remove('show', 'showdown-reveal');
+  { const sdc = document.getElementById('showdown-canvas'); sdc.style.display = 'none'; sdc.classList.remove('dimmed'); }
+  document.getElementById('battery-empty-flash').classList.remove('show');
   showTitleScreen();
   if (window.SoundBGM) window.SoundBGM.play('menu');
   updatePlayerStatusBar();
@@ -10193,10 +10997,12 @@ function renderAchievementScreen(){
   renderAchievementListTab();
 }
 
-// ── 遊び方オーバーレイ（オンボーディング型カルーセル：タイトル+画像+キャプション+矢印+ドット） ──
+// ── 遊び方オーバーレイ（オンボーディング型カルーセル：キャッチ+見出し+画像+キャプション+矢印+ドット） ──
 // FB対応：初見・ゲーム未経験の50代でも一目で分かることを目標に、5ページ分の説明文を確定。
 // 各ページ「1つの操作・1つの概念」だけに絞り、専門用語（チェイン数・SPゲージ等）は避けている。
-// title＝画像の上に大きく出す一言キャッチ、caption＝画像の下に添える詳しい説明。
+// title＝画像の上に出す一言キャッチ（中）、heading＝その下に出すページ見出し（ゲーム内最大の
+// 文字サイズ。#ad-placeholder-timerの44pxに合わせている）、caption＝画像の下に添える詳しい説明（小）。
+// FB対応②：キャッチ・見出し・本文とも中央揃えではなく左揃えに統一。
 // 画像はいずれもプレースホルダーとしてassets/tutorial/page1〜5.webpに仮格納中（後日差し替え予定）。
 // 想定サイズ：1200×900px（4:3、#howtoplay-image-boxのaspect-ratio:4/3に合わせる）程度のwebp。
 // object-fit:containで表示するため多少比率がずれても崩れないが、4:3に近いほど余白なく綺麗に収まる。
@@ -10204,26 +11010,31 @@ const HOWTOPLAY_PAGES = [
   {
     image: 'assets/tutorial/page1.webp',
     title: 'きらめく玉が漂う宇宙を、小さな船で駆けろ！',
+    heading: '世界観について',
     caption: 'ここは、色とりどりの玉「磁晶核（じしょうかく）」が漂う宇宙。あなたは小さな宇宙船に乗り、玉を集めながら宇宙を飛びまわります。玉をたくさんつなげて弾くほど、高得点になります。',
   },
   {
     image: 'assets/tutorial/page2.webp',
     title: '指でなぞって、押して、離すだけ',
+    heading: '操作方法について',
     caption: '①画面を指でなぞると、その方向へ船が進みます（船は自動で前に進み続けます）。②画面を押さえている間は玉を引き寄せます（S極）。③指を離すと、集めた玉を勢いよく打ち出します（N極）。',
   },
   {
     image: 'assets/tutorial/page3.webp',
     title: '玉をぶつけて弾くほど、得点がどんどん増える',
+    heading: '玉について/目的は？',
     caption: '漂っている玉を引き寄せて、まとめて弾いてみましょう。玉どうしがぶつかると弾け（爆発し）、次々に連鎖するほど得点が大きくなります。赤色や金色の特別な玉は、弾くと特に高得点。できるだけ長くつなげるのが目標です！',
   },
   {
     image: 'assets/tutorial/page4.webp',
     title: '岩には気をつけて。でも、光りだしたらチャンス！',
+    heading: 'ギミック/岩について',
     caption: '宇宙には壊せない岩が浮かんでいます。ぶつかると少しダメージ（バッテリー減）を受けるので注意しましょう。岩がまれに光って震えることがあり、これは「覚醒」のサイン。覚醒中の岩は玉を跳ね返したり増やしたりと特別な効果を起こし、うまく使えば得点チャンスになります。近くの大きな装置も、玉を弾くたびにエネルギーが溜まり、たまると宇宙に大きな変化（パワーアップ）が起こります。',
   },
   {
     image: 'assets/tutorial/page5.webp',
     title: 'ボタンを押すと、特別な一撃！',
+    heading: 'スキルについて',
     caption: '画面のスキルボタンを押すと、選んでおいた特別な技が使えます。時間を止めたり、船を速くしたり、玉を一気に吹き飛ばしたりと、技の種類はいろいろ。プレイ前に好きなスキルを選んでおけます。まずは1つ試して、自分に合うものを見つけましょう！',
   },
 ];
@@ -10234,9 +11045,11 @@ function renderHowToPlayPage(){
   const page = HOWTOPLAY_PAGES[howToPlayPageIndex];
   if (!page) return;
   const titleEl = document.getElementById('howtoplay-title');
+  const headingEl = document.getElementById('howtoplay-heading');
   const imgEl = document.getElementById('howtoplay-image');
   const capEl = document.getElementById('howtoplay-caption');
   if (titleEl) titleEl.textContent = page.title;
+  if (headingEl) headingEl.textContent = page.heading;
   if (imgEl) imgEl.src = page.image;
   if (capEl) capEl.textContent = page.caption;
   const prevBtn = document.getElementById('howtoplay-prev');
