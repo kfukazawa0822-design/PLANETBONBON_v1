@@ -938,7 +938,7 @@ canvas { display:block; width:100%; height:100%; }
 /* ── バッテリー切れ直後の静止演出（決戦フェーズに入る前の「間」）専用オーバーレイ ── */
 /* FB対応：「決戦フェーズに移行する直前がゆとり無い」との指摘。バッテリーが0になった瞬間、
    決戦フェーズの暗転を始める前に画面をその場で静止させ、赤みを点滅させて「バッテリー切れ」を
-   強調する4秒間を挟む。通常はJSでdisplay:none/opacity:0。詳細は battery<=0 の判定部を参照。 */
+   強調する2秒間を挟む。通常はJSでdisplay:none/opacity:0。詳細は battery<=0 の判定部を参照。 */
 #battery-empty-flash {
   position:fixed; inset:0; z-index:97; display:none; pointer-events:none;
   background:radial-gradient(ellipse at center, rgba(255,30,30,0) 45%, rgba(255,20,20,0.6) 100%);
@@ -961,8 +961,16 @@ canvas { display:block; width:100%; height:100%; }
 }
 /* 演出が終わった直後、リザルト（#gameover-box）の背景としてそのまま残す際に、
    ぼかし・減光してリザルトを引き立てる（画面遷移はせず、その場の絵を背景として残し続ける）。
-   詳細はplayShowdownPhaseの定義部・#gameover.showdown-revealを参照。 */
-#showdown-canvas.dimmed { filter:blur(6px) brightness(0.45); }
+   詳細はplayShowdownPhaseの定義部・#gameover.showdown-revealを参照。
+   FB対応：「背景が真っ黒すぎる」との指摘。決戦フェーズの背景自体がもともと暗い星空
+   （#0a0e1a）であるため、そこにさらにbrightness(0.45)・blur(6px)をかけると、星が
+   ほぼ潰れて完全な黒に近く見えてしまっていた。ぼかし・減光の量を弱め、星や余韻が
+   うっすら見える程度に調整（パネル本体は不透明な独立したカードなので、背景を暗くしすぎな
+   くても文字の可読性への影響はない）。 */
+/* FB対応：blur(3px) brightness(0.85)でもまだ星がぼやけて見えにくいとの比較検証結果を受け、
+   減光・ぼかしを完全に外すことにした。パネル本体は不透明な独立したカードなので、
+   背景をそのまま見せても文字の可読性への影響はない。 */
+#showdown-canvas.dimmed { filter:none; }
 
 /* ── リザルト画面 ── */
 #gameover {
@@ -1005,6 +1013,35 @@ canvas { display:block; width:100%; height:100%; }
 .go-stat:last-of-type { border-bottom:none; }
 .go-stat-val { font-size:20px; letter-spacing:2px; color:#f5f7fa; font-weight:bold; }
 .go-stat-label-group { display:flex; align-items:baseline; gap:7px; }
+/* FB対応：「スコアの数字だけ、到達ランクの色でキラッと光るエフェクトが欲しい。3秒に1回、
+   左上から右下へ色が走るイメージ」。--rank-shine-color はJS側(triggerGameOver)で到達ランクの
+   色に差し替える。斜め(115deg)のグラデーションをテキストでマスクし、background-positionを
+   アニメーションさせることで光が斜めに走って見えるようにしている（.go-stat-valは最大連鎖など
+   他の数値とも共用のクラスのため、#go-score専用にスコープしたクラスとして分離した）。 */
+#go-score.go-score-shine {
+  --rank-shine-color: #f5f7fa;
+  background-image: linear-gradient(115deg,
+    var(--rank-shine-color) 0%, var(--rank-shine-color) 42%,
+    #ffffff 50%,
+    var(--rank-shine-color) 58%, var(--rank-shine-color) 100%);
+  background-size: 400% 100%;
+  background-position: 100% 0;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: goScoreShine 3s linear infinite;
+}
+/* bgを400%幅にして左右に十分な余白を確保し、position:100%（帯が左側の枠外）と
+   position:0%（帯が右側の枠外）のどちらでも白いハイライト帯が完全に隠れるようにしてある。
+   0%→20%（3秒中0.6秒）でposition:100%→0%へ動かすことで、帯が左から右へ一度だけ通過し
+   （＝斜めのグラデーションなので見た目は左上→右下に光が走る）、残りの2.4秒は帯が右側の
+   枠外に隠れたまま静止＝「3秒に1回キラッと光る」動きになる。 */
+@keyframes goScoreShine {
+  0%   { background-position: 100% 0; }
+  20%  { background-position: 0% 0; }
+  100% { background-position: 0% 0; }
+}
 .go-new-record.hide { display:none; }
 .go-new-record {
   font-size:9px; font-weight:bold; letter-spacing:1px; color:#fff;
@@ -1808,6 +1845,51 @@ canvas { display:block; width:100%; height:100%; }
 }
 #skill-unlock-ok:active { background:rgba(255,213,79,0.7); }
 
+/* FB対応：スキルを初めて獲得した時、NEW SKILLポップアップに続けて「お気に入りスキル」機能を
+   案内するヒントポップアップを表示する。見た目はNEW SKILLポップアップを踏襲しつつ、
+   「獲得を祝う」ものではなく「案内する」ものだと分かるよう、アクセントカラーを黄色→シアン系に変更 */
+#favorite-skill-tip-overlay {
+  position:fixed; inset:0; z-index:405;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(0,0,10,0.88);
+  opacity:0; pointer-events:none; transition:opacity 0.25s;
+}
+#favorite-skill-tip-overlay.show { opacity:1; pointer-events:auto; }
+#favorite-skill-tip-box {
+  background:rgba(20,20,30,0.98); border:1.5px solid rgba(143,247,255,0.55);
+  box-shadow:0 0 30px rgba(143,247,255,0.25);
+  border-radius:14px; padding:28px 24px 22px; width:80%; max-width:300px;
+  text-align:center; animation: skillUnlockPop 0.35s ease;
+}
+#favorite-skill-tip-label {
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:14px; letter-spacing:1px; font-weight:bold;
+  color:#8ff7ff; text-shadow:0 0 10px rgba(143,247,255,0.6);
+  margin-bottom:14px;
+}
+#favorite-skill-tip-icon {
+  width:56px; height:56px; margin:0 auto 12px; border-radius:50%;
+  background:rgba(143,247,255,0.12); border:1px solid rgba(143,247,255,0.35);
+  display:flex; align-items:center; justify-content:center; font-size:28px;
+}
+#favorite-skill-tip-name {
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:15px; font-weight:bold; color:#fff; letter-spacing:1px; margin-bottom:8px;
+}
+#favorite-skill-tip-desc {
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:10px; letter-spacing:0.5px; line-height:1.7;
+  color:rgba(255,255,255,0.55); margin-bottom:20px;
+}
+#favorite-skill-tip-ok {
+  width:100%; padding:11px 0; border-radius:6px;
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif; font-size:11px; letter-spacing:3px;
+  cursor:pointer; transition:all 0.12s; -webkit-tap-highlight-color:transparent;
+  background:rgba(143,247,255,0.9); border:1.5px solid rgba(143,247,255,0.9);
+  color:#1a1a1a; font-weight:bold;
+}
+#favorite-skill-tip-ok:active { background:rgba(143,247,255,0.7); }
+
 /* モード選択のオプションボタンは廃止（設定ボタンに統合） */
 
 /* アイテムポップアップ */
@@ -2072,6 +2154,18 @@ canvas { display:block; width:100%; height:100%; }
     <div id="skill-unlock-name"></div>
     <div id="skill-unlock-desc"></div>
     <button id="skill-unlock-ok">OK</button>
+  </div>
+</div>
+
+<!-- FB対応：スキルを初めて獲得した時、NEW SKILLポップアップに続けて一度だけ表示する
+     「お気に入りスキル」機能の案内ポップアップ -->
+<div id="favorite-skill-tip-overlay">
+  <div id="favorite-skill-tip-box">
+    <div id="favorite-skill-tip-label">ヒント</div>
+    <div id="favorite-skill-tip-icon">💡</div>
+    <div id="favorite-skill-tip-name">お気に入りスキルを設定しよう</div>
+    <div id="favorite-skill-tip-desc">設定画面の「お気に入りスキル」で好きなスキルを選んでおくと、スキル選択の3択に必ず登場するようになります！</div>
+    <button id="favorite-skill-tip-ok">OK</button>
   </div>
 </div>
 
@@ -2402,7 +2496,7 @@ const MARBLE_R = 21;
 // 寒色(スカイブルー系205°)に変更。発光(createRadialGradient)を追加する案もあったが、
 // 通常玉は同時に150〜250個出ることがあり(replenishThreshold参照)、玉1個ごとに発光を
 // 追加すると軽くない負荷増になるため見送り、既存のstrokeの色相を変えるだけ（追加描画コストなし）にした
-const NORMAL_HUE = 205; // 磁晶核の色（寒色・スカイブルー系）
+const NORMAL_HUE = 205; // 星宙玉の色（寒色・スカイブルー系）
 // 通常玉（専用イラストなし・丸描画）も、他のイラスト付き玉と同じ「見た目＝当たり半径×係数」の関係に統一するための表示倍率
 const NORMAL_MARBLE_DISPLAY_MULT = 1.1; // 1.15→1.1：見た目はそのまま、当たり半径を少し大きくして密集時の詰まり感を緩和
 // イラスト付き玉（跳躍・重力・追尾・遅延・紅・金）の表示倍率。dispR(見た目) = 当たり半径 × この値、で描画する
@@ -2412,11 +2506,32 @@ const ART_MARBLE_DISPLAY_MULT = 1.2;
 const ART_MARBLE_VISUAL_TARGET = {
   boost:   MARBLE_R * 0.85 * 1.3,
   gravity: MARBLE_R * 1.1  * 1.3,
-  homing:  MARBLE_R * 0.85 * 1.3, // 跳躍磁晶核と同じ見た目サイズ
-  delay:   MARBLE_R * 1.1  * 1.3, // 重力磁晶核と同じ見た目サイズ
+  homing:  MARBLE_R * 0.85 * 1.3, // 跳躍星宙玉と同じ見た目サイズ
+  delay:   MARBLE_R * 1.1  * 1.3, // 重力星宙玉と同じ見た目サイズ
   red:     MARBLE_R * 1.2  * 1.3,
   gold:    MARBLE_R * 1.3  * 1.3,
 };
+// 玉同士の当たり判定を空間グリッド化するためのマス目サイズ。
+// 「衝突の可能性がある最大距離(=玉の当たり半径の最大値×2)」より大きく取ることで、
+// 自分のマス目と周囲8マスだけ調べれば全ての衝突ペアを取りこぼさないことを保証する。
+// 玉の種類ごとの当たり半径を元に自動計算しているので、将来サイズ調整しても追従する。
+const MAX_MARBLE_HIT_R = Math.max(
+  (MARBLE_R * 0.72) / NORMAL_MARBLE_DISPLAY_MULT,
+  ...Object.values(ART_MARBLE_VISUAL_TARGET).map(v => v / ART_MARBLE_DISPLAY_MULT)
+);
+const MARBLE_GRID_CELL = Math.ceil(MAX_MARBLE_HIT_R * 2 * 1.2); // ×1.2は安全マージン
+// FB対応：「ギミックのフィーバーが重すぎる（発動時のみ気になる）」。
+// update()側で毎フレーム再構築している玉同士衝突用の空間グリッドを、
+// ここでモジュール直下の変数として共有しておく（中身の構築ロジック自体は変更しない）。
+// triggerExplosion()内の連鎖爆発チェック（setTimeoutで少し遅れて発火する非同期処理）が、
+// 従来は毎回marbles全件を舐めていたため、フィーバー中に爆発が同時多発するとその回数分
+// O(全玉数)のスキャンが重なって重くなっていた。この共有グリッドを使えば、連鎖判定も
+// 「自分のマス目＋周囲」だけを見れば済むようになる。
+let alive = [], marbleGridCols = 1, marbleGridRows = 1, marbleGrid = new Map();
+// このグリッドはtriggerExplosion()の連鎖チェックからも参照されるため、玉のマス目登録が
+// 「最大1フレーム分だけ古い可能性がある」ことを踏まえ、1フレームで動きうる最大距離ぶんの
+// 余白を検索範囲に足しておく（update()内のspdCapで一番大きい値＝速度ブーストアイテム中の80を採用）。
+const MAX_MARBLE_FRAME_MOVE = 80;
 const COLLISION_SPEED = 3.5;
 const SPEEDS = [2.0, 2.6, 3.2, 4.0, 5.0];
 const BASE_MAGNET_RANGE   = 470;
@@ -2464,7 +2579,7 @@ const PLAYER_ITEM_DEFS = [
   { id:'range_up',      key:'rangeUp',     base:1,   inc:0.3,  maxLv:6,  assetId:'range_up',     color:'#aa66ff', hudLabel:'RANGE', pauseLabel:'S極・N極の有効範囲UP', resultLabel:'レンジアップ' },
   { id:'chain_multi',   key:'chainMulti',  base:1,   inc:0.5,  maxLv:10, assetId:'chain_multi',  color:'#ffcc44', hudLabel:'CHAIN', pauseLabel:'連鎖のスコア倍率UP',   resultLabel:'チェイン倍率アップ' },
   { id:'explode_up',    key:'explodeUp',   base:1,   inc:0.2,  maxLv:10, assetId:'explode_up',   color:'#ff8844', hudLabel:'BLAST', pauseLabel:'爆発の威力・影響範囲UP', resultLabel:'爆発強化' },
-  { id:'rare_booster',  key:'rareBoost',   base:0,   inc:2,    maxLv:6,  assetId:'rare_booster', color:'#ffaaff', hudLabel:'RARE',  pauseLabel:'紅・金磁晶核の出現率UP', resultLabel:'レアブースター' },
+  { id:'rare_booster',  key:'rareBoost',   base:0,   inc:2,    maxLv:6,  assetId:'rare_booster', color:'#ffaaff', hudLabel:'RARE',  pauseLabel:'紅・金星宙玉の出現率UP', resultLabel:'レアブースター' },
   { id:'skill_charger', key:'skillCharge', base:100, inc:10,   maxLv:10, assetId:'skill_charger',color:'#aaffff', hudLabel:'SKILL', pauseLabel:'SPの回収効率UP',       resultLabel:'スキルチャージャー' },
 ];
 // 現在の取得回数ベースのレベルを返す（基準値=Lv1、1回取得するごとに+1）
@@ -2526,7 +2641,7 @@ let screenShake = { x:0, y:0, power:0 };
 const SKILL_DEFS = [
   { id:'blink',   name:'パルス',     icon:'⚡', spCost:100, maxStock:3, desc:'指定方向へ瞬間移動する（約500px）' },
   { id:'dash',    name:'ブースト',     icon:'💨', spCost:80,  maxStock:1, desc:'約3秒間、高速移動する' },
-  { id:'cannon',  name:'メテオキャノン', icon:'💣', spCost:80,  maxStock:3, desc:'前方へ巨大な磁晶核を発射する' },
+  { id:'cannon',  name:'メテオキャノン', icon:'💣', spCost:80,  maxStock:3, desc:'前方へ巨大な星宙玉を発射する' },
   { id:'typhoon', name:'重力崩壊',     icon:'🌪', spCost:200, maxStock:1, desc:'約3秒間、周囲の玉とアイテムを引き寄せる' },
   { id:'shield',  name:'シールド',     icon:'🛡', spCost:100, maxStock:2, desc:'約10秒間、Sで引き寄せた玉を保護。バッテリーのハズレも無効化' },
   { id:'bubble',  name:'フリーズショット', icon:'🫧', spCost:100,  maxStock:1, desc:'狙いを定め、玉を勢いよく前方に飛ばす' },
@@ -2599,6 +2714,7 @@ function defaultSaveData() {
     stats: {},                // 未実装：統計情報
     bestScores: [],        // 自己ベストTOP3（降順、最大3件）。リザルト画面「自己ベストTOP3」表示用
     howToPlaySeen: false,  // 「遊び方」オーバーレイを一度でも見たか（true化後は初回自動表示をしない）
+    favoriteSkillTipSeen: false, // FB対応：「お気に入りスキル」機能の案内ポップアップを一度でも見たか（見せるのはスキルを初めて獲得した時の1回だけ）
     settings: { dragMode: 'absolute', favoriteSkillId: '', bgmEnabled: true, seEnabled: true, speedBarVisible: false },
     pendingSkillUnlocks: [], // レベル到達済みだが、まだタイトル画面でポップアップ通知していないスキルidの一覧
   };
@@ -2624,6 +2740,8 @@ function migrateSaveData(parsed) {
   // 既存セーブ（このフィールド追加より前のデータ）にはキー自体が存在しないため、
   // その場合はdefaultSaveData()の初期値どおりfalse（＝次回起動時に一度だけ自動表示）のままにする
   if (typeof parsed.howToPlaySeen === 'boolean') data.howToPlaySeen = parsed.howToPlaySeen;
+  // 同上：既存セーブにキーが無い場合はfalseのまま（＝次に何かスキルを獲得した時に一度だけ案内ポップアップを出す）
+  if (typeof parsed.favoriteSkillTipSeen === 'boolean') data.favoriteSkillTipSeen = parsed.favoriteSkillTipSeen;
   if (parsed.settings && typeof parsed.settings === 'object') {
     data.settings = { ...data.settings, ...parsed.settings };
     if (data.settings.favoriteSkillId === 'stop') data.settings.favoriteSkillId = 'bubble'; // 同上の移行
@@ -2786,6 +2904,14 @@ function advanceSkillUnlockPopup() {
   if (!overlay) return;
   if (skillUnlockQueue.length === 0) {
     overlay.classList.remove('show');
+    // FB対応：「スキルを初めて獲得した時、設定でお気に入りスキルを選んでおけば3択に必ず出てくる、
+    // という内容のポップアップを続けて表示してほしい」。NEW SKILLポップアップの列（1件でも複数件でも）が
+    // すべて閉じ終わったこのタイミングで、まだ一度も見せていなければ続けて案内ポップアップを出す
+    if (!saveData.favoriteSkillTipSeen) {
+      saveData.favoriteSkillTipSeen = true;
+      saveSaveData();
+      showFavoriteSkillTipPopup();
+    }
     return;
   }
   const def = skillUnlockQueue.shift();
@@ -2794,6 +2920,12 @@ function advanceSkillUnlockPopup() {
   iconEl.innerHTML = iconPath ? `<img src="${iconPath}" alt="${def.name}">` : `<span>${def.icon}</span>`;
   document.getElementById('skill-unlock-name').textContent = def.name;
   document.getElementById('skill-unlock-desc').textContent = def.desc;
+  overlay.classList.add('show');
+}
+// 「お気に入りスキル」機能の案内ポップアップ表示（advanceSkillUnlockPopup側から一度だけ呼ばれる）
+function showFavoriteSkillTipPopup() {
+  const overlay = document.getElementById('favorite-skill-tip-overlay');
+  if (!overlay) return;
   overlay.classList.add('show');
 }
 
@@ -2903,10 +3035,12 @@ const HOLE_GOAL_POINTS   = 25; // 発動に必要なポイント（FB対応：20
 const HOLE_R             = 96; // 穴の半径（プレイヤーと同等）
 // ギミック定義
 const HOLE_GIMMICKS = [
-  { id:'overcharge',    name:'磁力超強化',     color:'#ffdd44', effect:'S極吸引力・N極反発力が大幅アップ！' },
-  { id:'rock_awaken',   name:'岩覚醒',        color:'#ff8844', effect:'すべての岩が覚醒！スコア倍率2倍！' },
-  { id:'vortex',        name:'ぐるぐる大旋風', color:'#aa66ff', effect:'フィールド内の磁晶核が大回転！' },
-  { id:'marble_fever',  name:'磁晶核フィーバー', color:'#44ffcc', effect:'磁晶核の出現上限アップ！' },
+  // FB対応：イベント名を宇宙観に合わせて改名（磁力超強化→重力制御ブースト／岩覚醒→宇宙活性化／
+  // ぐるぐる大旋風→星宙大公転／星宙玉フィーバーは据え置き／超爆発ラッシュは変更なし）
+  { id:'overcharge',    name:'重力制御ブースト', color:'#ffdd44', effect:'S極吸引力・N極反発力が大幅アップ！' },
+  { id:'rock_awaken',   name:'宇宙活性化',     color:'#ff8844', effect:'すべての岩が覚醒！スコア倍率2倍！' },
+  { id:'vortex',        name:'星宙大公転',     color:'#aa66ff', effect:'フィールド内の星宙玉が大回転！' },
+  { id:'marble_fever',  name:'星宙玉フィーバー', color:'#44ffcc', effect:'星宙玉の出現上限アップ！' },
   { id:'resonance_run', name:'超爆発ラッシュ', color:'#ff4488', effect:'爆発範囲・爆風が大幅アップ！' },
 ];
 let holeSequenceIdx = 0;
@@ -2917,7 +3051,7 @@ let vortexEventDir   = 1;    // VORTEX方向: +1=時計, -1=反時計
 const OVERCHARGE_S_MULT    = 2.2;
 const OVERCHARGE_N_MULT    = 2.2;
 const OVERCHARGE_SHOT_MULT = 1.8;
-const OVERCHARGE_RANGE_MULT = 1.4; // 磁力超強化中：引力・反発力が届く範囲も広げる
+const OVERCHARGE_RANGE_MULT = 1.4; // 重力制御ブースト中：引力・反発力が届く範囲も広げる
 const FEVER_SPAWN_MULT     = 3.0;
 const FEVER_RARE_MULT      = 4.0;
 const ROCK_AWAKEN_SCORE_MULT = 2.0;
@@ -3106,7 +3240,7 @@ function pickMarbleType(){
     return 'delay';
   }
   const r = Math.random() * 100;
-  // 通常：normal67% boost20% gravity6% homing5% delay2%（S/N磁晶核は削除済み）
+  // 通常：normal67% boost20% gravity6% homing5% delay2%（S/N星宙玉は削除済み）
   if(r < 67) return 'normal';
   if(r < 87) return 'boost';
   if(r < 93) return 'gravity';
@@ -3118,17 +3252,17 @@ function makeMarble(x,y,vx,vy,mass=1,type=null,forcedR=null){
   const baseR = forcedR !== null ? forcedR :
     marbleType==='boost'    ? ART_MARBLE_VISUAL_TARGET.boost   / ART_MARBLE_DISPLAY_MULT :
     marbleType==='gravity'  ? ART_MARBLE_VISUAL_TARGET.gravity / ART_MARBLE_DISPLAY_MULT :
-    marbleType==='homing'   ? ART_MARBLE_VISUAL_TARGET.homing  / ART_MARBLE_DISPLAY_MULT : // 跳躍磁晶核と同じ見た目サイズを保ったまま当たり半径だけ逆算
-    marbleType==='delay'    ? ART_MARBLE_VISUAL_TARGET.delay   / ART_MARBLE_DISPLAY_MULT : // 重力磁晶核と同じ見た目サイズを保ったまま当たり半径だけ逆算
+    marbleType==='homing'   ? ART_MARBLE_VISUAL_TARGET.homing  / ART_MARBLE_DISPLAY_MULT : // 跳躍星宙玉と同じ見た目サイズを保ったまま当たり半径だけ逆算
+    marbleType==='delay'    ? ART_MARBLE_VISUAL_TARGET.delay   / ART_MARBLE_DISPLAY_MULT : // 重力星宙玉と同じ見た目サイズを保ったまま当たり半径だけ逆算
     marbleType==='red'      ? ART_MARBLE_VISUAL_TARGET.red     / ART_MARBLE_DISPLAY_MULT :
     marbleType==='gold'     ? ART_MARBLE_VISUAL_TARGET.gold    / ART_MARBLE_DISPLAY_MULT :
     marbleType==='normal'   ? (MARBLE_R * 0.72) / NORMAL_MARBLE_DISPLAY_MULT : // 見た目サイズ(旧basR*1.0相当)は変えず、他種と同じ「当たり半径×係数＝見た目」の関係に合わせて当たり半径だけ逆算で縮小
     MARBLE_R;
-  // 跳躍磁晶核：旧・軽玉の吹き飛ばし力(blastMult=1.8)を継承
+  // 跳躍星宙玉：旧・軽玉の吹き飛ばし力(blastMult=1.8)を継承
   const blastMult = marbleType==='boost' ? 1.8 : 1.0;
-  // 遅延磁晶核：旧・重玉のチェイン範囲拡大(rangeMult=1.5)を継承（起爆後7秒での自爆に反映）
+  // 遅延星宙玉：旧・重玉のチェイン範囲拡大(rangeMult=1.5)を継承（起爆後7秒での自爆に反映）
   const rangeMult = marbleType==='delay' ? 1.5 : 1.0;
-  // 起爆時間（追尾磁晶核は少し猶予を長く。遅延磁晶核は衝突では起爆せず、別途fuseTimerで起爆トリガーから7秒後に必ず起爆）
+  // 起爆時間（追尾星宙玉は少し猶予を長く。遅延星宙玉は衝突では起爆せず、別途fuseTimerで起爆トリガーから7秒後に必ず起爆）
   const detonateTime =
     marbleType==='homing' ? 1.5 :
     marbleType==='delay'  ? 7.0 : 0.4;
@@ -3145,14 +3279,14 @@ function makeMarble(x,y,vx,vy,mass=1,type=null,forcedR=null){
   const ringLoops = ringRadiiRatios.map(f =>
     genBlobLoop(baseR*f, 10+Math.floor(Math.random()*3), 0.055+Math.random()*0.03)
   );
-  // 繊細磁晶核スキン用：鉛筆で2度なぞったような線にするため、独立した2本の輪を薄く重ねて描く
+  // 繊細星宙玉スキン用：鉛筆で2度なぞったような線にするため、独立した2本の輪を薄く重ねて描く
   const fineRingLoopsA = ringRadiiRatios.map(f =>
     genBlobLoop(baseR*f, 9+Math.floor(Math.random()*3), 0.05+Math.random()*0.035)
   );
   const fineRingLoopsB = ringRadiiRatios.map(f =>
     genBlobLoop(baseR*f, 9+Math.floor(Math.random()*3), 0.05+Math.random()*0.035)
   );
-  // 繊細磁晶核スキン用：コアは塗りつぶしではなく点描（顕微鏡スケッチの粒子表現）で密度を出す
+  // 繊細星宙玉スキン用：コアは塗りつぶしではなく点描（顕微鏡スケッチの粒子表現）で密度を出す
   const coreDotCount = 18 + Math.floor(Math.random()*9);
   const coreExtent = baseR*0.36; // コアが広がる範囲（点の大きさはr側で別管理）
   const coreStipple = Array.from({length:coreDotCount}, () => {
@@ -3181,13 +3315,13 @@ function makeMarble(x,y,vx,vy,mass=1,type=null,forcedR=null){
     bhOwner: null, // ブラックホール岩に捕獲されている場合、その岩への参照（未捕獲はnull）
     bhField: false, // ブラックホールの引力圏内（BH_PULL_R以内）にいるかどうか。捕獲前でも玉同士の衝突起爆を止めるためのフラグ（毎フレーム再計算）
     bhReleaseGrace: 0, // ブラックホール崩壊で解放された直後の玉につく、再捕獲までの猶予（同じ場所に居座ったまま瞬間的に再崩壊を繰り返すのを防ぐ）
-    nearGravity: false, // 重力磁晶核の影響圏内フラグ（毎フレーム更新）
+    nearGravity: false, // 重力星宙玉の影響圏内フラグ（毎フレーム更新）
     hasSplit: false,    // 分裂済みフラグ（trueなら分裂岩に接触しても分裂しない）
     bubbleShotBatchId: null, // シャボン玉：同じ発射由来かどうかの識別ID（nullなら対象外）
     bubbleShotHoming: false, // シャボン玉：輪へ誘導中（まだ発射前）フラグ。trueの間は磁力の影響を受けない
     bubbleShotBatchTimer: 0, // シャボン玉：同じ発射由来の玉同士が反応しない残り時間
-    fuseTimer: null, // 遅延磁晶核専用：起爆(armed=true)した瞬間に7.0がセットされ、0になったら必ず爆発する
-    armed: false,    // 遅延磁晶核専用：一度衝突などで起爆した後はtrueになり、以後は再トリガーされない
+    fuseTimer: null, // 遅延星宙玉専用：起爆(armed=true)した瞬間に7.0がセットされ、0になったら必ず爆発する
+    armed: false,    // 遅延星宙玉専用：一度衝突などで起爆した後はtrueになり、以後は再トリガーされない
     hp: (marbleType==='red' || marbleType==='gold') ? 2 : 1,
     hpCooldown: 0,
     flashTimer: 0,
@@ -3199,7 +3333,7 @@ function makeMarble(x,y,vx,vy,mass=1,type=null,forcedR=null){
     mass};
 }
 
-// 遅延磁晶核専用：衝突などで「起爆の引き金」を引かれた瞬間に呼ぶ。以後7秒のカウントダウンに入り、
+// 遅延星宙玉専用：衝突などで「起爆の引き金」を引かれた瞬間に呼ぶ。以後7秒のカウントダウンに入り、
 // 再度呼ばれても（armed済みなら）何もしない
 function armDelayMarble(m){
   if(m.marbleType !== 'delay' || m.armed) return;
@@ -3243,7 +3377,7 @@ const BH_MAX_COUNT = 4;
 const BH_PULL_R           = 550; // 引力が働く半径（この中の玉・プレイヤーが引き寄せられる）
 const BH_CAPTURE_MULT     = 2.0; // 捕獲半径 = rk.r * この値（この中に入った玉は完全に捕獲＝質量として数える）
 const BH_DANGER_MULT      = 2.6; // 危険半径 = rk.r * この値（この中にいる間、プレイヤーのバッテリーが減る＝リスク側の演出）
-const BH_COLLAPSE_MASS    = 16;  // 捕獲した玉の数がこれを超えたら崩壊（臨界）
+const BH_COLLAPSE_MASS    = 20;  // 捕獲した玉の数がこれを超えたら崩壊（臨界）。FB対応：「もうちょっと増やしたい、20とか」で16→20に変更
 const BH_BATTERY_DRAIN_PS = 2;   // 危険半径内にいる間、1秒あたり減るバッテリー
 // FB対応：抜け出せず沈み込んだ場合に確定死になっていた（4だと通常消費の4倍で、脱出に手間取るだけで即詰みだった）ため半減
 // FB対応：崩壊のご褒美を「危険半径内にいた時だけコンボロック」から「崩壊したら瞬時に+スコア」という、
@@ -3266,9 +3400,10 @@ const BH_DAMP_MULT        = 3.2; // 減速フィールドの半径 = rk.r * こ�
 const BH_CORE_MULT        = 0.25; // コア半径 = rk.r * この値（プレイヤーのVORTEX_CORE_R = player.r*0.25と揃えた比率）
 // FB対応：「プレイヤーが近くにいない（姿を捉えていない）ときは勝手に覚醝しないでほしい」との要望。
 // まだ覚醒していない(normal/omen)ブラックホールは、プレイヤーがこの範囲まで近づくまで
-// 覚醒カウントダウン自体を進めない（見つけていない間は覚醒しない）。BH_PULL_R(550)と
-// 同程度のスケール感にしつつ、少し広め＝「近づけばいずれ気づく」くらいの余裕を持たせた値
-const BH_AWAKEN_SIGHT_R   = 650;
+// 覚醒カウントダウン自体を進めない（見つけていない間は覚醒しない）。
+// FB対応：発電装置どうしの平均距離(約1988)・ワールド中央からの平均距離(約1455)に対して
+// 650は狭すぎるとのご指摘を受け、650→900に拡大
+const BH_AWAKEN_SIGHT_R   = 900;
 
 // ── 流体シェイプ（ブロブ）生成 ─────────────────────
 // baseRを中心に、angleごとにランダムな半径ゆらぎを持たせた点群を作る（ox,oyで中心をずらせる）
@@ -3329,7 +3464,9 @@ function spawnRocks(count) {
       for (const r of rocks) if((x-r.x)**2+(y-r.y)**2<(80)**2){ok=false;break;}
     }
     const r = (28+Math.random()*20) * 1.5 * 1.3; // 1.5倍→さらに1.3倍サイズ
-    const basePts = genBlobLoop(r*0.92, 7+Math.floor(Math.random()*2), 0.20+Math.random()*0.12);
+    // FB対応：「覚醒前の岩の大きさ、今は当たり判定よりも小さく見えている」。見た目の平均半径がrちょうどになるよう
+    // 0.92→1.0に変更（当たり判定rそのものは変えていない。見た目だけ気持ち大きくして体感のズレを減らす）
+    const basePts = genBlobLoop(r*1.0, 7+Math.floor(Math.random()*2), 0.20+Math.random()*0.12);
     rocks.push({x,y,r,alive:true,
       // 本体：流体シェイプ（黒塗りつぶし・グラデーションなし）。当たり判定は従来通りrで円判定のため、平均半径がrに近くなるよう調整
       pts: basePts,
@@ -3702,7 +3839,32 @@ function showTopNotification(msg) {
 // 焦らせてしまい、一番伝えたい「いいことが起きたよ」という結果が伝わりにくい、との指摘。
 // 重要度を反転し、効果・結果を主役（大きく・色つきグロー）、フレーバー名を脇役
 // （小さく・控えめな単色）にする。世界観自体をなくすわけではなく、優先度を下げるだけ。
-function showGimmickBanner(name, color='#f5f7fa', effect='') {
+// FB対応：「ギミック装置のバッテリー回復ラベル／効果バナーが、たまに表示されないことがある」
+// との報告。原因調査の結果、#item-popup（アイテム取得・バッテリー回復ラベル）と
+// #gimmick-banner（ギミック作動／ブラックホール崩壊）は、それぞれ複数の発生源で共有する
+// 単一のDOM要素であり、ほぼ同時に2件発生すると後から呼ばれた側が前の表示内容を
+// （一度も描画されないまま）即座に上書きしてしまうことが判明。表示中に次の要求が来た場合は
+// キューに積み、今回の表示が終わってから順番に出すことで、取りこぼしを無くす。
+function makeSequentialPopup(showNowFn, durationMs, maxQueue = 4) {
+  let showing = false;
+  const queue = [];
+  function playNext() {
+    if (showing || queue.length === 0) return;
+    showing = true;
+    const args = queue.shift();
+    showNowFn(...args);
+    let settled = false;
+    const finish = () => { if (settled) return; settled = true; showing = false; playNext(); };
+    setTimeout(finish, durationMs + 80); // animationendが取れない場合の保険（フォールバック）
+  }
+  return (...args) => {
+    queue.push(args);
+    if (queue.length > maxQueue) queue.shift(); // 詰まりすぎた場合は古いものから間引く
+    playNext();
+  };
+}
+
+function _showGimmickBannerNow(name, color='#f5f7fa', effect='') {
   const el = document.getElementById('gimmick-banner');
   const nameEl = document.getElementById('gimmick-banner-name');
   const effectEl = document.getElementById('gimmick-banner-effect');
@@ -3723,15 +3885,45 @@ function showGimmickBanner(name, color='#f5f7fa', effect='') {
   el.classList.remove('show');
   void el.offsetWidth;
   el.classList.add('show');
-  // 実績称号「起動確認/実験技師/ギミックマスター」用のカウント
+}
+const _queueGimmickBanner = makeSequentialPopup(_showGimmickBannerNow, 4200);
+function showGimmickBanner(name, color='#f5f7fa', effect='') {
+  // 実績称号「起動確認/実験技師/ギミックマスター」用のカウントは、表示のキュー待ちに関わらず
+  // 発生した瞬間に必ず加算する（表示演出のタイミングと統計は独立させる）
   if (window.Achievements) window.Achievements.incrementStat('gimmickTriggerCount');
+  _queueGimmickBanner(name, color, effect);
+}
+
+// FB対応：「間髪入れず2個のブラックホール崩壊が起きても、省かずちゃんと表示してほしい」。
+// バナー自体はキュー機構により表示そのものの取りこぼしは無かった（両方きちんと再生される）が、
+// 崩壊バナーは毎回「ブラックホール崩壊！＋固定ボーナス額」という全く同じ文言になるため、
+// 連続して2回流れても見た目上ほぼ区別がつかず「1回しか出ていない」ように見えてしまっていた。
+// ごく短時間（200ms）以内に起きた崩壊はまとめて集計し、1件のバナーとして合算額（＋回数）を
+// 一度で表示することで、複数回起きたことがひと目でわかるようにする。実績用のカウント
+// （gimmickTriggerCount）はこのまとめ表示とは無関係に、崩壊が起きた瞬間ごとに必ず加算する
+// （表示演出のタイミングと統計は独立させる、という既存方針をそのまま踏襲）。
+let bhCollapseBatch = null; // { count, totalScore }。直近200ms以内に起きた崩壊の集計。null=集計中でない
+function queueBlackholeCollapseBanner(scoreBonus) {
+  if (window.Achievements) window.Achievements.incrementStat('gimmickTriggerCount');
+  if (bhCollapseBatch) {
+    bhCollapseBatch.count++;
+    bhCollapseBatch.totalScore += scoreBonus;
+    return;
+  }
+  bhCollapseBatch = { count: 1, totalScore: scoreBonus };
+  setTimeout(() => {
+    const b = bhCollapseBatch;
+    bhCollapseBatch = null;
+    const name = 'ブラックホール崩壊！' + (b.count > 1 ? ` ×${b.count}` : '');
+    _queueGimmickBanner(name, '#b28cff', `+${b.totalScore.toLocaleString()}点`);
+  }, 200);
 }
 
 // FB対応：「バッテリーがギミックの文字と被る」との指摘。#item-popupは既定で画面中央（#gimmick-bannerと同じ位置）
 // に出るため、世界干渉ギミック発動時のバッテリー回復ポップだけは、画面中央に出るギミック名テキストと
 // 毎回ぴったり重なって読めなくなっていた。offsetYPx を渡した時だけその分だけ縦にずらせるようにし、
 // 通常のアイテム取得時（呼び出し側でoffsetYPxを渡さない）は従来どおり画面中央に表示する
-function showItemPopup(msg, color, offsetYPx) {
+function _showItemPopupNow(msg, color, offsetYPx) {
   const el=document.getElementById('item-popup');
   el.textContent=msg; el.style.color=color;
   el.style.textShadow=`0 0 16px ${color}`;
@@ -3740,6 +3932,9 @@ function showItemPopup(msg, color, offsetYPx) {
   el.style.top = (offsetYPx != null) ? `calc(50% + ${offsetYPx}px)` : '50%';
   el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
 }
+// FB対応：アイテム取得ポップとギミックのバッテリー回復ポップが#item-popupを共有しているため、
+// ほぼ同時に発生すると片方が描画されないまま消えていた（makeSequentialPopupの説明を参照）。
+const showItemPopup = makeSequentialPopup(_showItemPopupNow, 1400);
 
 // ── 爆発トリガー ──────────────────────────────────
 // 共鳴連鎖：起点(ox,oy)から見た各共鳴岩の方向、画面端に見切れる位置に、水面の波紋のような細いリングを出す
@@ -3769,7 +3964,7 @@ function spawnResonanceWakeFX(resRocks){
   });
 }
 
-function triggerExplosion(x, y, power, chainDepth, isRock, playerCaused=false, gaugePoints=1, slowBlast=false) {
+function triggerExplosion(x, y, power, chainDepth, isRock, playerCaused=false, gaugePoints=1, slowBlast=false, isCannon=false) {
   // 爆発SE：選択中のエフェクトスキンに応じた音を1回鳴らす
   if (typeof playExplosionSE === 'function') {
     playExplosionSE(typeof settings !== 'undefined' ? (settings.selectedExplosionSkinId || 'default') : 'default');
@@ -3789,7 +3984,7 @@ function triggerExplosion(x, y, power, chainDepth, isRock, playerCaused=false, g
       h.detectFlash = Math.min(1, h.detectFlash + 0.6);
       h.detectWaves.push({ r: h.r, maxR: DETECT_R * 0.85, life: 1 });
       // ゲージ加算（開放中のみ・岩の爆発はノーカウント）
-      // 磁晶核+1、赤玉+10、金玉+20（gaugePointsで指定、既定値1）
+      // 星宙玉+1、赤玉+10、金玉+20（gaugePointsで指定、既定値1）
       if (!isRock && h.isOpen && h.openAnim > 0.85 && gaugePoints > 0) {
         h.points = Math.min(h.points + gaugePoints, HOLE_GOAL_POINTS);
         h.chargeFlash = 1.0;
@@ -3809,12 +4004,21 @@ function triggerExplosion(x, y, power, chainDepth, isRock, playerCaused=false, g
   // FB対応：「歪みをやめて、A（エナジーリング）やE（デュアルパルス）っぽい方向がいい」。
   // 手描き風の歪み(ringJitter)は廃止し、正円のリングのみで構成する（drawExplosions側で
   // 2本目のリング・中心閃光もこのr/lifeから計算するので、ここで持たせる状態はこれだけで済む）
-  explosions.push({x,y,r:0,maxR:baseR*(0.7+power*0.4),life:1,power,isRock:!!isRock,playerCaused:!!playerCaused,slowBlast:!!slowBlast});
+  // FB対応：「大砲の爆発だけ違うデザインにしたい（お星さま風・爆風っぽく）」。
+  // isCannonフラグと、案3（花火風トゲ放射）で使う放射角のランダムシードだけここで持たせておく
+  explosions.push({x,y,r:0,maxR:baseR*(0.7+power*0.4),life:1,power,isRock:!!isRock,playerCaused:!!playerCaused,slowBlast:!!slowBlast,isCannon:!!isCannon,spikeSeed:Math.random()*Math.PI*2});
   miniExplosions.push({x,y,r:0,maxR:baseR*0.3,life:1});
 
   // 見た目の主張は輪（上のexplosions）側に絞るため、飛び散る粒（フレック）は
   // 3〜4個程度に絞る（以前は18〜32個。連鎖が続く場面での負荷軽減にもなる）
-  const pCnt=3+Math.floor(power*2);
+  // FB対応：「星宙玉フィーバー中だけ極端に重くなる」への対策。玉の密度が上がると
+  // 連鎖爆発が同時多発しやすくなり、この粒の生成コストが積み重なって重くなる。
+  // 画面上の既存パーティクル数（負荷の目安）が多いときだけ生成数を絞る負荷連動
+  // スロットルを追加（普段の少量発生時は今まで通りフル、フィーバー中の連鎖多発時
+  // だけ自動的に控えめになる）。260は毎フレーム末尾のMAX_PARTICLES上限と同じ値。
+  const particleLoad = Math.min(1, particles.length / 260);
+  const particleLoadFactor = 1 - particleLoad*0.6; // 混雑時は最大60%減
+  const pCnt = Math.max(1, Math.round((3+Math.floor(power*2)) * particleLoadFactor));
   for(let i=0;i<pCnt;i++){
     const a=Math.random()*Math.PI*2, s=2+Math.random()*6*power;
     particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
@@ -3831,54 +4035,79 @@ function triggerExplosion(x, y, power, chainDepth, isRock, playerCaused=false, g
     if(gameStartProtection) return; // 開始保護中は連鎖伝播をスキップ
     let chainHit=0;
 
-    // ── 磁晶核への連鎖 ──
-    for(const m of marbles){
-      if(!m.alive || m.detonating) continue;
-      // FB対応：ブラックホールに捕獲済み／捕獲に向けて引力圏内にいる玉は、離れた場所の爆発の連鎖にも巻き込まれないようにする
-      // （せっかく溜まった質量が、無関係な連鎖の余波で毎回崩されてしまい起動できない、という不具合の対策）
-      if(m.bhOwner || m.bhField) continue;
-      let dx=m.x-x, dy=m.y-y;
-      if(dx> WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
-      if(dy> WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
-      const dist=Math.hypot(dx,dy);
-      if(dist<effR){
-        // 爆風の外向き方向・距離に応じた力
-        const ang = Math.atan2(dy,dx);
-        const forceMag = (1 - dist/effR) * 10 * power * (m.blastMult || 1.0) * evBlast;
-        m.vx += Math.cos(ang) * forceMag;
-        m.vy += Math.sin(ang) * forceMag;
-        if(dist < effR * 0.85){
-          // 中心部：起爆状態に移行（即消去しない）※排出直後の無敵中は起爆しない
-          if(!m.inVortex && !(m.spawnShield > 0)){
-            if(!m.detonating){
-              m.detonating = true;
-              m.detonateTimer = m.detonateTime || 0.4;
-              m.playerCaused = playerCaused;
-              chainCount++; updateChainDisplay(chainCount, chainDepth+1, m.x, m.y, playerCaused);
+    // ── 星宙玉への連鎖 ──
+    // FB対応：「ギミックのフィーバーが重すぎる（発動時のみ気になる）」。
+    // 以前はここで毎回marbles全件（数百個になることも）を舐めていたため、フィーバー中に
+    // 爆発が同時多発する（連鎖が連鎖を呼ぶ）と、このsetTimeoutが山ほど積み重なって
+    // O(全玉数)のスキャンを何度も繰り返す形になり重くなっていた。
+    // update()側で毎フレーム再構築している玉同士衝突用の空間グリッド（marbleGrid、上の
+    // モジュール直下で共有）を再利用し、爆心(x,y)から半径effRが届きうるマス目だけを
+    // 調べるようにする（マス目の中身・判定ロジック自体は元のままで変更していない）。
+    // このグリッドは毎フレーム最新化され続けているため、このコールバックが少し遅れて
+    // 発火しても（chainDepth*80ms後）、その時点で最新の玉の位置を反映したグリッドを見る形になり、
+    // 「本来ヒットするはずの玉を取りこぼす」といった不整合は起きない。
+    const chainCellRadius = Math.max(1, Math.ceil((effR + MAX_MARBLE_FRAME_MOVE) / MARBLE_GRID_CELL) + 1);
+    const chainCx = Math.min(marbleGridCols-1, Math.max(0, Math.floor(x / MARBLE_GRID_CELL)));
+    const chainCy = Math.min(marbleGridRows-1, Math.max(0, Math.floor(y / MARBLE_GRID_CELL)));
+    const chainSeen = new Set();
+    for(let ncx=chainCx-chainCellRadius; ncx<=chainCx+chainCellRadius; ncx++){
+      if(ncx<0 || ncx>=marbleGridCols) continue;
+      for(let ncy=chainCy-chainCellRadius; ncy<=chainCy+chainCellRadius; ncy++){
+        if(ncy<0 || ncy>=marbleGridRows) continue;
+        const bucket = marbleGrid.get(ncx*marbleGridRows + ncy);
+        if(!bucket) continue;
+        for(const gi of bucket){
+          const m = alive[gi];
+          if(!m || chainSeen.has(m)) continue;
+          chainSeen.add(m);
+          if(!m.alive || m.detonating) continue;
+          // FB対応：ブラックホールに捕獲済み／捕獲に向けて引力圏内にいる玉は、離れた場所の爆発の連鎖にも巻き込まれないようにする
+          // （せっかく溜まった質量が、無関係な連鎖の余波で毎回崩されてしまい起動できない、という不具合の対策）
+          if(m.bhOwner || m.bhField) continue;
+          let dx=m.x-x, dy=m.y-y;
+          if(dx> WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
+          if(dy> WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
+          const dist=Math.hypot(dx,dy);
+          if(dist<effR){
+            // 爆風の外向き方向・距離に応じた力
+            const ang = Math.atan2(dy,dx);
+            const forceMag = (1 - dist/effR) * 10 * power * (m.blastMult || 1.0) * evBlast;
+            m.vx += Math.cos(ang) * forceMag;
+            m.vy += Math.sin(ang) * forceMag;
+            if(dist < effR * 0.85){
+              // 中心部：起爆状態に移行（即消去しない）※排出直後の無敵中は起爆しない
+              if(!m.inVortex && !(m.spawnShield > 0)){
+                if(!m.detonating){
+                  m.detonating = true;
+                  m.detonateTimer = m.detonateTime || 0.4;
+                  m.playerCaused = playerCaused;
+                  chainCount++; updateChainDisplay(chainCount, chainDepth+1, m.x, m.y, playerCaused);
+                }
+              }
+              chainHit++;
+              // 1発ごとの基本ポイント：チェインの原因（S極吸引/N極反発/非プレイヤー）×段階（通常/BIG/MEGA）で変える。
+              // ※S極と非プレイヤー起因の基本点は底上げ済み（S極1.3倍、非プレイヤー起因は固定50点→段階倍率つき）。
+              //   N極の基本点は、拡散ボーナス（S→Nの合わせ技への大きな見返り）とは別に、
+              //   「N極だけを使い続けるプレイ」でも寂しい点数にならないよう、約3倍に引き上げている
+              //   （実績「トリッキー」＝N極60秒維持プレイで、スコア10万前後に届くことを目安に調整）
+              let baseHitScore;
+              if (currentChainCause === 'S') {
+                baseHitScore = lastChainTier === 2 ? 390 : lastChainTier === 1 ? 195 : 65;
+              } else if (currentChainCause === 'N') {
+                baseHitScore = lastChainTier === 2 ? 2250 : lastChainTier === 1 ? 1125 : 360;
+              } else {
+                baseHitScore = lastChainTier === 2 ? 300 : lastChainTier === 1 ? 150 : 50; // 非プレイヤー起因：以前は固定50点だった
+              }
+              const hitScore = Math.floor(baseHitScore * upgrades.chainMulti * getEventMult('chainMulti'));
+              addScore(hitScore);
+              // デバッグ集計：どの原因(S/N/非プレイヤー)・どの段階(通常/BIG/MEGA)で何点入ったか
+              scoreDebug.hitByCause[currentChainCause || 'none'] += hitScore;
+              scoreDebug.hitCountByTier[lastChainTier]++;
+              scoreDebug.hitScoreByTier[lastChainTier] += hitScore;
             }
+            // 外周部（0.85〜1.0）：弾き飛ばしのみ（起爆なし）
           }
-          chainHit++;
-          // 1発ごとの基本ポイント：チェインの原因（S極吸引/N極反発/非プレイヤー）×段階（通常/BIG/MEGA）で変える。
-          // ※S極と非プレイヤー起因の基本点は底上げ済み（S極1.3倍、非プレイヤー起因は固定50点→段階倍率つき）。
-          //   N極の基本点は、拡散ボーナス（S→Nの合わせ技への大きな見返り）とは別に、
-          //   「N極だけを使い続けるプレイ」でも寂しい点数にならないよう、約3倍に引き上げている
-          //   （実績「トリッキー」＝N極60秒維持プレイで、スコア10万前後に届くことを目安に調整）
-          let baseHitScore;
-          if (currentChainCause === 'S') {
-            baseHitScore = lastChainTier === 2 ? 390 : lastChainTier === 1 ? 195 : 65;
-          } else if (currentChainCause === 'N') {
-            baseHitScore = lastChainTier === 2 ? 2250 : lastChainTier === 1 ? 1125 : 360;
-          } else {
-            baseHitScore = lastChainTier === 2 ? 300 : lastChainTier === 1 ? 150 : 50; // 非プレイヤー起因：以前は固定50点だった
-          }
-          const hitScore = Math.floor(baseHitScore * upgrades.chainMulti * getEventMult('chainMulti'));
-          addScore(hitScore);
-          // デバッグ集計：どの原因(S/N/非プレイヤー)・どの段階(通常/BIG/MEGA)で何点入ったか
-          scoreDebug.hitByCause[currentChainCause || 'none'] += hitScore;
-          scoreDebug.hitCountByTier[lastChainTier]++;
-          scoreDebug.hitScoreByTier[lastChainTier] += hitScore;
         }
-        // 外周部（0.85〜1.0）：弾き飛ばしのみ（起爆なし）
       }
     }
 
@@ -4085,7 +4314,7 @@ function activateDash(){
   showSkillKanjiBanner('3秒ブースト！');
 }
 
-const CANNON_R = MARBLE_R * 3;   // 磁晶核の3倍サイズ（S/N極には一切反応しない専用玉として扱う）
+const CANNON_R = MARBLE_R * 3;   // 星宙玉の3倍サイズ（S/N極には一切反応しない専用玉として扱う）
 const CANNON_APPEAR_DUR = 0.5;   // 出現にかける時間（秒）
 
 function activateCannon(){
@@ -4121,10 +4350,10 @@ function fireCannon(){
   );
   m.playerCaused = true;
   m.isCannonball = true;
-  // 大砲玉は爆発範囲もサイズに比例（rangeMult=4.5。1500px到達時に被弾数ぶんさらに増加する）
+  // 大砲玉は爆発範囲もサイズに比例（rangeMult=4.5。1.6秒経過時に被弾数ぶんさらに増加する）
   m.rangeMult = 4.5;
-  m.cannonTravelDist = 0; // 発射地点からの移動距離（これが1500pxに達すると起爆準備に入る）
-  m.cannonHitCount = 0;   // 無敵飛行中にすり抜けて消費した磁晶核の数（爆発の大きさに反映）
+  m.cannonAge = 0; // 発射からの経過時間（これが1.6秒に達すると起爆準備に入る。FB対応：飛距離基準→時間基準(3秒→2.4秒→1.6秒)に変更）
+  m.cannonHitCount = 0;   // 無敵飛行中にすり抜けて消費した星宙玉の数（爆発の大きさに反映）
   m.cannonArmed = false;  // true になったら通常の起爆(0.4秒後に爆発)フローに合流する
   marbles.push(m);
   if (window.SoundSE) window.SoundSE.playSkill('cannon'); // FBにより、ここ（実際に砲弾が発射される瞬間）でSEを鳴らす
@@ -4284,7 +4513,7 @@ function activateSweep(){
     while(angDiff < -Math.PI) angDiff += Math.PI*2;
     if(Math.abs(angDiff) > halfArc) continue;
 
-    const nx = dx/dist, ny = dy/dist; // この磁晶核自身の、プレイヤーから見た方向
+    const nx = dx/dist, ny = dy/dist; // この星宙玉自身の、プレイヤーから見た方向
     // 左(-halfArc)から右(+halfArc)へ薙ぎ払う＝各玉の位置を基準にした時計回りの接線方向
     const tangentX = ny, tangentY = -nx;
     // 接線方向(薙ぎ払いの向き)と外側方向(プレイヤーから離れる向き)をブレンドして、
@@ -4514,6 +4743,87 @@ const playShowdownPhase = (() => {
     }
   }
 
+  // FB対応：「撃ち放ったエネルギー弾自体にも、最後に爆発演出が欲しい」。敵の破片（zone.colorで
+  // 着色されるdrawShatter）とは別に、"弾"そのもの（drawBeamと同じ橙〜白の光の色）が最後に
+  // はじけて消える専用の爆発。BULLET_BURST_STYLEで2案を切り替えるための入口。
+  function drawBulletBurst(x, y, baseR, t) {
+    if (BULLET_BURST_STYLE === 'shockwave') drawBulletBurstShockwave(x, y, baseR, t);
+    else drawBulletBurstParticles(x, y, baseR, t);
+  }
+
+  // 案①：弾の芯が光の粒（8個）になって四方八方へ飛び散る
+  // FB対応：「丸が若干ぼかしてる形になってる→ぼかさずシャープな輪郭に、若干発光グロウを
+  // かけたい」。従来は放射状グラデーションのみで縁がにじんでいたため、輪郭のはっきりした
+  // 単色塗り＋縁取りの円を主体にし、その背後にひと回り大きい淡いグロウだけを添える構成に変更。
+  function drawBulletBurstParticles(x, y, baseR, t) {
+    const ease = 1 - Math.pow(1-t, 2);
+    // はじけた瞬間だけ中心が眩しく光る
+    if (t < 0.25) {
+      const flashA = 1 - (t/0.25);
+      // 背後の淡いグロウ（若干発光）
+      const g = sctx.createRadialGradient(x,y,0,x,y,baseR*1.8);
+      g.addColorStop(0, `rgba(255,220,150,${0.35*flashA})`);
+      g.addColorStop(1, 'rgba(255,180,80,0)');
+      sctx.beginPath(); sctx.arc(x,y,baseR*1.8,0,Math.PI*2); sctx.fillStyle=g; sctx.fill();
+      // 輪郭のはっきりした中心の閃光本体
+      const flashR = baseR*0.9*flashA;
+      sctx.beginPath(); sctx.arc(x,y,flashR,0,Math.PI*2);
+      sctx.fillStyle = `rgba(255,255,255,${flashA*0.95})`;
+      sctx.fill();
+      sctx.lineWidth = Math.max(1, 1.5*S);
+      sctx.strokeStyle = `rgba(255,225,160,${flashA*0.9})`;
+      sctx.stroke();
+    }
+    const N = 8;
+    for (let k = 0; k < N; k++) {
+      const ang = (k/N)*Math.PI*2 + 0.3; // 敵側の破片(drawShatter)と重ならないよう角度をずらす
+      const dist = ease * (baseR*3.2 + 60*S);
+      const px = x + Math.cos(ang)*dist;
+      const py = y + Math.sin(ang)*dist;
+      const pr = Math.max(0, baseR*0.34*(1 - t*0.55));
+      const alpha = Math.max(0, 1 - t*1.05);
+      if (pr <= 0 || alpha <= 0) continue;
+      sctx.save();
+      sctx.globalAlpha = alpha;
+      // 背後の淡いグロウ（若干発光）
+      const g2 = sctx.createRadialGradient(px,py,0,px,py,pr*2.2);
+      g2.addColorStop(0, 'rgba(255,210,140,0.45)');
+      g2.addColorStop(1, 'rgba(255,150,50,0)');
+      sctx.beginPath(); sctx.arc(px,py,pr*2.2,0,Math.PI*2); sctx.fillStyle=g2; sctx.fill();
+      // 輪郭のはっきりした粒本体（単色塗り＋縁取り）
+      sctx.beginPath(); sctx.arc(px,py,pr,0,Math.PI*2);
+      sctx.fillStyle = 'rgba(255,238,210,1)';
+      sctx.fill();
+      sctx.lineWidth = Math.max(1, 1.2*S);
+      sctx.strokeStyle = 'rgba(255,170,70,0.95)';
+      sctx.stroke();
+      sctx.restore();
+    }
+  }
+
+  // 案②：弾がその場でドンと爆風（衝撃波）を起こして消える
+  function drawBulletBurstShockwave(x, y, baseR, t) {
+    // 中心の閃光（一瞬だけ強く光ってから収束）
+    const flashA = Math.max(0, 1 - t*3);
+    if (flashA > 0) {
+      const g = sctx.createRadialGradient(x,y,0,x,y,baseR*2.2);
+      g.addColorStop(0, `rgba(255,255,255,${0.95*flashA})`);
+      g.addColorStop(1, 'rgba(255,180,80,0)');
+      sctx.beginPath(); sctx.arc(x,y,baseR*2.2,0,Math.PI*2); sctx.fillStyle=g; sctx.fill();
+    }
+    // 拡がっていく衝撃波リング（時間差の2重）
+    [1, 0.6].forEach((_unused, i) => {
+      const lt = Math.max(0, Math.min(1, (t - i*0.12) / (1 - i*0.12)));
+      if (lt <= 0) return;
+      const r = baseR * (1 + lt*5.5);
+      const alpha = Math.max(0, 1-lt) * 0.8;
+      sctx.beginPath(); sctx.arc(x,y,r,0,Math.PI*2);
+      sctx.strokeStyle = `rgba(255,190,110,${alpha})`;
+      sctx.lineWidth = Math.max(1, baseR*0.35*(1-lt));
+      sctx.stroke();
+    });
+  }
+
   // 敵の見た目（簡易プレースホルダー：形とサイズだけでタイプを区別。専用イラスト実装待ち）
   function drawEnemy(x, y, radius, color, hitFlash) {
     sctx.save();
@@ -4592,6 +4902,41 @@ const playShowdownPhase = (() => {
     sctx.strokeStyle = '#8fa2c8'; sctx.lineWidth = 1.5; sctx.stroke();
     sctx.beginPath(); sctx.arc(0,-3*S,3.6*S,0,Math.PI*2); sctx.fillStyle = '#5aa4ff'; sctx.fill();
     sctx.restore();
+  }
+
+  // FB対応：チャージ中の「ためてる感じ」を強めるための追加演出。芯の周囲を、小さな光の粒が
+  // 渦を巻きながら中心へ吸い込まれていくように描く（t=0で外側に散らばり、t→1で芯に収束）。
+  function drawChargeGatherSparks(x, y, t, baseR) {
+    const N = 6;
+    for (let k = 0; k < N; k++) {
+      const seed = k * 1.7;
+      const ang = seed + t * (4 + (k % 3)); // 粒ごとに少し違う速さで渦を巻く
+      const dist = baseR * (2.6 + Math.sin(seed*3)*0.6) * (1 - Math.pow(t, 1.4));
+      if (dist < baseR*0.3) continue; // 芯まで十分近づいたら（吸い込まれたとみなして）消す
+      const px = x + Math.cos(ang)*dist;
+      const py = y + Math.sin(ang)*dist;
+      const pr = Math.max(1.2, 3.6*S * (1 - t*0.25));
+      const alpha = Math.min(1, t*3) * (0.55 + 0.45*Math.sin(seed*5 + t*20));
+      sctx.save();
+      sctx.globalAlpha = alpha;
+      // 進行方向（中心へ吸い込まれる方向）へ短い尾を引かせ、芯の暖色グローに埋もれず
+      // 「飛び込んでいく粒」として視認できるよう、芯より明るい白寄りの色にする
+      const trailAng = Math.atan2(y-py, x-px);
+      const trailLen = pr * 3.2;
+      const tx = px - Math.cos(trailAng)*trailLen, ty = py - Math.sin(trailAng)*trailLen;
+      const lineGrad = sctx.createLinearGradient(px, py, tx, ty);
+      lineGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+      lineGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      sctx.strokeStyle = lineGrad;
+      sctx.lineWidth = pr*0.9;
+      sctx.lineCap = 'round';
+      sctx.beginPath(); sctx.moveTo(px,py); sctx.lineTo(tx,ty); sctx.stroke();
+      const g = sctx.createRadialGradient(px,py,0,px,py,pr*1.6);
+      g.addColorStop(0, 'rgba(255,255,255,1)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      sctx.beginPath(); sctx.arc(px, py, pr*1.6, 0, Math.PI*2); sctx.fillStyle=g; sctx.fill();
+      sctx.restore();
+    }
   }
 
   // 発射された弾そのもの（チャージ中〜貫通中〜撃破後まで一貫して同じ見た目）：
@@ -4723,6 +5068,11 @@ const playShowdownPhase = (() => {
   // 最後の1体が砕けるバースト演出（tierBeat.break）が終わった後、スタンプ演出（stageStamp）に
   // 移るまでの「間」を確保するための固定ホールド時間（旧：176固定）。
   const FINAL_BURST_HOLD_MS = 650;
+  // FB対応：「撃ち放ったエネルギー弾自体にも、最後に爆発演出が欲しい」との要望。
+  // 'particles' = 光の粒が8個、四方八方へ飛び散る案／'shockwave' = その場でドンと爆風（衝撃波）
+  // が起きる案。2案とも実装済みで、この1行を書き換えるだけでいつでも見た目を切り替えられる。
+  const BULLET_BURST_STYLE = 'particles'; // 'particles' | 'shockwave'
+  const BULLET_BURST_MS = 480;
 
   let ROSTER = [], TOTAL_ENEMIES = 0, states = [];
 
@@ -4912,16 +5262,40 @@ const playShowdownPhase = (() => {
     let camY = camYTarget;
 
     // ── ③チャージ：機体の目の前でエネルギー（スコア）を1回だけ溜める。ためている間は
-    //    尾を引かず、ただ光る球（芯）が育っていくだけの見た目にする（尾は発射の瞬間に出す）──
-    const CHARGE_MS = 1000;
+    //    尾を引かず、ただ光る球（芯）が育っていくだけの見た目にする（尾は発射の瞬間に出す）。
+    //    FB対応：「もっと"ためてる感じ"にしてほしい。ためてから放つまでの時間を伸ばしてほしい」。
+    //    ①時間を1000ms→1400msに延長 ②終盤ほど脈動（震え）が速く・大きくなるようにして
+    //    「限界までためている」緊張感を出す ③周囲の光の粒が渦を巻きながら芯へ吸い込まれる
+    //    演出（drawChargeGatherSparks）を追加 ④ためきった直後、発射までの一呼吸
+    //    （ピークホールド）を新設し、溜めと解放の間に「間」を作る ──
+    const CHARGE_MS = 1400;
     await animate(CHARGE_MS, (t) => {
       const eased = 1 - Math.pow(1-t, 2);
-      const r = chargeR*eased;
+      // 終盤ほど速く・大きく脈打つ（限界までためている緊張感の表現）
+      const pulse = 1 + Math.sin(t * Math.PI * 2 * (3 + t*9)) * 0.07 * t;
+      const r = chargeR*eased*pulse;
       renderScene({
         showScore: true,
         camera: { y: camY, zoom: ZOOM },
+        shake: t*t*0.8,
         ship: { x: FLIGHT_LANE_X, y: shipY, glow: eased },
-        extra: () => drawBeam(FLIGHT_LANE_X, muzzleY, r, 0, eased)
+        extra: () => {
+          drawChargeGatherSparks(FLIGHT_LANE_X, muzzleY, t, chargeR);
+          drawBeam(FLIGHT_LANE_X, muzzleY, r, 0, eased);
+        }
+      });
+    }, myId);
+    if (myId !== runId) return;
+
+    // ── ためきった瞬間〜発射までの一呼吸（ピークホールド）。一段階明るく光って「解放」を予感させる ──
+    const PEAK_HOLD_MS = 220;
+    await animate(PEAK_HOLD_MS, (t) => {
+      const flash = Math.sin(t * Math.PI); // 0→1→0と一瞬だけ光量が増す
+      renderScene({
+        showScore: true,
+        camera: { y: camY, zoom: ZOOM },
+        ship: { x: FLIGHT_LANE_X, y: shipY, glow: 1 },
+        extra: () => drawBeam(FLIGHT_LANE_X, muzzleY, chargeR*(1+flash*0.18), 0, 1+flash*0.6)
       });
     }, myId);
     if (myId !== runId) return;
@@ -5054,11 +5428,30 @@ const playShowdownPhase = (() => {
         });
       }, myId);
       st.hitFlash = 0;
+      if (myId !== runId) return;
     }
+
+    // FB対応：「撃ち放ったエネルギー弾自体にも、最後に爆発演出が欲しい」との要望。
+    // 敵本体の破片（drawShatter、既存）とは別に、"弾"そのものが最後にはじけて消える
+    // 専用の爆発をここに追加する。BULLET_BURST_STYLEで見た目を切り替え可能。
+    // 重要：fullがtrue（列の最後まで完全撃破）になるのはスコアが1000万を超えて編隊
+    // 全10体を倒しきった場合だけで、通常のプレイではほぼ発生しない。弾が使い切られる
+    // （＝そこで止まる）のはヒビ止まり＝fullがfalseの場合も同じなので、if(full)の外に出し、
+    // 撃破の有無に関わらず必ず弾の爆発を見せるようにする（ヒビ止まりの場合は敵自身は
+    // 砕けず、ヒビが入ったまま生き残った状態の上に弾だけがはじけて消える見た目になる）。
+    await animate(BULLET_BURST_MS, (t) => {
+      renderScene({
+        showScore: true,
+        camera: { y: camY, zoom: ZOOM },
+        extra: () => drawBulletBurst(node.baseX, node.baseY, chargeR*0.85, t)
+      });
+    }, myId);
     if (myId !== runId) return;
 
     await wait(tierBeat.hold);
-    await wait(FINAL_BURST_HOLD_MS);
+    // 弾の爆発演出（上で追加）が流れた分は、その後の固定ホールドから差し引いて
+    // 合計の「間」の長さ自体は変えないようにする
+    await wait(Math.max(150, FINAL_BURST_HOLD_MS - BULLET_BURST_MS));
   }
 
   // ④ ランク確定スタンプ
@@ -5066,7 +5459,8 @@ const playShowdownPhase = (() => {
     if (myId !== runId) return;
     const zone = run.zone;
     const cleared = run.fullClear || run.progress >= 0.999;
-    await animate(72, () => { sctx.fillStyle='rgba(255,255,255,0.9)'; sctx.fillRect(0,0,W,H); }, myId);
+    // FB対応：ランク文字が出る直前に白いフラッシュが一瞬入っていたが、見た目が唐突との
+    // 指摘のため削除。文字はそのままフェードイン（下のt*2によるglobalAlpha）で現れる。
     await animate(400, (t) => {
       drawStarfield(zone.color);
       const scale = 1 + (1-t)*0.6;
@@ -5131,17 +5525,47 @@ const playShowdownPhase = (() => {
 
     sdCanvas.classList.add('dimmed');
     document.getElementById('gameover').classList.add('showdown-reveal');
+    // FB対応：「パネルが下からスライドしているように見えない」との指摘。原因は、ここで
+    // 'showdown-reveal'（＝#gameover-boxが画面外translateY(120vh)にいる状態）を付けた直後、
+    // このPromiseの解決を受けて.then(triggerGameOver)が同じマイクロタスクの流れで即座に
+    // 'show'を付けてしまい、ブラウザが「画面外にいる状態」を一度も描画しないまま最終位置へ
+    // 飛んでいた（＝CSSトランジションの開始地点が存在せず、アニメーションが再生されていなかった）
+    // ため。ここで最低2フレーム分ブラウザに描画させてから抜けることで、'show'が付いた瞬間に
+    // 確実に「画面外→定位置」への遷移として再生されるようにする。
+    await new Promise(requestAnimationFrame);
+    await new Promise(requestAnimationFrame);
   };
 })();
 
 // ── リザルト表示 ─────────────────────────────────
+// FB対応：リザルトのスコア数字に、到達ランクの色でキラッと光るエフェクトを追加するための
+// 配色テーブル。決戦フェーズ側(playShowdownPhase内のZONES／computeRun)と同じ配色・しきい値に
+// 揃えてある。triggerGameOver()はplayShowdownPhase側のクロージャに閉じたZONESへ直接アクセス
+// できないため、表示用にここでも同じ配色を保持している（配色・しきい値を変える場合は両方揃える）。
+const RESULT_RANK_COLORS = [
+  { need:100000,   color:'#5aa4ff' }, // C：漂流する敵影
+  { need:500000,   color:'#00a5ad' }, // B：少数精鋭部隊
+  { need:2000000,  color:'#ffd700' }, // A：中型の脅威
+  { need:10000000, color:'#e91e8c' }, // S：深宇宙の覇者
+];
+function getResultScoreShineColor(sc) {
+  for (const r of RESULT_RANK_COLORS) {
+    if (sc < r.need) return r.color;
+  }
+  return RESULT_RANK_COLORS[RESULT_RANK_COLORS.length - 1].color; // S到達（1000万以上）
+}
 function triggerGameOver() {
   gameRunning=false; gameOver=true;
   if (window.SoundBGM) window.SoundBGM.play('result');
   joystickWrap.classList.remove('show');
   joyTouchId = null; joyReset();
   const m=Math.floor(playTime/60), s=Math.floor(playTime%60).toString().padStart(2,'0');
-  document.getElementById('go-score').textContent=score.toLocaleString();
+  {
+    const scoreEl = document.getElementById('go-score');
+    scoreEl.textContent = score.toLocaleString();
+    scoreEl.style.setProperty('--rank-shine-color', getResultScoreShineColor(score));
+    scoreEl.classList.add('go-score-shine');
+  }
   document.getElementById('go-chain').textContent=maxChainCount;
   document.getElementById('go-time').textContent=`${m}:${s}`;
   document.getElementById('go-title').textContent='FINISH';
@@ -5466,7 +5890,7 @@ function drawPauseMap() {
   c.save();
   c.translate(inner, inner);
   // FB対応：以前はここで内枠と全く同じ「角丸＋手描きジッター」のパスでクリップしていたため、
-  // ワールドの端ギリギリ（＝内枠の四隅ギリギリの位置）に磁晶核・岩・アイテムがある時、
+  // ワールドの端ギリギリ（＝内枠の四隅ギリギリの位置）に星宙玉・岩・アイテムがある時、
   // 内枠の丸まった角の分だけ本来描かれるはずの点や形が薄く欠けて消えてしまい、
   // 「ミニマップの描画範囲が内枠の大きさとズレている（欠けて見える）」不具合の原因になっていた。
   // 中身の描画範囲は内枠と同じ角丸にする必要はなく、単純に「内枠の内接する正方形
@@ -5500,7 +5924,7 @@ function drawPauseMap() {
   // 以前はholeActiveIdx（開放〜自然クローズまでの間）を見ていたため、20ポイントに
   // 達してギミックが発動しトゲの感知自体は終わった後もタイマーが尽きるまで色が
   // 変わったままになる不具合があった。また「！」マークは廃止し、色の変化のみにする。
-  // FB反映（2026-08〜）：磁晶核以外のギミック・岩が縮尺そのままだと小さく見えづらいため、
+  // FB反映（2026-08〜）：星宙玉以外のギミック・岩が縮尺そのままだと小さく見えづらいため、
   // 見た目のサイズだけ1.5倍に拡大する（位置はそのまま、形の大きさだけブースト）
   const GIMMICK_VISUAL_BOOST = 1.5;
   for (const h of holes) {
@@ -5508,7 +5932,7 @@ function drawPauseMap() {
     drawGimmickBurst(c, h.x*scaleX, h.y*scaleY, outerR, outerR*0.52, 9, h.isOpen ? '#00a5ad' : '#f5f7fa');
   }
 
-  // 磁晶核（密度）：2026-08〜：別レイヤーだったヒートマップを廃止し、玉自体の色に
+  // 星宙玉（密度）：2026-08〜：別レイヤーだったヒートマップを廃止し、玉自体の色に
   // 密度を反映させる（孤立=青→密集地ほど赤っぽく変化）。まず密度グリッドだけ計算する
   const cellSz = 6;
   const cols = Math.ceil(contentSz / cellSz);
@@ -5524,7 +5948,7 @@ function drawPauseMap() {
   }
   const maxH = Math.max(1, ...heat);
 
-  // 磁晶核ドット：密度に応じて玉本体の色を変える（青→緑→橙→赤橙→マゼンタ）
+  // 星宙玉ドット：密度に応じて玉本体の色を変える（青→緑→橙→赤橙→マゼンタ）
   // FB反映（2026-08〜）：円だと縁がアンチエイリアスでぼやけて見えるため、
   // 文字と同じくらいパキッと見えるように、実ピクセル格子に位置を合わせた
   // 小さい正方形（塗りっぱなしのfillRectは斜め線が無く、境界がにじまない）に変更。
@@ -5540,7 +5964,7 @@ function drawPauseMap() {
   }
 
   // 岩：2026-08〜：単純な円ではなく、本編と同じ流体シェイプ（rk.pts）を黒で描画
-  // FB反映（2026-08〜）：磁晶核以外は見やすく大きめに描いてほしいとのことなので、
+  // FB反映（2026-08〜）：星宙玉以外は見やすく大きめに描いてほしいとのことなので、
   // 位置は変えずシェイプの大きさだけ1.5倍にブースト
   const ROCK_VISUAL_BOOST = 1.5;
   for (const rk of rocks) {
@@ -5584,7 +6008,7 @@ function drawPauseMap() {
   drawHandDrawnRoundedRect(c, frame.innerPath, '#f5f7fa', 1.6);
 }
 
-// 磁晶核の密度カラー（2026-08〜）：孤立=青→密集地ほど赤っぽく変化する5色グラデーション
+// 星宙玉の密度カラー（2026-08〜）：孤立=青→密集地ほど赤っぽく変化する5色グラデーション
 // （青→緑→橙→赤橙→マゼンタ）。tは0(密度最小)〜1(密度最大)。
 const MARBLE_HEAT_STOPS = [
   [33,150,243],  // 青（孤立）
@@ -5607,7 +6031,7 @@ function marbleHeatColor(t){
   return `rgb(${r},${g},${bl})`;
 }
 
-// 磁晶核ドット用：アンチエイリアスでにじまない「パキッとした」正方形を描く（2026-08〜）。
+// 星宙玉ドット用：アンチエイリアスでにじまない「パキッとした」正方形を描く（2026-08〜）。
 // c.arc()の円だと縁が必ずグラデーションでぼやけるが、fillRect()は軸に平行な辺しか
 // 持たないため、描画位置を実ピクセル格子(1/DPR単位)にスナップさせれば縁がにじまない。
 // これは文字が小さくてもパキッと見える理由（フォント側でヒンティング＝格子合わせ
@@ -6073,14 +6497,15 @@ function update(dt){
     document.getElementById('battery-row').classList.remove('low-battery');
     gameRunning=false;
     // FB対応：決戦フェーズ（暗転〜一撃貫通演出）に移る前に、画面をその場で静止させたまま
-    // 4秒間、赤みを点滅させて「バッテリー切れ」をしっかり見せる「間」を挟む
-    // （以前は200msとほぼ即座に決戦フェーズへ切り替わっており、ゆとりが無いとの指摘）。
+    // 2秒間、赤みを点滅させて「バッテリー切れ」をしっかり見せる「間」を挟む
+    // （以前は200msとほぼ即座に決戦フェーズへ切り替わっており、ゆとりが無いとの指摘。
+    // 一度4秒で実装したが「長すぎる」とのFBで2秒に短縮）。
     const emptyFlash = document.getElementById('battery-empty-flash');
     emptyFlash.classList.add('show');
     setTimeout(()=>{
       emptyFlash.classList.remove('show');
       playShowdownPhase(score).then(triggerGameOver);
-    }, 4000);
+    }, 2000);
     return;
   }
 
@@ -6181,7 +6606,7 @@ function update(dt){
     const dist=Math.hypot(dx,dy);
     const nx=dist>0.1?dx/dist:0, ny=dist>0.1?dy/dist:0;
 
-    // S極(引力)に反応しない玉：起爆して暴走中の追尾磁晶核（homing）
+    // S極(引力)に反応しない玉：起爆して暴走中の追尾星宙玉（homing）
     // FB対応：ブラックホールが既に捕獲した玉(bhOwner)も対象に追加。以前はここが素通りだったため、
     // プレイヤーがS極でブラックホールに近づくと、せっかく捕獲済みの玉を横から奪って持っていけてしまい、
     // 崩壊に必要な質量が溜まらない（起動できない）不具合になっていた
@@ -6291,12 +6716,34 @@ function update(dt){
   // 覚醒中のブラックホールは通常2〜3個程度なのに毎回12個全部を舐めるのは無駄なので、
   // 対象となる「今フレーム減速フィールドを持つブラックホール」だけを先に1回だけ絞り込んでおく
   const activeBlackHoles = rocks.filter(rk => rk.alive && rk.ability === 'blackhole' && rk.state === 'awake' && rk.bhCooldown <= 0);
-  const alive=marbles.filter(m=>m.alive);
+  alive=marbles.filter(m=>m.alive);
+  // ── 玉同士衝突の空間グリッド構築 ──
+  // 以前はこの下で「全玉×全玉」の総当たり(O(n²))を毎フレーム行っていたため、
+  // 玉数が多い場面（星宙玉フィーバー・重力崩壊での密集など）で重くなっていた。
+  // ここでマス目に玉を振り分けておき、実際の当たり判定は自分のマス目＋隣接8マスの
+  // 玉だけと比較するようにする（下のi/jループの中身・判定ロジックは一切変更していない）。
+  // 注：このゲームは玉同士の当たり判定にワールド端をまたぐラップ処理がもともと無い
+  // （dx/dyにWORLD_W/H補正が入っていない＝端をまたいだ玉同士はそもそも衝突しない仕様）ため、
+  // グリッド側でもラップは行わない。これにより挙動は完全に元のままとなる。
+  // （alive/marbleGridCols/marbleGridRows/marbleGridはモジュール直下で共有しているため、
+  // 　ここでは再宣言せず代入のみ行う。triggerExplosion()の連鎖爆発チェックからも参照される）
+  marbleGridCols = Math.max(1, Math.ceil(WORLD_W / MARBLE_GRID_CELL));
+  marbleGridRows = Math.max(1, Math.ceil(WORLD_H / MARBLE_GRID_CELL));
+  marbleGrid = new Map();
+  for(let gi=0; gi<alive.length; gi++){
+    const gm = alive[gi];
+    const gcx = Math.min(marbleGridCols-1, Math.max(0, Math.floor(gm.x / MARBLE_GRID_CELL)));
+    const gcy = Math.min(marbleGridRows-1, Math.max(0, Math.floor(gm.y / MARBLE_GRID_CELL)));
+    const gkey = gcx * marbleGridRows + gcy;
+    let gbucket = marbleGrid.get(gkey);
+    if(!gbucket){ gbucket=[]; marbleGrid.set(gkey, gbucket); }
+    gbucket.push(gi);
+  }
   for(let i=0;i<alive.length;i++){
     const a=alive[i];
     const effDt = dt;
     // 渦中でも摩擦・位置更新は行う（動きが止まる問題の修正）
-    // 跳躍磁晶核：摩擦をほぼ無視し、いちど勢いがつくと長く飛び続ける（他の玉との一番わかりやすい差＝移動距離）
+    // 跳躍星宙玉：摩擦をほぼ無視し、いちど勢いがつくと長く飛び続ける（他の玉との一番わかりやすい差＝移動距離）
     // ただし重力圏内では、引力→跳ね返りの往復でエネルギーが際限なく貯まり続け、
     // 気づいたら勝手に起爆閾値を超えてしまう（＝プレイヤーが操作していないのに離れた場所で連鎖が起きる）ため、
     // 重力圏内にいる間だけこの低摩擦特性を一時的に無効化する（圏外に出れば通常通り復活する）
@@ -6306,7 +6753,7 @@ function update(dt){
     a.vx*=Math.pow(marbleFriction,effDt); a.vy*=Math.pow(marbleFriction,effDt);
     const s2=Math.hypot(a.vx,a.vy);
     // スマブラのふっとばしのように、スイープで弾かれた直後は上限を大きく緩めて、実際に遠くまで吹っ飛ばす
-    const spdCap = a.inVortex ? 10 : (a.isCannonball ? 999 : (a.marbleType==='boost' ? 40 : (a.speedCapBoostTimer>0 ? 80 : 24))); // 渦中はゆったり、大砲玉は減速のみで直進、跳躍磁晶核は上限も高め
+    const spdCap = a.inVortex ? 10 : (a.isCannonball ? 999 : (a.marbleType==='boost' ? 40 : (a.speedCapBoostTimer>0 ? 80 : 24))); // 渦中はゆったり、大砲玉は減速のみで直進、跳躍星宙玉は上限も高め
     if(s2>spdCap){a.vx=a.vx/s2*spdCap;a.vy=a.vy/s2*spdCap;}
     // FB対応：「フリーズショットなどの集中放火がブラックホールの中心部を素通りしてしまう」との指摘。
     // ブラックホールの引力はこの後（マーブル更新ループの外）で加算されるが、それは「力を少しずつ加える」
@@ -6332,14 +6779,16 @@ function update(dt){
     a.x=((a.x+a.vx*effDt)%WORLD_W+WORLD_W)%WORLD_W;
     a.y=((a.y+a.vy*effDt)%WORLD_H+WORLD_H)%WORLD_H;
 
-    // 大砲玉：発射地点からの移動距離を積算し、2000px到達（または最大4秒経過の保険）で
-    // 起爆準備（0.4秒後に爆発）に入る。被弾数(cannonHitCount)ぶんrangeMultを増やしておくことで、
-    // 後段の通常の起爆処理がそのまま大きな爆発として扱ってくれる
+    // 大砲玉：発射からの経過時間を積算し、1.6秒経過で起爆準備（0.4秒後に爆発）に入る＝発射から爆発まで合計2秒。
+    // 被弾数(cannonHitCount)ぶんrangeMultを増やしておくことで、後段の通常の起爆処理が
+    // そのまま大きな爆発として扱ってくれる
     // （岩への衝突による即時起爆はこのフローと無関係に従来通り動作する）
+    // FB対応：「岩とかに破壊されない限りは発射から3秒後に爆発してほしい」→「3秒から2.4秒へ短縮」
+    // →「1.6秒に変更（合計2秒になるように）」の順で変遷。
+    // 以前は移動距離（900px）基準だったが、経過時間のみを基準にする方式に変更
     if(a.isCannonball && !a.cannonArmed){
-      a.cannonTravelDist += Math.hypot(a.vx*effDt, a.vy*effDt);
       a.cannonAge = (a.cannonAge||0) + dtSec;
-      if(a.cannonTravelDist >= 1500 || a.cannonAge >= 4){
+      if(a.cannonAge >= 1.6){
         a.cannonArmed = true;
         a.rangeMult = 4.5 * (1 + a.cannonHitCount*0.25);
         a.detonating = true;
@@ -6356,7 +6805,18 @@ function update(dt){
     if(a.bhField) continue;
 
     // 玉同士衝突（渦中・ブラックホール捕獲中／引力圏内でない玉のみ）
-    for(let j=i+1;j<alive.length;j++){
+    // 空間グリッドで自分のマス目＋隣接8マスの玉だけを候補にする。
+    // ロールバック用に、この下に元の総当たりループをそのままコメントアウトで残してある。
+    const aCx = Math.min(marbleGridCols-1, Math.max(0, Math.floor(a.x / MARBLE_GRID_CELL)));
+    const aCy = Math.min(marbleGridRows-1, Math.max(0, Math.floor(a.y / MARBLE_GRID_CELL)));
+    for(let aNcx=aCx-1; aNcx<=aCx+1; aNcx++){
+    if(aNcx<0 || aNcx>=marbleGridCols) continue;
+    for(let aNcy=aCy-1; aNcy<=aCy+1; aNcy++){
+    if(aNcy<0 || aNcy>=marbleGridRows) continue;
+    const aBucket = marbleGrid.get(aNcx*marbleGridRows + aNcy);
+    if(!aBucket) continue;
+    for(const j of aBucket){
+    if(j<=i) continue;
       const b=alive[j];
       if(b.inVortex) continue;
       if(b.bhOwner) continue;
@@ -6371,7 +6831,7 @@ function update(dt){
         const nx=dx/dist, ny=dy/dist;
         const rv=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;
 
-        // 大砲玉：2000px到達まで無敵（岩への衝突を除く）。当たった磁晶核はバンパー岩と同様に
+        // 大砲玉：発射から1.6秒経つまで無敵（岩への衝突を除く）。当たった星宙玉はバンパー岩と同様に
         // 強く弾き飛ばし、そのまま通常の起爆(0.4秒後に爆発)に入れる。大砲玉自身は無傷で直進を続け、
         // 被弾した数だけ後の自爆時の威力(rangeMult)に上乗せされる
         if(a.isCannonball && !a.cannonArmed && !b.isCannonball){
@@ -6405,7 +6865,7 @@ function update(dt){
           continue;
         }
 
-        // どちらかが起爆中 → 連鎖起爆＋物理弾き（排出直後の無敵中は巻き込まれない・遅延磁晶核は爆発せず起爆armedに入る）
+        // どちらかが起爆中 → 連鎖起爆＋物理弾き（排出直後の無敵中は巻き込まれない・遅延星宙玉は爆発せず起爆armedに入る）
         if(a.detonating || b.detonating){
           // 未起爆の玉にのみタイマーをセット（既に起爆中なら上書きしない）
           const causedFlag = a.playerCaused || b.playerCaused;
@@ -6430,7 +6890,7 @@ function update(dt){
           continue;
         }
 
-        // 両方磁晶核：十分な速度なら起爆、それ以下なら押し返し（排出直後の無敵中は起爆しない・遅延磁晶核は爆発せず起爆armedに入る）
+        // 両方星宙玉：十分な速度なら起爆、それ以下なら押し返し（排出直後の無敵中は起爆しない・遅延星宙玉は爆発せず起爆armedに入る）
         // 重力圏内かつ、直近でプレイヤーの磁力を受けていないペアだけ、受動的な力では絶対届かない高さまで閾値を引き上げる
         // （プレイヤーが直接弾いた場合の速度は数十〜60なので、この閾値でも全く届かなくなることはない）
         const ambientGravityPair = (a.nearGravity || b.nearGravity)
@@ -6455,6 +6915,21 @@ function update(dt){
         a.vx-=nx*push;a.vy-=ny*push;b.vx+=nx*push;b.vy+=ny*push;
       }
     }
+    }
+    }
+    /* ロールバック用（空間グリッド導入前の総当たり版）：
+    for(let j=i+1;j<alive.length;j++){
+      const b=alive[j];
+      if(b.inVortex) continue;
+      if(b.bhOwner) continue;
+      if(b.bhField) continue;
+      const dx=b.x-a.x, dy=b.y-a.y, dist=Math.hypot(dx,dy);
+      if(dist<a.r+b.r&&dist>0.1){
+        ... （中身は上のグリッド版と同一。差し戻す場合は、上のグリッドループ全体をこの
+             コメントの中身（総当たりループ）に置き換えてください） ...
+      }
+    }
+    */
 
     // 玉→岩衝突
     for(const rk of rocks){
@@ -6472,7 +6947,7 @@ function update(dt){
           const nx=dx/dist, ny=dy/dist;
 
           if(a.marbleType === 'delay'){
-            // 遅延磁晶核：岩に当たっても爆発しない。最初の衝突で起爆(armed)し、以後は軽く弾かれるだけ
+            // 遅延星宙玉：岩に当たっても爆発しない。最初の衝突で起爆(armed)し、以後は軽く弾かれるだけ
             armDelayMarble(a);
             const dot = a.vx*nx + a.vy*ny;
             a.vx -= 1.8*dot*nx;
@@ -6533,7 +7008,7 @@ function update(dt){
           } else if(rk.state === 'awake' && rk.ability === 'resonance'){
             // 共鳴：通常爆発 + 他の共鳴岩を順番に爆発
             a.alive=false;
-            triggerExplosion((a.x+rk.x)/2,(a.y+rk.y)/2,1.4,0,false,a.playerCaused||false);
+            triggerExplosion((a.x+rk.x)/2,(a.y+rk.y)/2,1.4,0,false,a.playerCaused||false,1,false,a.isCannonball||false);
             addScore(Math.floor(ROCK_HIT_SCORE_BASE*upgrades.chainMulti));
             currentChainDepth=0; chainCount++;updateChainDisplay(chainCount,0,(a.x+rk.x)/2,(a.y+rk.y)/2, a.playerCaused||false);
             // 他の共鳴岩を距離順に順番に爆発させる
@@ -6551,7 +7026,7 @@ function update(dt){
           } else {
             // 通常状態 or 波動（波動は玉の衝突では反応しない）
             a.alive=false;
-            triggerExplosion((a.x+rk.x)/2,(a.y+rk.y)/2,1.4,0,false,a.playerCaused||false);
+            triggerExplosion((a.x+rk.x)/2,(a.y+rk.y)/2,1.4,0,false,a.playerCaused||false,1,false,a.isCannonball||false);
             addScore(Math.floor(ROCK_HIT_SCORE_BASE*upgrades.chainMulti));
             currentChainDepth=0; chainCount++;updateChainDisplay(chainCount,0,(a.x+rk.x)/2,(a.y+rk.y)/2, a.playerCaused||false);
           }
@@ -6658,9 +7133,9 @@ function update(dt){
     }
   }
 
-  // ── 重力磁晶核：周囲の玉をゆっくり引き寄せる ──
-  // FB対応：実機プロファイル計測で、この「重力磁晶核1個ごとに全玉を再チェック」という
-  // 二重ループ（重力磁晶核の数 × 全玉数）が、プレイ中（大連鎖でなくても常時）の
+  // ── 重力星宙玉：周囲の玉をゆっくり引き寄せる ──
+  // FB対応：実機プロファイル計測で、この「重力星宙玉1個ごとに全玉を再チェック」という
+  // 二重ループ（重力星宙玉の数 × 全玉数）が、プレイ中（大連鎖でなくても常時）の
   // update()処理の中でも特に重いことが分かった。マップ全体(3600×3600)に対して
   // 引力範囲(420px)はごく一部でしかなく、ほとんどの組み合わせは最初から範囲外なのに、
   // 毎回コストの高い平方根計算(Math.hypot)まで律儀に行っていたのが無駄だったため、
@@ -6763,7 +7238,7 @@ function update(dt){
           a.hp--; b.hp--;
           a.hpCooldown = 0.5; b.hpCooldown = 0.5;
           a.flashTimer = 0.35; b.flashTimer = 0.35; // ダメージオーラパルス
-          // HP0で渦の外に射出→通常起爆（遅延磁晶核は爆発せず起爆armedに入る。triggerExplosionは呼ばない＝密集連鎖を防ぐ）
+          // HP0で渦の外に射出→通常起爆（遅延星宙玉は爆発せず起爆armedに入る。triggerExplosionは呼ばない＝密集連鎖を防ぐ）
           if(a.hp <= 0){
             a.inVortex=false;
             let dax=a.x-player.wx, day=a.y-player.wy;
@@ -6807,7 +7282,7 @@ function update(dt){
       const pdist = Math.hypot(dx,dy);
       if(pdist < playerCollisionR + m.r){
         if(m.marbleType === 'delay'){
-          // 遅延磁晶核：接触してもダメージは受けず爆破もしない。ただし接触自体が起爆の引き金(armed)になる
+          // 遅延星宙玉：接触してもダメージは受けず爆破もしない。ただし接触自体が起爆の引き金(armed)になる
           armDelayMarble(m);
           if(pdist > 0.1){
             const pnx=dx/pdist, pny=dy/pdist;
@@ -6837,18 +7312,25 @@ function update(dt){
     if(!rk.alive || rk.state === undefined) continue;
     // 共鳴岩はリーダー1体だけがタイマーを進め、他は後でリーダーに同期させる（下のsyncResonanceRocksで処理）
     if(rk.ability === 'resonance' && !rk.isResonanceLeader) continue;
-    // FB対応：「プレイヤーが近くにいない（姿を捉えていない）ときは勝手に覚醒しないでほしい」との要望。
-    // ブラックホールに限り、まだ覚醒していない間(normal/omen)はプレイヤーがBH_AWAKEN_SIGHT_R以内に
-    // 入るまで覚醒カウントダウン自体を進めない（＝見つけていない間は永遠にnormalのまま）。
-    // 覚醒後(awake)は従来通りプレイヤーが離れても既定の時間で自然に終わるようにし、ここでは
-    // 止めない（そうしないと覚醒したまま二度と終わらない個体が発生してしまう）
+    // FB対応：以前は「プレイヤーが近くにいない（姿を捉えていない）ときは勝手に覚醒しないでほしい」
+    // との要望で、覚醒していない間(normal/omen)はプレイヤーがBH_AWAKEN_SIGHT_R以内に入るまで
+    // 覚醒カウントダウン自体を完全に止めていた（＝見つけていない間は永遠にnormalのまま、タイマー表示も
+    // 一切進まなかった）。今回さらにFBがあり、「タイマーは常に進めてほしい。予兆(omen)の残り1秒で
+    // 止まった状態にして、プレイヤーが近づいたら1→0になって覚醒、という方式の方がいい」とのことなので、
+    // タイマー自体は常に進める方式に変更。ただし予兆の最後の1秒だけは、プレイヤーがBH_AWAKEN_SIGHT_R
+    // 以内に入るまで1秒未満に減らさない（＝表示上「1」で足止めされる）ようにし、近づいた瞬間から
+    // 残り1秒が消化されて覚醒する、という体感にする。
+    let bhInSight = true;
     if(rk.ability === 'blackhole' && rk.state !== 'awake'){
       let bdx = player.wx - rk.x, bdy = player.wy - rk.y;
       if(bdx > WORLD_W/2) bdx -= WORLD_W; else if(bdx < -WORLD_W/2) bdx += WORLD_W;
       if(bdy > WORLD_H/2) bdy -= WORLD_H; else if(bdy < -WORLD_H/2) bdy += WORLD_H;
-      if((bdx*bdx + bdy*bdy) >= BH_AWAKEN_SIGHT_R*BH_AWAKEN_SIGHT_R) continue; // まだ見つかっていないので覚醒タイマーは進めない
+      bhInSight = (bdx*bdx + bdy*bdy) < BH_AWAKEN_SIGHT_R*BH_AWAKEN_SIGHT_R;
     }
     rk.stateTimer -= dtSec;
+    if(rk.ability === 'blackhole' && rk.state === 'omen' && !bhInSight){
+      rk.stateTimer = Math.max(rk.stateTimer, 1); // 見つかるまで残り1秒で足止め
+    }
 
     // ブラックホール岩：覚醒中は周囲の玉とプレイヤーを引き寄せ（波動の"反発"の逆＝"引力"）、
     // 捕獲した玉の数（質量）がBH_COLLAPSE_MASSを超えたら自動で崩壊する。
@@ -7020,7 +7502,7 @@ function update(dt){
           // プレイヤーの位置に関係なく必ず発生するボーナスに変更したのに合わせて、ラベル表示も
           // 崩壊のたびに必ず出すようにする（スコアが実際に動く以上、通知も必ず出すのが自然なため）
           addScore(BH_COLLAPSE_SCORE_BONUS);
-          showGimmickBanner('ブラックホール崩壊！', '#b28cff', `+${BH_COLLAPSE_SCORE_BONUS.toLocaleString()}点`);
+          queueBlackholeCollapseBanner(BH_COLLAPSE_SCORE_BONUS);
           rk.bhMass = 0;
           rk.bhCooldown = BH_COOLDOWN_SEC; // FB対応：崩壊直後は少し休止させ、間髪あけずに再吸引→再崩壊が続くのを防ぐ
           // FB対応：1回の覚醒での崩壊を1回限りにするため、崩壊した瞬間にこの覚醒サイクルを終了させ、
@@ -7078,6 +7560,14 @@ function update(dt){
   for(const rk of rocks){
     if(!rk.alive) continue;
     if(rk.ability === 'blackhole') continue; // ブラックホールは吸い込むだけの存在。通常の岩のような当たり判定は持たない（弾かれず、そのまま引力圏に入る）
+    // FB対応：「起動していない発電ギミックには、当たり判定やバッテリー減少効果を付けないでほしい」。
+    // 玉→岩の衝突判定（上のマーブル用ループ）ではコア岩を発電装置が開放中かどうかでガードしていたが、
+    // このプレイヤー↔岩の当たり判定には同じガードが無く、未開放（起動前）のコア岩にもプレイヤーが
+    // ぶつかって押し戻され、バッテリーまで減ってしまっていた。同じ条件でスキップするよう揃える。
+    if(rk.isCore){
+      const parentHole = holes.find(h => Math.hypot(h.x-rk.x, h.y-rk.y) < 5);
+      if(!parentHole || !parentHole.isOpen) continue;
+    }
     let dx=player.wx-rk.x, dy=player.wy-rk.y;
     if(dx> WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
     if(dy> WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
@@ -7200,10 +7690,20 @@ function update(dt){
     beaconZoomHoldTimer = Math.max(0, beaconZoomHoldTimer - dtSec);
     cam.targetZoom = Math.min(cam.targetZoom, beaconZoomTarget);
   }
+  // FB対応：「大砲、どこで爆発しているか分からない。フリーズショットみたいに、発射～爆発まで
+  // 若干カメラを引いて見届けたい」。大砲玉は発射から2秒後に爆発するが、途中で岩に
+  // 当たれば早く着弾する（飛行時間が短くなる）ため、シャボン玉/フリーズハンドのような固定タイマーではなく、
+  // 実際に飛行中の大砲玉が存在するかどうかを毎フレーム見て判定する
+  // （着弾して消えれば、次のフレームには自動的に通常ズームへ戻り始める）
+  const cannonInFlight = marbles.some(m => m.alive && m.isCannonball);
+  if(cannonInFlight){
+    const cannonZoomTarget = Math.max(cam.baseZoom * 0.65, cam.zoom * 0.72); // シャボン玉と同じ式
+    cam.targetZoom = Math.min(cam.targetZoom, cannonZoomTarget);
+  }
   // 共鳴連鎖の波紋リングは描画時にduration経過で自動的に間引かれるため、ここでの更新は不要
-  // ズームアウトはゆっくり、戻りは素早く（遅延後）。ただしシャボン玉/フリーズハンドの引きは通常より速くする
+  // ズームアウトはゆっくり、戻りは素早く（遅延後）。ただしシャボン玉/フリーズハンド/大砲の引きは通常より速くする
   const zoomingOut = cam.targetZoom < cam.zoom;
-  const skillZoomHolding = bubbleZoomHoldTimer > 0 || beaconZoomHoldTimer > 0;
+  const skillZoomHolding = bubbleZoomHoldTimer > 0 || beaconZoomHoldTimer > 0 || cannonInFlight;
   const zoomSpeed = zoomingOut ? (skillZoomHolding ? 0.05 : 0.015) : 0.04;
   cam.zoom += (cam.targetZoom - cam.zoom) * zoomSpeed * dt;
 
@@ -7216,10 +7716,14 @@ function update(dt){
 
   // マーブル補充（3分割バッチ方式）
   // 爆発なし・閾値未満・バッチ未実行のときにバッチをキューに積む
-  // 磁晶核フィーバー中は閾値・バッチ数を増加させ、より多くの玉が場に維持されるようにする
+  // 星宙玉フィーバー中は閾値・バッチ数を増加させ、より多くの玉が場に維持されるようにする
   const feverActive = activeWorldEvent && activeWorldEvent.id === 'marble_fever';
-  const replenishThreshold = feverActive ? 250 : 150;
-  const replenishBatchCount = feverActive ? 45 : 15;
+  // FB対応：「星宙玉フィーバー中だけ極端に重くなる」→ 密度が上がるほど連鎖爆発が
+  // 重なりやすくなり負荷が跳ね上がるため、フィーバーらしさ（通常よりかなり多い）は
+  // 保ちつつ倍率を少し抑える（250/45 → 200/30）。あわせて下のtriggerExplosion側にも
+  // パーティクル発生数の負荷連動スロットルを追加している。
+  const replenishThreshold = feverActive ? 200 : 150;
+  const replenishBatchCount = feverActive ? 30 : 15;
   if(explosions.length === 0 && !marbleReplenishActive &&
      marbles.filter(m=>m.alive).length < replenishThreshold){
     marbleReplenishActive = true;
@@ -7270,7 +7774,7 @@ function update(dt){
   for(const m of marbles){
     if(!m.alive || !m.detonating) continue;
 
-    // 追尾磁晶核：起爆猶予中はS極を無視し（上のS/Nループで対応済み）、
+    // 追尾星宙玉：起爆猶予中はS極を無視し（上のS/Nループで対応済み）、
     // 周囲で玉が最も密集している方向へ自ら軌道を曲げていく
     if(m.marbleType === 'homing'){
       let cx=0, cy=0, wsum=0;
@@ -7307,7 +7811,7 @@ function update(dt){
           triggerExplosion(m.x, m.y, 2.0, 0, false, pc, 0); // 二段目：通常の2倍・ゲージ加算なし（同一個体のため）
         }, 800);
       } else if(m.marbleType === 'gold'){
-        // 金玉：0.4秒後に大きい爆発(範囲×2.0)→0.8秒後に爆発地点から花火のように磁晶核を10個吹き飛ばす
+        // 金玉：0.4秒後に大きい爆発(範囲×2.0)→0.8秒後に爆発地点から花火のように星宙玉を10個吹き飛ばす
         const pc = m.playerCaused||false;
         const gx = m.x, gy = m.y; // setTimeout実行時にはmが消えている可能性があるため、座標は先に確定させておく
         setTimeout(()=>{
@@ -7317,13 +7821,13 @@ function update(dt){
           spawnFireworkMarbles(gx, gy, 10);
         }, 800);
       } else {
-        triggerExplosion(m.x, m.y, 1.0*(m.rangeMult||1), 0, false, m.playerCaused||false, 1);
+        triggerExplosion(m.x, m.y, 1.0*(m.rangeMult||1), 0, false, m.playerCaused||false, 1, false, m.isCannonball||false);
       }
     }
   }
 
-  // 遅延磁晶核：衝突では起爆せず、専用のfuseTimerが0になったら必ず起爆する
-  // （シールド発動中は、既に起爆(armed)して秒読み中の遅延磁晶核もタイマーごと止める）
+  // 遅延星宙玉：衝突では起爆せず、専用のfuseTimerが0になったら必ず起爆する
+  // （シールド発動中は、既に起爆(armed)して秒読み中の遅延星宙玉もタイマーごと止める）
   const shieldActive = skillActive && selectedSkillId==='shield';
   for(const m of marbles){
     if(!m.alive || m.marbleType !== 'delay' || m.fuseTimer === null) continue;
@@ -7455,7 +7959,7 @@ function updateHoles(dtSec) {
 }
 
 function spawnHoleMarbleBurst(x, y, count) {
-  // 発電装置の中心から、磁晶核がふわっと（ゆっくり静かに）広がるように排出される
+  // 発電装置の中心から、星宙玉がふわっと（ゆっくり静かに）広がるように排出される
   // 排出直後1秒間は無敵（どんなダメージでも壊れない）
   for (let i = 0; i < count; i++) {
     const a = Math.random() * Math.PI * 2;
@@ -7495,7 +7999,7 @@ function triggerHoleGimmick(hole) {
   holeOpenTimer = 0;
   holeNextTimer = DURATION + HOLE_GAP_DURATION;
   // FB対応：「世界干渉ギミック、発動成功できたらバッテリーを回復とかでも良さそう」との要望。
-  // 発電装置のゲージが満タンになり、世界干渉ギミック（オーバーチャージ／岩覚醒／渦／マーブルフィーバー／
+  // 発電装置のゲージが満タンになり、世界干渉ギミック（オーバーチャージ／宇宙活性化／渦／マーブルフィーバー／
   // 共鳴ラン等）が実際に発動した瞬間に、種類を問わず一律でバッテリーを回復する
   // （当初15%で実装→「多すぎる」とのFBで10%に調整）
   const HOLE_GIMMICK_BATTERY_RESTORE = 10;
@@ -7937,8 +8441,8 @@ function draw(){
     ctx.save();
     ctx.translate(ox, oy);
     drawHoles();
-    drawRocks();
-    drawMarbles();
+    drawRocks(ox, oy);
+    drawMarbles(ox, oy);
     drawItems();
     ctx.restore();
   }
@@ -8348,6 +8852,28 @@ function getLoopOffsets() {
   return offsets;
 }
 
+// ── 画面外カリング（岩・玉の描画スキップ判定） ──────
+// FB対応：drawRocks()/drawMarbles()が、画面に映っていないものも含めて生きている
+// 全部を毎回律儀に描画していたため（しかも継ぎ目コピー分だけ最大4倍）、無駄な描画コストが
+// 大きかった。画面外のものはどのみち1pxも見えていないので、実際に画面（＋余白）に
+// かかっているものだけ描画するようにする。
+//
+// 余白(OFFSCREEN_CULL_MARGIN)は「見えている状態のまま画面に入ってくる」ことを保証するため、
+// 十分な余裕を持たせている：
+//   ・岩の予兆演出のグロー半径の最大値（岩の最大半径93.6 × 2.8 ≈ 262px）
+//   ・ブリンク（パルス）発動直後の最速インスタント（イーズアウトの立ち上がり）での
+//     1フレームあたり移動量（処理落ちで数フレーム分まとめて動く最悪ケースも含め約280px）
+// を余裕を持って両方カバーできる値（550px）にしてある。ワールドは3600pxなので、
+// 画面＋余白がこれだけ広くても、多くの場面で無駄な描画を大きく削れる。
+const OFFSCREEN_CULL_MARGIN = 550;
+function isWorldPosOnScreen(wx, wy, ox, oy){
+  const ccx = W/2 + cam.shakeX, ccy = H/2 + cam.shakeY;
+  const sx = ccx + (wx + ox - player.wx) * cam.zoom;
+  const sy = ccy + (wy + oy - player.wy) * cam.zoom;
+  return sx > -OFFSCREEN_CULL_MARGIN && sx < W + OFFSCREEN_CULL_MARGIN
+      && sy > -OFFSCREEN_CULL_MARGIN && sy < H + OFFSCREEN_CULL_MARGIN;
+}
+
 // ── 発電装置（レーダー）描画 ─────────────────────
 const RADAR_DETECT_R_DRAW = 600;
 
@@ -8599,7 +9125,7 @@ function drawRadarLabel(h, isActive, energyRatio, cFlash) {
 
 
 
-function drawRocks(){
+function drawRocks(cullOx, cullOy){
   const t = Date.now() * 0.001;
   for(const rk of rocks){
     if(!rk.alive) continue;
@@ -8608,6 +9134,9 @@ function drawRocks(){
       const parentHole = holes.find(h => Math.hypot(h.x-rk.x, h.y-rk.y) < 5);
       if(!parentHole || !parentHole.isOpen) continue;
     }
+    // 画面外カリング：継ぎ目コピー(cullOx/cullOy)を考慮した実際の画面位置が
+    // 画面＋余白の外なら、そもそも1pxも見えないのでこの岩の描画を丸ごとスキップする
+    if(!isWorldPosOnScreen(rk.x, rk.y, cullOx||0, cullOy||0)) continue;
     ctx.save();ctx.translate(rk.x,rk.y);
 
     // ── 予兆・覚醒演出 ──
@@ -8616,8 +9145,9 @@ function drawRocks(){
     if(rk.state === 'omen'){
       // 予兆：覚醒が近づくほど激しく明滅・震える（カウントダウンの緊張感を出す）
       const progress = 1 - (rk.stateTimer / rk.omenDuration); // 0(開始)→1(覚醒直前)
+      // FB対応：ギミックのイメージカラー刷新に合わせて変更（反射衛星=青／分解装置=黄色／通信中継衛星=緑／ブラックホール=紫のまま）
       const omenColor = {
-        bumper:'255,200,80', blackhole:'150,80,220', split:'180,255,120', resonance:'200,100,255'
+        bumper:'87,170,248', blackhole:'150,80,220', split:'251,192,60', resonance:'131,215,40'
       }[rk.ability] || '200,200,200';
       const speed = 2.5 + progress*7; // だんだん明滅が速くなる
       const pulse = 0.5 + Math.sin(t*speed + rk.phase)*0.5;
@@ -8649,7 +9179,8 @@ function drawRocks(){
       ctx.globalAlpha *= flickerAlpha;
       // 覚醒：能力ごとに異なる演出
       if(rk.ability === 'bumper'){
-        // バンパー：岩自体が拍動するように拡縮＋鼓動ごとに衝撃波リングを飛ばす
+        // バンパー（反射衛星）：岩自体が拍動するように拡縮＋鼓動ごとに衝撃波リングを飛ばす
+        // FB対応：反射衛星のイメージカラー（青）に合わせて演出色を変更（旧：オレンジ系）
         const beatPeriod = 0.7;
         const beatPhase = (t/beatPeriod + rk.phase) % 1; // 0→1 のこぎり波
         rkBodyScale = 1 + Math.pow(Math.max(0, 1-beatPhase*4), 2)*0.24; // 急に膨らんで戻る鼓動カーブ
@@ -8658,13 +9189,27 @@ function drawRocks(){
           const ringR = rk.r*(1.0 + phase*2.4);
           const alpha = (1-phase)*0.6;
           ctx.beginPath(); ctx.arc(0,0,ringR,0,Math.PI*2);
-          ctx.strokeStyle = `rgba(255,210,50,${alpha})`; ctx.lineWidth = 2.4; ctx.stroke();
+          ctx.strokeStyle = `rgba(87,170,248,${alpha})`; ctx.lineWidth = 2.4; ctx.stroke();
         }
         const aw = ctx.createRadialGradient(0,0,rk.r*0.3,0,0,rk.r*2.4);
-        aw.addColorStop(0,`rgba(255,225,70,${0.32*rkBodyScale})`);
-        aw.addColorStop(0.6,`rgba(255,180,0,${0.2})`);
+        aw.addColorStop(0,`rgba(120,190,255,${0.32*rkBodyScale})`);
+        aw.addColorStop(0.6,`rgba(40,120,255,${0.2})`);
         aw.addColorStop(1,'transparent');
         ctx.beginPath();ctx.arc(0,0,rk.r*2.4,0,Math.PI*2);ctx.fillStyle=aw;ctx.fill();
+
+        // 専用イラスト：反射衛星（ブラックホールと同じ考え方で描画）。拍動(rkBodyScale)に合わせてサイズも脈動させる
+        const bumperImg = (typeof IMAGE_ASSETS !== 'undefined') ? IMAGE_ASSETS.get('rocks', 'bumper') : null;
+        if(bumperImg && bumperImg.complete && bumperImg.naturalWidth > 0){
+          const art = ROCK_ART.bumper;
+          const dispR = rk.r * 1.25 * rkBodyScale;
+          const k = dispR / art.rad;
+          const w = art.vbw*k, h = art.vbh*k;
+          ctx.save();
+          ctx.rotate(t*0.25 + rk.phase);
+          ctx.drawImage(bumperImg, -art.cx*k, -art.cy*k, w, h);
+          ctx.restore();
+          rkBodyDrawn = true;
+        }
 
       } else if(rk.ability === 'blackhole'){
         // ブラックホール：専用イラスト（覚醒中のみ）を、捕獲した質量(bhMass)に応じてじわっと拡大させながら表示。
@@ -8705,29 +9250,45 @@ function drawRocks(){
         } // 画像が未読込の場合はrkBodyDrawnをtrueにしない→後段で青紫のまん丸にフォールバックする（真っ暗な岩が出ないように）
 
       } else if(rk.ability === 'split'){
-        // 分裂：緑の破片が浮遊するだけのシンプルな演出（中心から伸びるヒビ線は廃止）
+        // 分裂（分解装置）：破片が浮遊するだけのシンプルな演出（中心から伸びるヒビ線は廃止）
+        // FB対応：分解装置のイメージカラー（黄色）に合わせて演出色を変更（旧：緑）
         for(let si=0;si<9;si++){
           const ang = (si/9)*Math.PI*2 + t*0.6 + rk.phase;
           const dist2 = rk.r*(1.3 + Math.sin(t*1.8+si)*0.35);
           const fx = Math.cos(ang)*dist2, fy = Math.sin(ang)*dist2;
           const sz = 3 + (si%3);
           ctx.beginPath();ctx.arc(fx,fy,sz,0,Math.PI*2);
-          ctx.fillStyle='rgba(190,255,130,0.85)';ctx.fill();
+          ctx.fillStyle='rgba(251,192,60,0.85)';ctx.fill();
           ctx.strokeStyle='rgba(20,15,10,0.4)'; ctx.lineWidth=0.6; ctx.stroke();
         }
 
+        // 専用イラスト：分解装置
+        const splitImg = (typeof IMAGE_ASSETS !== 'undefined') ? IMAGE_ASSETS.get('rocks', 'split') : null;
+        if(splitImg && splitImg.complete && splitImg.naturalWidth > 0){
+          const art = ROCK_ART.split;
+          const dispR = rk.r * 1.3;
+          const k = dispR / art.rad;
+          const w = art.vbw*k, h = art.vbh*k;
+          ctx.save();
+          ctx.rotate(t*0.2 + rk.phase);
+          ctx.drawImage(splitImg, -art.cx*k, -art.cy*k, w, h);
+          ctx.restore();
+          rkBodyDrawn = true;
+        }
+
       } else if(rk.ability === 'resonance'){
-        // 共鳴：相方がいなくても単体で目立つ回転オーラ＋相方がいる時はエネルギーラインを強化
+        // 共鳴（通信中継衛星）：相方がいなくても単体で目立つ回転オーラ＋相方がいる時はエネルギーラインを強化
+        // FB対応：通信中継衛星のイメージカラー（緑）に合わせて演出色を変更（旧：紫）
         const resOthers = rocks.filter(r=>r.alive && r!==rk && r.ability==='resonance');
         for(let pi=0;pi<8;pi++){
           const ang = (pi/8)*Math.PI*2 + t*1.3 + rk.phase;
           const fx = Math.cos(ang)*rk.r*1.55, fy = Math.sin(ang)*rk.r*1.55;
           ctx.beginPath();ctx.arc(fx,fy,2.4,0,Math.PI*2);
-          ctx.fillStyle='rgba(220,140,255,0.85)';ctx.fill();
+          ctx.fillStyle='rgba(170,230,90,0.85)';ctx.fill();
         }
         ctx.beginPath();
         ctx.arc(0,0,rk.r*2.1, t*0.9, t*0.9+Math.PI*1.4);
-        ctx.strokeStyle='rgba(200,100,255,0.55)'; ctx.lineWidth=2; ctx.stroke();
+        ctx.strokeStyle='rgba(131,215,40,0.55)'; ctx.lineWidth=2; ctx.stroke();
         if(resOthers.length>0){
           ctx.save();ctx.translate(-rk.x,-rk.y); // 一旦ワールド座標に戻す
           for(const other of resOthers){
@@ -8735,16 +9296,30 @@ function drawRocks(){
             const mx = rk.x + (other.x-rk.x)*phase;
             const my = rk.y + (other.y-rk.y)*phase;
             ctx.beginPath();ctx.moveTo(rk.x,rk.y);ctx.lineTo(other.x,other.y);
-            ctx.strokeStyle='rgba(200,100,255,0.32)';ctx.lineWidth=2;ctx.stroke();
+            ctx.strokeStyle='rgba(131,215,40,0.32)';ctx.lineWidth=2;ctx.stroke();
             ctx.beginPath();ctx.arc(mx,my,4,0,Math.PI*2);
-            ctx.fillStyle='rgba(230,160,255,0.9)';ctx.fill();
+            ctx.fillStyle='rgba(190,240,130,0.9)';ctx.fill();
           }
           ctx.restore();
         }
         const resGlow = ctx.createRadialGradient(0,0,0,0,0,rk.r*2.3);
-        resGlow.addColorStop(0,'rgba(200,100,255,0.3)');
+        resGlow.addColorStop(0,'rgba(131,215,40,0.3)');
         resGlow.addColorStop(1,'transparent');
         ctx.beginPath();ctx.arc(0,0,rk.r*2.3,0,Math.PI*2);ctx.fillStyle=resGlow;ctx.fill();
+
+        // 専用イラスト：通信中継衛星
+        const resImg = (typeof IMAGE_ASSETS !== 'undefined') ? IMAGE_ASSETS.get('rocks', 'resonance') : null;
+        if(resImg && resImg.complete && resImg.naturalWidth > 0){
+          const art = ROCK_ART.resonance;
+          const dispR = rk.r * 1.3;
+          const k = dispR / art.rad;
+          const w = art.vbw*k, h = art.vbh*k;
+          ctx.save();
+          ctx.rotate(t*0.2 + rk.phase);
+          ctx.drawImage(resImg, -art.cx*k, -art.cy*k, w, h);
+          ctx.restore();
+          rkBodyDrawn = true;
+        }
       }
       ctx.restore(); // 明滅オーバーレイ（globalAlpha）をここまでに限定
 
@@ -8791,35 +9366,81 @@ function drawRocks(){
         ctx.fillText(ph.gimmickName,0,0);
       }
     } else if(rk.ability === 'blackhole'){
-      // ブラックホール：覚醒中は専用イラスト（上の演出パートで描画済み）、それ以外（通常・予兆）は青紫のまん丸で表現
+      // ブラックホール：覚醒中は専用イラスト（上の演出パートで描画済み）、それ以外（通常・予兆）は
+      // FB対応：「ブラックホールは今までのまま（ベタ塗り円＋残り秒数表示）でいい」。反射衛星／分解装置／
+      // 通信中継衛星は手描きシルエット＋色オーバーレイに変更したが、ブラックホールだけは元の見た目に戻す。
       if(!rkBodyDrawn){
-        const bhBall = ctx.createRadialGradient(-rk.r*0.25,-rk.r*0.25,rk.r*0.1,0,0,rk.r*1.05);
-        bhBall.addColorStop(0, 'rgba(150,110,230,1)');
-        bhBall.addColorStop(0.55, 'rgba(90,60,190,1)');
-        bhBall.addColorStop(1, 'rgba(45,25,110,1)');
         ctx.beginPath(); ctx.arc(0,0,rk.r,0,Math.PI*2);
-        ctx.fillStyle = bhBall; ctx.fill();
+        ctx.fillStyle = 'rgba(80,50,170,1)';
+        ctx.fill();
         ctx.strokeStyle = 'rgba(20,10,50,0.7)'; ctx.lineWidth = 1.6; ctx.stroke();
+
+        const secsLeft = Math.max(0, Math.ceil(
+          rk.state === 'omen' ? rk.stateTimer : rk.stateTimer + rk.omenDuration
+        ));
+        ctx.fillStyle = '#f5f7fa';
+        ctx.font = `bold ${Math.max(11, rk.r*0.55)}px 'Courier New', monospace`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(secsLeft), 0, 0);
       }
     } else {
       // 通常岩：流体シェイプ（黒塗りつぶし・グラデーションなし）＋周りにいびつな黒線を2本（手描きスケッチ風）
-      const drawPts = wobbleShape(rk.pts, rk, rkJitter, t);
-      if(rkBodyScale !== 1) { ctx.save(); ctx.scale(rkBodyScale, rkBodyScale); }
-      pathSmoothBlob(drawPts);
-      ctx.fillStyle = 'rgba(130,124,114,1)';
-      ctx.fill();
-      pathSmoothBlob(rk.outlinePts1);
-      ctx.strokeStyle = 'rgba(15,13,10,0.8)'; ctx.lineWidth = 1.6; ctx.stroke();
-      pathSmoothBlob(rk.outlinePts2);
-      ctx.strokeStyle = 'rgba(15,13,10,0.65)'; ctx.lineWidth = 1.4; ctx.stroke();
-      if(rkBodyScale !== 1) { ctx.restore(); }
+      // FB対応：「覚醒してない状態のときは、まる（円）で表現するんじゃなくて、形・シルエットはそのままに
+      // 上からオーバーレイを被せて表現してほしい。カウントダウンはいらない。今までの岩と同じ色で」。
+      // （ブラックホールはその後「今まで通りでいい」と差し戻しがあったため上のブロックで従来通りに分離。
+      // ここは反射衛星／分解装置／通信中継衛星の3種のみが対象）。他の岩と全く同じ手描き風シルエットを
+      // ベースに、ギミックのイメージカラーを薄い色オーバーレイとして重ねるだけにする（ベタ塗り円・
+      // カウントダウン表示は廃止）。
+      if(!rkBodyDrawn){
+        const drawPts = wobbleShape(rk.pts, rk, rkJitter, t);
+        if(rkBodyScale !== 1) { ctx.save(); ctx.scale(rkBodyScale, rkBodyScale); }
+        pathSmoothBlob(drawPts);
+        ctx.fillStyle = 'rgba(130,124,114,1)';
+        ctx.fill();
+        // 同じシルエットの上に、ギミックのイメージカラーを薄く重ねる
+        const gimmickTint = {
+          bumper:'rgba(87,170,248,0.4)', split:'rgba(251,192,60,0.4)', resonance:'rgba(131,215,40,0.4)'
+        }[rk.ability];
+        if(gimmickTint){
+          pathSmoothBlob(drawPts);
+          ctx.fillStyle = gimmickTint;
+          ctx.fill();
+        }
+        // FB対応：「岩の周りの黒い線も色合わせてほしい」。手描きスケッチ風の輪郭線も、塗りと同じ
+        // ギミックカラーを暗めに落とした色にする（黒一色だと塗りだけ色付いて浮いて見えるため）
+        const outlineTint = {
+          bumper:['rgba(25,55,95,0.85)','rgba(25,55,95,0.7)'],
+          split:['rgba(95,68,15,0.85)','rgba(95,68,15,0.7)'],
+          resonance:['rgba(40,75,15,0.85)','rgba(40,75,15,0.7)'],
+        }[rk.ability] || ['rgba(15,13,10,0.8)','rgba(15,13,10,0.65)'];
+        pathSmoothBlob(rk.outlinePts1);
+        ctx.strokeStyle = outlineTint[0]; ctx.lineWidth = 1.6; ctx.stroke();
+        pathSmoothBlob(rk.outlinePts2);
+        ctx.strokeStyle = outlineTint[1]; ctx.lineWidth = 1.4; ctx.stroke();
+        if(rkBodyScale !== 1) { ctx.restore(); }
+      }
     }
+
+    // FB対応：反射衛星／分解装置／通信中継衛星の当たり判定を破線の円で示していたが、
+    // 「当たり判定を非表示にしてください」とのFBで無効化。SHOW_ROCK_HIT_RINGをtrueに戻せば再表示できる。
+    if(SHOW_ROCK_HIT_RING){
+      const hitRingColor = { bumper:'87,170,248', split:'251,192,60', resonance:'131,215,40' }[rk.ability];
+      if(hitRingColor){
+        ctx.beginPath(); ctx.arc(0,0,rk.r,0,Math.PI*2);
+        ctx.strokeStyle = `rgba(${hitRingColor},0.55)`;
+        ctx.lineWidth = 1.3;
+        ctx.setLineDash([5,5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
     ctx.restore();
   }
 }
 
 
-// 大砲玉専用スキン：磁晶核ではなく、手描き感のある黒い鉄球として描く
+// 大砲玉専用スキン：星宙玉ではなく、手描き感のある黒い鉄球として描く
 function drawCannonballSkin(m, t){
   const r = m.r;
   const wobSeed = m.phase || 0;
@@ -8879,10 +9500,10 @@ function drawCannonCharge(){
   ctx.restore();
 }
 
-// 小惑星グループ（跳躍・追尾・遅延磁晶核）・重力磁晶核（紫の惑星）・レア玉グループ（紅・金磁晶核）のイラスト用ジオメトリ定義。
+// 小惑星グループ（跳躍・追尾・遅延星宙玉）・重力星宙玉（紫の惑星）・レア玉グループ（紅・金星宙玉）のイラスト用ジオメトリ定義。
 // 元データ（assets/marbles/*.svg）の実寸をgetBBox()で解析して求めた値。viewBoxはアセットごとに異なるためvbw/vbhも個別に持つ。
-// cx,cy: 本体（追尾磁晶核は頭部のみ）の中心座標／rad: その半径（当たり半径にスケールを合わせる基準）
-// forwardAngle: 追尾磁晶核のみ。イラスト内で「尾→頭」が向いている既定の角度（ラジアン）。
+// cx,cy: 本体（追尾星宙玉は頭部のみ）の中心座標／rad: その半径（当たり半径にスケールを合わせる基準）
+// forwardAngle: 追尾星宙玉のみ。イラスト内で「尾→頭」が向いている既定の角度（ラジアン）。
 // 実際の描画では、この角度と速度ベクトルの角度との差分だけ回転させて、尾が進行方向の後方に流れるようにする。
 const MARBLE_ART = {
   boost:   { vbw:207.7,  vbh:197.6,  cx:101.95, cy:106.71, rad:87.19 },
@@ -8892,22 +9513,32 @@ const MARBLE_ART = {
   gold:    { vbw:256,    vbh:256,    cx:124.38, cy:125.91, rad:100.53 },
   gravity: { vbw:253.87, vbh:252.68, cx:126.94, cy:126.32, rad:126.27 },
 };
-// 岩（覚醒能力）の専用イラスト用ジオメトリ定義。今のところブラックホールのみ（他の能力は従来通り手描き風の流体シェイプ）。
+// FB対応：反射衛星／分解装置／通信中継衛星の当たり判定（破線円）の表示切り替え。「非表示にしてください」との
+// FBによりfalseに変更。trueに戻せば再表示できる（drawRocks()内で参照）。
+const SHOW_ROCK_HIT_RING = false;
+// 岩（覚醒能力）の専用イラスト用ジオメトリ定義。反射衛星＝バンパー／分解装置＝分裂／通信中継衛星＝共鳴／ブラックホールの4種。
 // MARBLE_ARTと同じ考え方：元データ（assets/rocks/*.svg）をgetBBox()で解析し、中心座標(cx,cy)と代表半径(rad)を求めている
-// （このSVGは装飾用の小さな粒がスパイラル本体の外にも散っているため、粒を除いた本体グループのbboxを基準にした）。
+// （各SVGとも装飾用の小さな粒・星屑が本体シルエットの外にも散っているため、それらを除いた本体部分のbboxを基準にした）。
+// FB対応：4種のギミック岩の見た目をSVGイラストとして追加（イメージカラーも刷新。反射衛星=青／分解装置=黄色／通信中継衛星=緑／ブラックホール=紫のまま）
 const ROCK_ART = {
+  bumper:    { vbw:253.87, vbh:253.54, cx:132.43, cy:135.17, rad:96.11 },
   blackhole: { vbw:253.87, vbh:252.68, cx:124.73, cy:126.82, rad:104.08 },
+  split:     { vbw:253.87, vbh:253.54, cx:125.0,  cy:126.77, rad:119.85 },
+  resonance: { vbw:253.87, vbh:253.54, cx:126.93, cy:126.79, rad:120.83 },
 };
-// レア玉（紅・金磁晶核）の発光色。前作同様、玉の周りに常時ふわっと光る発光をかける
+// レア玉（紅・金星宙玉）の発光色。前作同様、玉の周りに常時ふわっと光る発光をかける
 const MARBLE_GLOW_COLOR = {
   red:  {r:255, g:70,  b:60},
   gold: {r:255, g:205, b:70},
 };
 
-function drawMarbles(){
+function drawMarbles(cullOx, cullOy){
   const t = Date.now() * 0.001;
   for(const m of marbles){
     if(!m.alive) continue;
+    // 画面外カリング：継ぎ目コピー(cullOx/cullOy)を考慮した実際の画面位置が
+    // 画面＋余白の外なら、そもそも1pxも見えないのでこの玉の描画を丸ごとスキップする
+    if(!isWorldPosOnScreen(m.x, m.y, cullOx||0, cullOy||0)) continue;
 
     const pulse = 0.85 + Math.sin(t * 1.8 + m.phase) * 0.15; // 脈動係数（芯の点にだけ使う）
 
@@ -8920,7 +9551,7 @@ function drawMarbles(){
     else if(m.marbleType === 'delay'){   h=6;  s=70; l=48; ringAlpha=0.9;  lineW=1.4; }
     else if(m.marbleType === 'red'){     h=0;  s=68; l=49; ringAlpha=0.95; lineW=1.4; }
     else if(m.marbleType === 'gold'){    h=45; s=100;l=41; ringAlpha=0.95; lineW=1.4; }
-    else { h=m.hue; s=55; l=55; ringAlpha=0.85; lineW=1.2; } // 磁晶核：玉ごとのランダム色を流用
+    else { h=m.hue; s=55; l=55; ringAlpha=0.85; lineW=1.2; } // 星宙玉：玉ごとのランダム色を流用
     const ringColor = `hsla(${h},${s}%,${l}%,${ringAlpha})`;
 
     if(m.isCannonball){
@@ -8934,20 +9565,20 @@ function drawMarbles(){
       drawCannonballSkin(m, t);
     } else {
       // 小惑星グループ（跳躍・追尾・遅延）・レア玉グループ（紅・金）は専用イラストを描画。
-      // 読み込み前・未対応タイプ（重力磁晶核など）は従来の丸＋リング描画にフォールバックする
+      // 読み込み前・未対応タイプ（重力星宙玉など）は従来の丸＋リング描画にフォールバックする
       const hasCustomArt = MARBLE_ART.hasOwnProperty(m.marbleType);
       const marbleImg = (hasCustomArt && typeof IMAGE_ASSETS !== 'undefined')
         ? IMAGE_ASSETS.get('marbles', m.marbleType) : null;
 
       if (marbleImg && marbleImg.complete && marbleImg.naturalWidth > 0) {
         // 各イラストの実寸データから求めた、本体の中心座標・半径
-        // （追尾磁晶核のみ、頭部の中心座標・半径・「尾から頭への既定の向き」を使う）
+        // （追尾星宙玉のみ、頭部の中心座標・半径・「尾から頭への既定の向き」を使う）
         const art = MARBLE_ART[m.marbleType];
         const dispR = m.r * ART_MARBLE_DISPLAY_MULT; // 見た目サイズは固定目標(ART_MARBLE_VISUAL_TARGET)のまま、当たり半径(m.r)側を大きくして密集時の詰まり感を緩和
         const k = dispR / art.rad;
         const w = art.vbw * k, h = art.vbh * k;
 
-        // レア玉（紅・金磁晶核）：前作同様、玉の周りに常時発光をかける
+        // レア玉（紅・金星宙玉）：前作同様、玉の周りに常時発光をかける
         const glow = MARBLE_GLOW_COLOR[m.marbleType];
         if (glow) {
           const glowR = m.r * (2.0 + Math.sin(t * 1.6 + m.phase) * 0.25); // ふわふわと呼吸する発光
@@ -8960,7 +9591,7 @@ function drawMarbles(){
         }
 
         if (m.marbleType === 'homing') {
-          // 追尾磁晶核：彗星の尾が進行方向の後方へ流れるよう、速度ベクトルに合わせて回転させる
+          // 追尾星宙玉：彗星の尾が進行方向の後方へ流れるよう、速度ベクトルに合わせて回転させる
           const speed = Math.hypot(m.vx, m.vy);
           const angle = speed > 0.01 ? Math.atan2(m.vy, m.vx) : (m.homingFacing ?? 0);
           m.homingFacing = angle;
@@ -8982,7 +9613,7 @@ function drawMarbles(){
       }
     }
 
-    // ── 遅延磁晶核：起爆までの秒読みを赤いオーバーレイで警告（前作と同様の表現） ──
+    // ── 遅延星宙玉：起爆までの秒読みを赤いオーバーレイで警告（前作と同様の表現） ──
     // FB対応：「遅延玉、いつ爆発するのかわからない」との声。armed後の7秒間、残り時間が
     // 減るほど濃く・速く点滅する赤い光を玉自体に重ねて、はっきり「もうすぐ爆発する」と伝える
     if(m.marbleType === 'delay' && m.armed && m.fuseTimer !== null){
@@ -9178,9 +9809,59 @@ function drawPickupEffects(){
 // ② 1本目がある程度進んだ頃に発生する2本目の薄いリング（ソナーの波紋のような二重パルス）
 // ③ 発生直後の一瞬だけ中心に出す小さな閃光
 // いずれもe.r/e.lifeから計算するだけで、explosionオブジェクトに新しい状態は持たせていない。
-// FB対応：「暖色ではなく寒色にしたい」。以前は磁晶核の爆発だけgold→pinkの暖色にしていたが、
-// 両方とも青・シアン・紫系の寒色に統一。岩＝cyan寄り、磁晶核＝sky blue寄りで、
+// FB対応：「暖色ではなく寒色にしたい」。以前は星宙玉の爆発だけgold→pinkの暖色にしていたが、
+// 両方とも青・シアン・紫系の寒色に統一。岩＝cyan寄り、星宙玉＝sky blue寄りで、
 // 見分けがつく程度の差だけ残している
+// ── 大砲の爆発演出（お星さま風：放射状のトゲの先端に星を咲かせる） ──────────
+// FB対応：「大砲の爆発だけ違うデザインにしたい。お星さまの爆発っぽく」。
+// 3案（星ポップ／多重星＋衝撃波／花火風トゲ放射）を見比べてもらった結果、
+// 「③をベースに、放射状に広がった先端にお星さまを描画してほしい」とのご指示で1本化。
+// 中心から放射状に伸びる光の筋を残しつつ、それぞれの先端に小さな星（drawGimmickBurstの
+// 4芒星）が咲くようにしている。
+function drawCannonExplosion(e, ex, ey, alpha){
+  const progress = e.maxR > 0 ? Math.min(1, e.r / e.maxR) : 0; // 0(発生直後)→1(最大まで広がった)
+  const spikes = 8;
+  const maxLen = e.maxR * 0.9;
+  const seed = e.spikeSeed || 0;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  for (let i = 0; i < spikes; i++) {
+    const ang = (i/spikes)*Math.PI*2 + seed;
+    // トゲごとに長さを少しばらつかせて、機械的すぎない自然な放射にする
+    const lenMult = 0.7 + 0.3*Math.sin(i*2.3 + seed*3);
+    const len = maxLen * lenMult * Math.min(1, progress*1.3); // 星が伸びきるまでの立ち上がりを少し速く
+    const tipX = ex + Math.cos(ang)*len, tipY = ey + Math.sin(ang)*len;
+
+    // 光の筋：中心は明るく、先端に向かって透けるグラデーション線
+    const grad = ctx.createLinearGradient(ex, ey, tipX, tipY);
+    grad.addColorStop(0, 'rgba(255,245,200,0.95)');
+    grad.addColorStop(1, 'rgba(255,200,110,0)');
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(tipX, tipY);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.4 * (1 - progress*0.4);
+    ctx.stroke();
+
+    // 先端の星：光の筋が伸びきるにつれてパッと咲き、爆発の寿命とともにしぼんでいく
+    const starOuterR = e.maxR * 0.11 * Math.min(1, progress*1.6) * (0.5 + alpha*0.5);
+    const starInnerR = starOuterR * 0.45;
+    if (starOuterR > 0.5) {
+      drawGimmickBurst(ctx, tipX, tipY, starOuterR, starInnerR, 4, 'rgba(255,235,150,0.95)');
+    }
+  }
+
+  // 中心の閃光：発生直後だけ強く光る
+  const flash = Math.max(0, 1 - progress*1.8);
+  if (flash > 0.01) {
+    ctx.beginPath(); ctx.arc(ex, ey, e.maxR*0.22*flash, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(255,255,255,${flash})`;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawExplosions(){
   if (explosions.length === 0) return;
   const RING2_DELAY = 0.22;  // 2本目のリングが遅れて発生するまでの、1本目のlife消費割合
@@ -9191,6 +9872,10 @@ function drawExplosions(){
     // FB対応：ワールドの継ぎ目付近だと素のe.x/e.yのままでは画面外に描かれ「不発」に
     // 見えることがあったため、プレイヤーから見て最短距離側の座標に補正する
     const [ex, ey] = wrapToPlayer(e.x, e.y);
+    if (e.isCannon) {
+      drawCannonExplosion(e, ex, ey, alpha);
+      continue; // 大砲の爆発は専用デザインのみ描画し、下の通常リング演出は行わない
+    }
     const cA = e.isRock ? [0,200,220]  : [80,170,255];
     const cB = e.isRock ? [150,120,255]: [190,110,255];
 
@@ -9314,13 +9999,19 @@ function drawChainTexts() {
   let lastFont = null;
   for (const ct of chainTexts) {
     if (ct.life <= 0) continue;
+    const [dx, dy] = wrapToPlayer(ct.x, ct.y);
+    // FB対応：「CHAINの表示を、玉の描画と同様プレイヤーから完全に見えない場所は省略できないか」。
+    // カウント自体（chainCount等）はこことは無関係に別途進んでいるので、描画だけを省略しても
+    // 集計への影響はない。wrapToPlayer()が既に「プレイヤーから見て最短距離側」の1箇所だけに
+    // 補正した座標を返してくれているので、岩・玉の画面外カリングと同じ判定関数
+    // （isWorldPosOnScreen、余白550px）をそのまま使い回せる。
+    if (!isWorldPosOnScreen(dx, dy, 0, 0)) continue;
     const alpha = Math.min(1, ct.life * 2);
     ctx.globalAlpha = alpha;
     const weight = ct.bold ? 'bold' : 'normal';
     const font = `${weight} ${ct.size}px 'Arial Black', 'Arial Bold', Arial, sans-serif`;
     if (font !== lastFont) { ctx.font = font; lastFont = font; }
     ctx.fillStyle = ct.color;
-    const [dx, dy] = wrapToPlayer(ct.x, ct.y);
     ctx.fillText(ct.text, dx, dy);
   }
   ctx.restore();
@@ -10383,6 +11074,13 @@ if (skillUnlockOkBtn){
   skillUnlockOkBtn.addEventListener('click', ()=>advanceSkillUnlockPopup());
   skillUnlockOkBtn.addEventListener('touchstart', e=>{e.preventDefault(); advanceSkillUnlockPopup();}, {passive:false});
 }
+// 「お気に入りスキル」案内ポップアップのOKボタン：閉じるだけ（一度きりなので次に何かを続けて表示する必要はない）
+const favoriteSkillTipOkBtn = document.getElementById('favorite-skill-tip-ok');
+if (favoriteSkillTipOkBtn){
+  const closeFavoriteSkillTip = () => document.getElementById('favorite-skill-tip-overlay').classList.remove('show');
+  favoriteSkillTipOkBtn.addEventListener('click', closeFavoriteSkillTip);
+  favoriteSkillTipOkBtn.addEventListener('touchstart', e=>{e.preventDefault(); closeFavoriteSkillTip();}, {passive:false});
+}
 
 // セーブデータ初期化後の後処理：
 // ①ロック表示・発光演出などのDOM状態は saveData の値とは別に残り続けるので、
@@ -11009,33 +11707,33 @@ function renderAchievementScreen(){
 const HOWTOPLAY_PAGES = [
   {
     image: 'assets/tutorial/page1.webp',
-    title: 'きらめく玉が漂う宇宙を、小さな船で駆けろ！',
+    title: '混沌が漂う宇宙を、小さな船で駆けろ！',
     heading: '世界観について',
-    caption: 'ここは、色とりどりの玉「磁晶核（じしょうかく）」が漂う宇宙。あなたは小さな宇宙船に乗り、玉を集めながら宇宙を飛びまわります。玉をたくさんつなげて弾くほど、高得点になります。',
+    caption: 'この宇宙には、宇宙ゴミや星のカケラがあふれています。宇宙船の力で星宙玉を引き寄せたり、弾き飛ばしたりしてぶつけましょう。星宙玉をぶつけるとエネルギーに変わり、連鎖するほど大量のエネルギーを生み出せます。宇宙に浮かぶアイテムを取ると、さまざまな効果が得られます。',
   },
   {
     image: 'assets/tutorial/page2.webp',
-    title: '指でなぞって、押して、離すだけ',
-    heading: '操作方法について',
-    caption: '①画面を指でなぞると、その方向へ船が進みます（船は自動で前に進み続けます）。②画面を押さえている間は玉を引き寄せます（S極）。③指を離すと、集めた玉を勢いよく打ち出します（N極）。',
+    title: '指で押して、なぞって、離すだけ',
+    heading: '操作方法',
+    caption: '宇宙船は常に前進し続けます。画面をスライドすると進む方向を変えられます。画面をタッチしている間は引き寄せモード、離すと反発モードになり、集めた玉を勢いよく打ち出します。',
   },
   {
     image: 'assets/tutorial/page3.webp',
-    title: '玉をぶつけて弾くほど、得点がどんどん増える',
-    heading: '玉について/目的は？',
-    caption: '漂っている玉を引き寄せて、まとめて弾いてみましょう。玉どうしがぶつかると弾け（爆発し）、次々に連鎖するほど得点が大きくなります。赤色や金色の特別な玉は、弾くと特に高得点。できるだけ長くつなげるのが目標です！',
+    title: '連鎖が続くほど、得点もどんどん増える',
+    heading: 'ゲームの目的は？',
+    caption: '玉どうしがぶつかると爆発し、爆発に巻き込まれた玉も次々に爆発していきます。連鎖が続くほど、スコアもアップ！赤色や金色の特別な玉は、さらに高得点。できるだけ多くの玉を連鎖させて、スコアを伸ばしましょう！',
   },
   {
     image: 'assets/tutorial/page4.webp',
-    title: '岩には気をつけて。でも、光りだしたらチャンス！',
-    heading: 'ギミック/岩について',
-    caption: '宇宙には壊せない岩が浮かんでいます。ぶつかると少しダメージ（バッテリー減）を受けるので注意しましょう。岩がまれに光って震えることがあり、これは「覚醒」のサイン。覚醒中の岩は玉を跳ね返したり増やしたりと特別な効果を起こし、うまく使えば得点チャンスになります。近くの大きな装置も、玉を弾くたびにエネルギーが溜まり、たまると宇宙に大きな変化（パワーアップ）が起こります。',
+    title: '光っているオブジェクトを狙おう！',
+    heading: 'ギミックについて',
+    caption: '宇宙には、壊せないオブジェクトが浮かんでいます。ぶつかるとバッテリーが減るので注意しましょう。オブジェクトが光っているときは「覚醒中」のサイン！星宙玉をぶつけると、特殊な効果が発動します。光っているオブジェクトを見つけたら、積極的に狙ってみましょう。',
   },
   {
     image: 'assets/tutorial/page5.webp',
     title: 'ボタンを押すと、特別な一撃！',
     heading: 'スキルについて',
-    caption: '画面のスキルボタンを押すと、選んでおいた特別な技が使えます。時間を止めたり、船を速くしたり、玉を一気に吹き飛ばしたりと、技の種類はいろいろ。プレイ前に好きなスキルを選んでおけます。まずは1つ試して、自分に合うものを見つけましょう！',
+    caption: '画面のスキルボタンを押すと、選んでおいた特別な技が使えます。時間を止めたり、船を速くしたり、玉を一気に吹き飛ばしたりと、効果はさまざま。自分のプレイスタイルに合ったスキルを選んで使いこなしましょう！',
   },
 ];
 const HOWTOPLAY_PAGE_COUNT = HOWTOPLAY_PAGES.length;

@@ -1,6 +1,6 @@
 {
-  "name": "PLANET BON BON",
-  "short_name": "Planet BonBon",
+  "name": "プラネットボンボン",
+  "short_name": "プラネットボンボン",
   "description": "宇宙船で小惑星・宇宙ゴミをぶつけて連鎖爆発させ、エネルギーを回収するカジュアルアクションゲーム",
   "id": "./index.html",
   "start_url": "./index.html",

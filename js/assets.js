@@ -66,8 +66,11 @@ const IMAGE_ASSET_PATHS = {
     gravity: 'assets/marbles/marble_gravity.svg',
   },
   rocks: {
-    // 覚醒能力を持つ岩の専用イラスト。今のところブラックホールのみ（他の能力は従来の流体シェイプのまま）
+    // 覚醒能力を持つ岩の専用イラスト（反射衛星＝バンパー／分解装置＝分裂／通信中継衛星＝共鳴／ブラックホール）
+    bumper:    'assets/rocks/bumper.svg',
     blackhole: 'assets/rocks/blackhole.svg',
+    split:     'assets/rocks/split.svg',
+    resonance: 'assets/rocks/resonance.svg',
   },
   // 今後の追加予定（フォルダを作ってからここにカテゴリを追加）：
   // ui:          { ... },
