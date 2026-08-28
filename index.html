@@ -81,16 +81,24 @@ canvas { display:block; width:100%; height:100%; }
   animation:battery-shake 0.15s infinite;
 }
 
-/* ギミックタイマー行（発動中のみ表示。バッテリー行と同じpadding/gap構造にすることで、
-   アイコン同士・バー同士がそれぞれ縦に揃う） */
+/* ギミックタイマー行（発動中のみ表示。バッテリー行と同じpadding構造にすることで、
+   バー同士が縦に揃う）。
+   FB対応：汎用アイコン＋残り秒数の構成をやめ、左に効果名の短いラベル、その右を
+   全部バーにする構成に変更（スマホでも読めるよう文字要素を最小限にする狙い） */
 #gimmick-row {
-  display:flex; align-items:center; gap:10px;
+  display:flex; align-items:center; gap:8px;
   height:18px;
   padding:0 calc(6vw + 52px) 0 6vw;
 }
 #gimmick-row.hide { display:none; }
-/* アイコン：バッテリーの雷アイコンと横幅(18px)を揃えて、バー側の開始位置も一致させる */
-#gimmick-icon-svg { flex-shrink:0; display:block; width:18px; height:22px; }
+/* 効果名ラベル：どのギミックが発動中かを一目で示す短い文言（例：磁力UP／スコア2倍）。
+   FB対応：秒数表示の廃止でスペースに余裕ができた分、文字サイズを一回り拡大（12px→15px） */
+#gimmick-label {
+  flex-shrink:0;
+  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:15px; font-weight:900;
+  letter-spacing:0.5px; white-space:nowrap; color:#f5f7fa;
+}
 #gimmick-bar {
   position:relative; flex:1; height:8px;
   background:#151b2c; border-radius:5px;
@@ -100,10 +108,6 @@ canvas { display:block; width:100%; height:100%; }
   height:100%; width:0%;
   background:#ffdd44;
   transition:width 0.3s linear, background-color 0.2s;
-}
-#gimmick-sec {
-  flex-shrink:0; font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif; font-size:11px; font-weight:bold;
-  letter-spacing:0.5px; white-space:nowrap; color:#f5f7fa;
 }
 
 /* 上部2カラム行（アイテム一覧＋スコア） */
@@ -1418,8 +1422,15 @@ canvas { display:block; width:100%; height:100%; }
   display:flex; align-items:center; justify-content:center;
 }
 .skill-card-icon img { width:26px; height:26px; object-fit:contain; }
-.skill-card-info { flex:1; }
+.skill-card-info { flex:1; min-width:0; }
+.skill-card-name-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .skill-card-name { font-size:14px; font-weight:bold; color:#fff; }
+/* FB対応：スキル系統ラベル（移動型/命中型/火力型/長持ち型）。説明文を読まなくても
+   カード名の横のバッジ色と文字だけで系統がわかるようにする */
+.skill-card-category {
+  font-size:10px; font-weight:bold; padding:2px 8px; border-radius:10px;
+  border:1px solid; white-space:nowrap; line-height:1.4;
+}
 .skill-card-desc { font-size:11px; color:rgba(255,255,255,0.8); margin-top:2px; }
 .skill-card-meta { font-size:10px; color:rgba(255,255,255,0.4); margin-top:2px; }
 #skill-start-btn {
@@ -1970,16 +1981,13 @@ canvas { display:block; width:100%; height:100%; }
     <!-- デバッグ用バッテリー%（確認後削除） -->
 
     <!-- ギミックタイマー行（発動中のみ表示。バッテリー行と同じ横幅構造にして、
-         アイコン・バーそれぞれがバッテリー行のアイコン・バーと縦に揃うようにしている） -->
+         バー同士が縦に揃うようにしている）。
+         FB対応：「今どんな効果が乗っているかわからない」との指摘で、汎用アイコン＋残り秒数
+         だった構成をやめ、左に効果名の短いラベル、その右を全部バーにする構成に変更。
+         秒数の代わりにバーの縮み方そのもので残り時間を伝える -->
     <div id="gimmick-row" class="hide">
-      <svg id="gimmick-icon-svg" width="18" height="22" viewBox="0 0 18 22" fill="none">
-        <circle cx="9" cy="8" r="6.5" stroke="#f5f7fa" stroke-width="1.8" fill="none"/>
-        <path d="M6 15.5 L12 15.5" stroke="#f5f7fa" stroke-width="1.5" stroke-linecap="round"/>
-        <path d="M6.6 18 L11.4 18" stroke="#f5f7fa" stroke-width="1.4" stroke-linecap="round"/>
-        <path d="M7.4 20.3 L10.6 20.3" stroke="#f5f7fa" stroke-width="1.3" stroke-linecap="round"/>
-      </svg>
+      <span id="gimmick-label"></span>
       <div id="gimmick-bar"><div id="gimmick-fill"></div></div>
-      <span id="gimmick-sec">0s</span>
     </div>
   </div>
 
@@ -2638,16 +2646,18 @@ let releaseGraceTimer = 0; // N極切替直後の爆発無効タイマー（秒�
 let screenShake = { x:0, y:0, power:0 };
 
 // ── スキルシステム ────────────────────────────────
+// FB対応：スキルSELECT画面で説明文を読まなくても選べるよう、各スキルに系統ラベル(category)を付与。
+// 4系統：移動型(青)／命中型(黄)／火力型(赤)／長持ち型(緑)。categoryColorはカード上のバッジ色に使用。
 const SKILL_DEFS = [
-  { id:'blink',   name:'パルス',     icon:'⚡', spCost:100, maxStock:3, desc:'指定方向へ瞬間移動する（約500px）' },
-  { id:'dash',    name:'ブースト',     icon:'💨', spCost:80,  maxStock:1, desc:'約3秒間、高速移動する' },
-  { id:'cannon',  name:'メテオキャノン', icon:'💣', spCost:80,  maxStock:3, desc:'前方へ巨大な星宙玉を発射する' },
-  { id:'typhoon', name:'重力崩壊',     icon:'🌪', spCost:200, maxStock:1, desc:'約3秒間、周囲の玉とアイテムを引き寄せる' },
-  { id:'shield',  name:'シールド',     icon:'🛡', spCost:100, maxStock:2, desc:'約10秒間、Sで引き寄せた玉を保護。バッテリーのハズレも無効化' },
-  { id:'bubble',  name:'フリーズショット', icon:'🫧', spCost:100,  maxStock:1, desc:'狙いを定め、玉を勢いよく前方に飛ばす' },
-  { id:'beacon',  name:'フリーズハンド', icon:'🥢', spCost:100, maxStock:1, desc:'約7秒間、時を止めて、触れた場所の近くに玉を寄せ集める' },
-  { id:'sweep',   name:'スターウェーブ', icon:'🧹', spCost:100, maxStock:2, desc:'前方を薙ぎ払い、玉を吹き飛ばす' },
-  { id:'energyConverter', name:'エネルギー変換器', icon:'🔌', spCost:150, maxStock:1, desc:'約10秒間、爆発ごとにバッテリーを回復する' },
+  { id:'blink',   name:'パルス',     icon:'⚡', spCost:100, maxStock:3, desc:'指定方向へ瞬間移動する（約500px）', category:'移動型', categoryColor:'#4fc3f7' },
+  { id:'dash',    name:'ブースト',     icon:'💨', spCost:80,  maxStock:1, desc:'約3秒間、高速移動する', category:'移動型', categoryColor:'#4fc3f7' },
+  { id:'cannon',  name:'メテオキャノン', icon:'💣', spCost:80,  maxStock:3, desc:'前方へ巨大な星宙玉を発射する', category:'火力型', categoryColor:'#ff7043' },
+  { id:'typhoon', name:'重力崩壊',     icon:'🌪', spCost:200, maxStock:1, desc:'約3秒間、周囲の玉とアイテムを引き寄せる', category:'火力型', categoryColor:'#ff7043' },
+  { id:'shield',  name:'シールド',     icon:'🛡', spCost:100, maxStock:2, desc:'約10秒間、Sで引き寄せた玉を保護。バッテリーのハズレも無効化', category:'長持ち型', categoryColor:'#66bb6a' },
+  { id:'bubble',  name:'フリーズショット', icon:'🫧', spCost:100,  maxStock:1, desc:'狙いを定め、玉を勢いよく前方に飛ばす', category:'命中型', categoryColor:'#ffca28' },
+  { id:'beacon',  name:'フリーズハンド', icon:'🥢', spCost:100, maxStock:1, desc:'約7秒間、時を止めて、触れた場所の近くに玉を寄せ集める', category:'命中型', categoryColor:'#ffca28' },
+  { id:'sweep',   name:'スターウェーブ', icon:'🧹', spCost:100, maxStock:2, desc:'前方を薙ぎ払い、玉を吹き飛ばす', category:'火力型', categoryColor:'#ff7043' },
+  { id:'energyConverter', name:'エネルギー変換器', icon:'🔌', spCost:150, maxStock:1, desc:'約10秒間、爆発ごとにバッテリーを回復する', category:'長持ち型', categoryColor:'#66bb6a' },
 ];
 // レベル解放スキル：パルス・フリーズショット・スターウェーブ以外は、プレイヤーレベルが
 // ここに書かれたレベルに達するごとに順に解放される（実際にunlockedSkillsへ追加され、
@@ -3206,6 +3216,13 @@ function initGame(mode) {
   // スキルUIを即座にリセット（前プレイのcanvas・アイコンが映るのを防ぐ）
   const _cvs = document.getElementById('skill-sp-canvas');
   if(_cvs){ const _c=_cvs.getContext('2d'); _c.clearRect(0,0,140,140); }
+  // FB対応：「たまにスキルボタンのイラストが出ない」バグ修正。updateSkillUI()は
+  // 直前に描画したスキルID(__skillUILastId)と同じ間はアイコンを再描画しない負荷軽減策を
+  // 入れていたが、ここで一度アイコンを空にしても__skillUILastIdはリセットされないままだった。
+  // そのため「前回と同じスキルを連続で選択」した場合、次のupdateSkillUI()がID変化なしと
+  // 判断してアイコンを書き戻さず、空のまま固定されてしまっていた。ここで明示的にリセットし、
+  // 次のupdateSkillUI()で必ずアイコンが書き直されるようにする
+  __skillUILastId = null;
   document.getElementById('skill-btn-icon').textContent = '';
   document.getElementById('skill-desc-name').textContent = '';
   document.getElementById('skill-desc-text').textContent = '';
@@ -5486,8 +5503,15 @@ const playShowdownPhase = (() => {
     const DPR = Math.min(window.devicePixelRatio || 1, 2);
     sdCanvas.width = W * DPR;
     sdCanvas.height = H * DPR;
-    sdCanvas.style.width = W + 'px';
-    sdCanvas.style.height = H + 'px';
+    // FB対応：「バッテリー切れ後、ウィンドウサイズを変えると画面サイズが追従しない」。
+    // ここで sdCanvas.style.width/height にpx固定値を入れてしまうと、CSS側の
+    // 「canvas{width:100%;height:100%}」を上書きしてしまい、以後ウィンドウを
+    // リサイズしてもこのキャンバスの表示サイズが最初のサイズに固定されたままになる
+    // （＝決戦フェーズ終了後、リザルト画面の背景として残り続けている間にウィンドウを
+    // リサイズすると、キャンバスが覆いきれなくなった分から下の本編HUDが透けて見えてしまう
+    // 不具合の原因だった）。CSS側の100%指定に任せれば、表示サイズは常にウィンドウに
+    // 追従する（内部の描画解像度はこのsizeCanvas()が呼ばれた時点のサイズのままになるが、
+    // 表示が崩れるよりも十分軽微なため許容する）。
     sctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     S = H / 604; // 試作の604px高キャンバスを基準に、実機の画面の高さへ換算
     FLIGHT_LANE_X = W*0.5;
@@ -5501,6 +5525,35 @@ const playShowdownPhase = (() => {
     TOTAL_ENEMIES = ROSTER.length;
     states = freshStates();
   }
+
+  // FB対応：「リザルト画面表示中にウィンドウをリサイズすると背景が横に伸び縮みして
+  // 引き伸ばされる」。演出終了後の静止背景（dimmed状態）はもう動いていない1枚絵なので、
+  // リサイズのたびに元の絵を「非等倍で引き伸ばす」のではなく、いったんこのオフスクリーン
+  // キャンバスに逃がしておいた元絵を、縦横比を保ったまま新しいサイズいっぱいに
+  // （はみ出す分は中央基準でトリミングする「cover」方式で）描き直す。
+  let resultBackdropCanvas = null;
+  function captureResultBackdrop() {
+    resultBackdropCanvas = document.createElement('canvas');
+    resultBackdropCanvas.width = sdCanvas.width;
+    resultBackdropCanvas.height = sdCanvas.height;
+    resultBackdropCanvas.getContext('2d').drawImage(sdCanvas, 0, 0);
+  }
+  window.addEventListener('resize', () => {
+    // dimmedクラス＋表示中＝演出が終わってリザルトの背景として静止している状態の時だけ対応する
+    // （アニメーション再生中はここでは何もしない＝従来通り）
+    const isBackdrop = sdCanvas.style.display !== 'none' && sdCanvas.classList.contains('dimmed');
+    if (!isBackdrop || !resultBackdropCanvas) return;
+    sizeCanvas();
+    const iw = resultBackdropCanvas.width, ih = resultBackdropCanvas.height;
+    const dw = sdCanvas.width, dh = sdCanvas.height;
+    const coverScale = Math.max(dw/iw, dh/ih);
+    const sw = dw/coverScale, sh = dh/coverScale;
+    const sx = (iw-sw)/2, sy = (ih-sh)/2;
+    sctx.save();
+    sctx.setTransform(1,0,0,1,0,0); // 生のデバイスピクセル座標で描く（他の描画は毎回setTransformし直すので影響なし）
+    sctx.drawImage(resultBackdropCanvas, sx, sy, sw, sh, 0, 0, dw, dh);
+    sctx.restore();
+  });
 
   // 唯一の外部公開エントリポイント。呼び出し側（バッテリー切れハンドラ）は
   // playShowdownPhase(score).then(triggerGameOver) のように使う。
@@ -5524,6 +5577,7 @@ const playShowdownPhase = (() => {
     if (myId !== runId) { sdCanvas.style.display = 'none'; return; }
 
     sdCanvas.classList.add('dimmed');
+    captureResultBackdrop(); // ここから先は静止画として残るので、リサイズ時の再描画用に退避しておく
     document.getElementById('gameover').classList.add('showdown-reveal');
     // FB対応：「パネルが下からスライドしているように見えない」との指摘。原因は、ここで
     // 'showdown-reveal'（＝#gameover-boxが画面外translateY(120vh)にいる状態）を付けた直後、
@@ -8246,15 +8300,26 @@ function addScore(amount) {
   pendingScoreAddon += amount; // 演出は後でflushScoreAddon()がまとめて処理する
 }
 // 1フレームに1回だけ呼ぶ（loop()内）。連鎖で何度addScore()が呼ばれても、
-// 実際のDOM更新・強制リフローは最大60回/秒に収まる。
+// 実際のDOM更新は最大60回/秒に収まる。
+// FB対応（「星宙玉フィーバー中だけ極端に重い」の実機トレースで判明した根本原因）：
+// このすぐ下にあった「void el.offsetWidth」は、アニメーションを毎回頭から
+// 再生させるための強制同期リフロー（＝ページ全体のレイアウト再計算をJSの中で
+// 即座に強制する、ブラウザで最も重い処理の一つ）。連鎖中だけ呼ばれる分には
+// 目立たなかったが、星宙玉フィーバー中はスコアがほぼ毎フレーム増え続けるため、
+// このリフローがほぼ毎フレーム（最大60回/秒）走り続けており、これが
+// 「JS処理時間（perfOverlayの最悪フレーム値）は軽いのに実機ではガクガクする」の
+// 主因だった（Canvas描画そのものより、この強制リフローの方がはるかに重かった）。
+// 対策：offsetWidthを読み取って強制的に同期処理させる代わりに、クラスの
+// 付け直しをrequestAnimationFrameで1フレーム遅らせる。ブラウザが自分の
+// タイミングでスタイル反映してくれるのを待つだけなので、同じ「アニメーション
+// 再始動」効果を保ったまま強制リフローを避けられる。
 function flushScoreAddon() {
   if (pendingScoreAddon <= 0) return;
   const el = document.getElementById('score-addon');
   if (el) {
     el.textContent = '+' + pendingScoreAddon.toLocaleString();
     el.classList.remove('show');
-    void el.offsetWidth;
-    el.classList.add('show');
+    requestAnimationFrame(() => { el.classList.add('show'); });
   }
   pendingScoreAddon = 0;
 }
@@ -8279,7 +8344,22 @@ function updateUI(){
 // 重ならないよう、内側にマージンを取った楕円の縁に沿ってアイコンを配置する。
 // ※右側は速度スライダーが縦に長く場所を取るため、他の辺より少しだけ広めのマージンにしている
 const OFFSCREEN_NAV_MARGIN = { top:90, bottom:96, left:30, right:74 };
+// FB対応：「発電ギミック装置の画面外アイコンの主張が弱すぎる」→拡大（3倍→
+// 「デカすぎた」で2倍→「2倍のつもりが円の半径を2倍にしていたので面積では4倍に
+// なっていた（＝想定より大きく見えていた）。もう少し小さく」とのFBで1.5倍に調整）。
+// ctx.scale()は半径（縦横の長さ）に対する倍率であり、見た目の面積はその2乗で
+// 増える（半径2倍＝面積4倍）ため、体感の「大きさ」に対して数値以上に大きく見えやすい
+// 点に注意。drawOffscreenNavIcon()（実際の拡大）とdrawOffscreenNav()（拡大分の
+// 余白計算）の両方から参照する共通定数。
+const GENERATOR_ICON_SCALE = 1.5;
 
+// FB対応：「アイテムもびっくりマークで画面外に表示してほしい」。
+// ただしアイテムは自然湧きだけで最大10個まで同時に存在しうる（spawnItem()参照）ため、
+// 赤玉・金玉・発電装置と同じ数だけ無条件に出すと画面端がアイコンだらけで騒がしくなる。
+// そのため、アイテムだけは「プレイヤーから近い順に最大3個まで」に絞って表示する
+// （赤玉・金玉・発電装置はもともと同時に存在する数が少ない特別な存在なので、
+// 引き続き全て表示する）。
+const OFFSCREEN_ITEM_MAX = 3;
 function offscreenNavTargets(){
   const list = [];
   for (const h of holes) {
@@ -8289,6 +8369,16 @@ function offscreenNavTargets(){
     if (!m.alive) continue;
     if (m.marbleType === 'red')  list.push({ x:m.x, y:m.y, kind:'red' });
     if (m.marbleType === 'gold') list.push({ x:m.x, y:m.y, kind:'gold' });
+  }
+  if (items.length > 0) {
+    const itemDist = (it) => {
+      let dx = it.x - player.wx, dy = it.y - player.wy;
+      if (dx >  WORLD_W/2) dx -= WORLD_W; else if (dx < -WORLD_W/2) dx += WORLD_W;
+      if (dy >  WORLD_H/2) dy -= WORLD_H; else if (dy < -WORLD_H/2) dy += WORLD_H;
+      return dx*dx + dy*dy;
+    };
+    const nearestItems = [...items].sort((a,b)=>itemDist(a)-itemDist(b)).slice(0, OFFSCREEN_ITEM_MAX);
+    for (const it of nearestItems) list.push({ x:it.x, y:it.y, kind:'item', itemDef:it.def });
   }
   return list;
 }
@@ -8304,13 +8394,61 @@ function offscreenNavClampToEllipse(angle, rectL, rectT, rectR, rectB, cx, cy){
   return [cx + dx * t, cy + dy * t];
 }
 
-function drawOffscreenNavIcon(kind, x, y, scale, hasItems){
+// FB対応：「起動中のギミック装置までの最短距離を点線で結んでほしい。1点1点が
+// 丸形だと嬉しい」。稼働中（isOpen）の発電装置のうち最も近い1基へ、プレイヤーから
+// ワールドのループを考慮した最短方向へ、丸い点を並べた細い点線ガイドを引く。
+// ctx.setLineDash（角ばった破線になりがち）ではなく、一定間隔ごとに小さな円を
+// 打っていく方式にすることで、確実に「丸形」の点線にしている。
+function drawGimmickGuideLine(){
+  if (!gameRunning) return;
+  let nearestDist = Infinity, nearestDx = 0, nearestDy = 0, found = false;
+  for (const h of holes) {
+    if (!h.isOpen) continue;
+    let dx = h.x - player.wx, dy = h.y - player.wy;
+    if (dx >  WORLD_W/2) dx -= WORLD_W; else if (dx < -WORLD_W/2) dx += WORLD_W;
+    if (dy >  WORLD_H/2) dy -= WORLD_H; else if (dy < -WORLD_H/2) dy += WORLD_H;
+    const d = Math.hypot(dx, dy);
+    if (d < nearestDist) { nearestDist = d; nearestDx = dx; nearestDy = dy; found = true; }
+  }
+  if (!found || nearestDist < 1) return;
+
+  const DOT_SPACING = 26;
+  const DOT_R = 2.2;
+  const steps = Math.floor(nearestDist / DOT_SPACING);
+  if (steps < 1) return;
+  ctx.save();
+  ctx.fillStyle = 'rgba(130,205,210,0.5)';
+  for (let i = 1; i <= steps; i++) {
+    const frac = (i * DOT_SPACING) / nearestDist;
+    const px = player.wx + nearestDx * frac;
+    const py = player.wy + nearestDy * frac;
+    ctx.beginPath(); ctx.arc(px, py, DOT_R, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawOffscreenNavIcon(kind, x, y, scale, extra){
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale);
   if (kind === 'generator') {
-    // 稼働中アピール：薄グレーの波紋を一定間隔で外側へ（共鳴岩の波動演出を縮小して流用）
+    // FB対応：「発電ギミック装置の画面外アイコンの主張が弱すぎる。もっと大きく、
+    // 演出も派手に（白と黄色が交互に点滅、黄色がふわふわ）」。
+    // 以下すべての座標・線幅はこの1回のscale()でまとめてGENERATOR_ICON_SCALE倍になる。
+    ctx.scale(GENERATOR_ICON_SCALE, GENERATOR_ICON_SCALE);
     const wt = Date.now()*0.001;
+
+    // ① 黄色のふわふわした発光（ゆっくり大きく呼吸するグロー。「きいろがふわふわ」担当）
+    const breathe = 0.5 + Math.sin(wt*1.7)*0.5; // 0〜1をゆっくり往復
+    const glowR = 19 + breathe*8;
+    const glowAlpha = 0.28 + breathe*0.32;
+    const glowGrad = ctx.createRadialGradient(0,0,3,0,0,glowR);
+    glowGrad.addColorStop(0, `rgba(255,220,70,${glowAlpha})`);
+    glowGrad.addColorStop(1, 'rgba(255,220,70,0)');
+    ctx.beginPath(); ctx.arc(0,0,glowR,0,Math.PI*2);
+    ctx.fillStyle = glowGrad; ctx.fill();
+
+    // 稼働中アピール：波紋を一定間隔で外側へ（共鳴岩の波動演出を縮小して流用）
     for(let wi=0; wi<2; wi++){
       const wavePhase = (wt*0.6 + wi/2) % 1;
       const waveR = 13 + wavePhase*15;
@@ -8319,9 +8457,13 @@ function drawOffscreenNavIcon(kind, x, y, scale, hasItems){
       ctx.strokeStyle = `rgba(110,110,110,${waveAlpha})`; ctx.lineWidth = 1.2;
       ctx.stroke();
     }
-    // 白丸＋黒渕＋小さな稲妻（手描き風・発電装置）
+
+    // ② 白と黄色が交互に点滅する本体（「白と黄色が交互に点滅」担当）
+    const blink = 0.5 + Math.sin(wt*8.0)*0.5; // 0(白)〜1(黄)を素早く往復
+    const bg = Math.round(255 - blink*40);
+    const bb = Math.round(255 - blink*250);
     ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fill();
+    ctx.fillStyle = `rgba(255,${bg},${bb},0.92)`; ctx.fill();
     ctx.strokeStyle = 'rgba(26,26,26,0.75)'; ctx.lineWidth = 2.0; ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(-3.2,-7.2); ctx.lineTo(2.3,-1.6); ctx.lineTo(-1.0,-0.7); ctx.lineTo(3.7,7.2);
@@ -8335,6 +8477,38 @@ function drawOffscreenNavIcon(kind, x, y, scale, hasItems){
     ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2);
     ctx.fillStyle = 'rgba(210,166,0,0.78)'; ctx.fill();
     ctx.strokeStyle = 'rgba(26,26,26,0.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+  } else if (kind === 'item') {
+    // FB対応：「！入りの白丸だと通常の星宙玉と見分けがつかない」。丸はすでに
+    // 発電装置・赤玉・金玉・通常玉で使われている形なので、丸をやめて、実際に
+    // フィールドでアイテムを取る時と同じ「白地の正八角形バッジ」の形にした。
+    // 形そのものが違うので一目でアイテムだと分かる上、中に実際のアイテムアイコンを
+    // 縮小して描くことで、種類（何のアイテムか）まで一緒に伝えられるようにしている。
+    const octR = 12;
+    ctx.beginPath();
+    for(let i=0;i<=8;i++){
+      const a = (i%8/8)*Math.PI*2 - Math.PI/8;
+      const px = Math.cos(a)*octR, py = Math.sin(a)*octR;
+      i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(26,26,26,0.8)'; ctx.lineWidth = 1.8; ctx.lineJoin = 'round'; ctx.stroke();
+
+    const def = extra; // drawOffscreenNav()からitemDefが第4引数として渡ってくる
+    const img = (def && typeof IMAGE_ASSETS !== 'undefined') ? IMAGE_ASSETS.get('items', def.id) : null;
+    if (img && img.complete && img.naturalWidth > 0) {
+      const iconR = octR * 0.74;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(0, 0, octR*0.82, 0, Math.PI*2); ctx.clip();
+      ctx.drawImage(img, -iconR, -iconR, iconR*2, iconR*2);
+      ctx.restore();
+    } else if (def) {
+      // アイコン未読込時のフォールバック：アイテム画面と同じ簡易記号をアイテムカラーで
+      ctx.fillStyle = def.color;
+      ctx.font = 'bold 12px Courier New';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(def.cat==='battery'?'⚡':def.cat==='magnet'?'◈':'★', 0, 1);
+    }
   }
   ctx.restore();
 }
@@ -8396,6 +8570,13 @@ function drawOffscreenNav(){
   const cx = W/2 + cam.shakeX, cy = H/2 + cam.shakeY;
   const rectL = OFFSCREEN_NAV_MARGIN.left,      rectT = OFFSCREEN_NAV_MARGIN.top;
   const rectR = W - OFFSCREEN_NAV_MARGIN.right, rectB = H - OFFSCREEN_NAV_MARGIN.bottom;
+  // FB対応：発電装置アイコンを拡大したため、他のアイコンと同じ余白のままだと
+  // ジョイスティックやスキルボタンなど下部HUDに重なってしまう。発電装置だけ、
+  // 見た目の半径が増えた分をあらかじめ余白に足しておく（GENERATOR_ICON_SCALEの
+  // 拡大率に比例させているので、倍率を変えても追従する）。
+  const GENERATOR_EXTRA_MARGIN = 25 * (GENERATOR_ICON_SCALE - 1);
+  const rectLg = rectL + GENERATOR_EXTRA_MARGIN, rectTg = rectT + GENERATOR_EXTRA_MARGIN;
+  const rectRg = rectR - GENERATOR_EXTRA_MARGIN, rectBg = rectB - GENERATOR_EXTRA_MARGIN;
   const NEAR = 260, FAR = 1900; // 距離によるアイコンサイズ変化の範囲
 
   ctx.save();
@@ -8410,13 +8591,16 @@ function drawOffscreenNav(){
 
     const dist = Math.hypot(dx, dy);
     const angle = Math.atan2(dy, dx);
-    const [ix, iy] = offscreenNavClampToEllipse(angle, rectL, rectT, rectR, rectB, cx, cy);
+    const isGenerator = t.kind === 'generator';
+    const [ix, iy] = isGenerator
+      ? offscreenNavClampToEllipse(angle, rectLg, rectTg, rectRg, rectBg, cx, cy)
+      : offscreenNavClampToEllipse(angle, rectL,  rectT,  rectR,  rectB,  cx, cy);
 
     // 距離に応じたスケール（近い＝少し大きく、遠い＝少し小さく）
     const tt = Math.max(0, Math.min(1, (dist - NEAR) / (FAR - NEAR)));
     const scale = 1.6 - tt * 0.7;
 
-    drawOffscreenNavIcon(t.kind, ix, iy, scale, t.hasItems);
+    drawOffscreenNavIcon(t.kind, ix, iy, scale, t.itemDef);
   }
   ctx.restore();
 }
@@ -8453,6 +8637,7 @@ function draw(){
   // 以前はここも offsets の数だけ（プレイヤーが継ぎ目付近にいると2〜4倍）
   // 丸ごと描き直しており、パーティクルやチェイン文字が多い場面で
   // 無駄な負荷になっていた（重さ・カクつきの主因）。
+  drawGimmickGuideLine();
   drawWaveRings();
   drawPickupEffects();
   drawShockwaves();
@@ -8599,13 +8784,23 @@ function drawWorldEventOverlay() {
 }
 
 // ── ギミックタイマー行（DOM）の表示・進捗同期 ──
-// 発動中のみ#gimmick-rowを表示し、色・進捗（バー幅）・残り秒数を反映する
+// 発動中のみ#gimmick-rowを表示し、色・進捗（バー幅）を反映する。
+// FB対応：「今どんな効果が乗っているかわからない」との指摘で、以前は汎用アイコン＋残り秒数
+// だけだった構成をやめ、左に効果名の短いラベルを常時表示するようにした（秒数は廃止し、
+// バーの縮み具合そのもので残り時間の目安を伝える）
 const GIMMICK_COLOR_MAP = {
   overcharge:    '#ffdd44',
   rock_awaken:   '#ff8844',
   vortex:        '#aa66ff',
   marble_fever:  '#44ffcc',
   resonance_run: '#ff4488',
+};
+const GIMMICK_LABEL_MAP = {
+  overcharge:    '磁力UP',
+  rock_awaken:   'スコア2倍',
+  vortex:        '大回転',
+  marble_fever:  '玉数UP',
+  resonance_run: '爆発力UP',
 };
 function updateGimmickRow() {
   const rowEl = document.getElementById('gimmick-row');
@@ -8620,12 +8815,7 @@ function updateGimmickRow() {
   const col = GIMMICK_COLOR_MAP[ev.id] || '#1a1a1a';
   document.getElementById('gimmick-fill').style.width = (ratio * 100) + '%';
   document.getElementById('gimmick-fill').style.background = col;
-  document.getElementById('gimmick-sec').textContent = Math.ceil(ev.timer) + 's';
-  // FB対応：タイマー文字はギミック種別の色ではなく、常に薄いグレー寄りの白に固定
-  document.getElementById('gimmick-sec').style.color = '#e6e8ee';
-  // 黄色など明るい色は白背景に埋もれて読めなくなるため、黒縁取りで常に視認性を確保する
-  document.getElementById('gimmick-sec').style.textShadow =
-    '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000';
+  document.getElementById('gimmick-label').textContent = GIMMICK_LABEL_MAP[ev.id] || '';
 }
 
 // ── バッテリー残10%以下：画面端の波線演出（描画） ──
@@ -9532,6 +9722,30 @@ const MARBLE_GLOW_COLOR = {
   gold: {r:255, g:205, b:70},
 };
 
+// FB対応：「紅・金星宙玉の見た目をもっとキラキラに発光させたい」。
+// 十字に光条が伸びる小さなスパークル（キラッと光る粒）を1個描く共通ヘルパー。
+// レア玉の周りを複数個ゆっくり周回させることで、既存のふわっとした発光に
+// 「特別感・華やかさ」を上乗せする（近くで見た時の主張担当。画面外にいる間の
+// 存在を伝える役目は引き続きオフスクリーンナビ側が担う）。
+function drawRareSparkle(cx, cy, size, alpha, colorRGB){
+  if (size <= 0 || alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(cx, cy);
+  const grad = ctx.createRadialGradient(0,0,0,0,0,size);
+  grad.addColorStop(0,   'rgba(255,255,255,0.95)');
+  grad.addColorStop(0.45,`rgba(${colorRGB.r},${colorRGB.g},${colorRGB.b},0.85)`);
+  grad.addColorStop(1,   `rgba(${colorRGB.r},${colorRGB.g},${colorRGB.b},0)`);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(0,-size); ctx.lineTo(size*0.18,0); ctx.lineTo(0,size); ctx.lineTo(-size*0.18,0); ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-size,0); ctx.lineTo(0,size*0.18); ctx.lineTo(size,0); ctx.lineTo(0,-size*0.18); ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawMarbles(cullOx, cullOy){
   const t = Date.now() * 0.001;
   for(const m of marbles){
@@ -9588,6 +9802,19 @@ function drawMarbles(cullOx, cullOy){
           g.addColorStop(1,   `rgba(${glow.r},${glow.g},${glow.b},0)`);
           ctx.beginPath(); ctx.arc(m.x, m.y, glowR, 0, Math.PI*2);
           ctx.fillStyle = g; ctx.fill();
+
+          // FB対応：紅・金星宙玉に周回スパークルを追加（3個、位相をずらして瞬かせる）
+          const sparkleCount = 3;
+          for (let si = 0; si < sparkleCount; si++) {
+            const orbitAngle = t*0.8 + m.phase + (si/sparkleCount)*Math.PI*2;
+            const orbitR = m.r * 1.55;
+            const spx = m.x + Math.cos(orbitAngle)*orbitR;
+            const spy = m.y + Math.sin(orbitAngle)*orbitR;
+            const twinkle = Math.max(0, Math.sin(t*3.2 + si*2.1 + m.phase));
+            if (twinkle > 0.05) {
+              drawRareSparkle(spx, spy, m.r*0.42*twinkle + m.r*0.12, 0.35 + twinkle*0.65, glow);
+            }
+          }
         }
 
         if (m.marbleType === 'homing') {
@@ -11245,7 +11472,10 @@ function showSkillSelect(){
     card.innerHTML = `
       <div class="skill-card-icon">${iconHtml}</div>
       <div class="skill-card-info">
-        <div class="skill-card-name">${def.name}</div>
+        <div class="skill-card-name-row">
+          <span class="skill-card-name">${def.name}</span>
+          <span class="skill-card-category" style="color:${def.categoryColor};border-color:${def.categoryColor};background:${def.categoryColor}22;">${def.category}</span>
+        </div>
         <div class="skill-card-desc">${def.desc}</div>
         <div class="skill-card-meta">消費: ${def.spCost}SP ／ 最大ストック: ${def.maxStock}</div>
       </div>`;
@@ -11283,6 +11513,7 @@ document.getElementById('skill-back-btn').addEventListener('touchstart',e=>{
 },{passive:false});
 
 // ── スキルUI更新 ──────────────────────────────────
+let __skillUILastId = null; // updateSkillUI()の重複DOM書き換え防止用（下のコメント参照）
 function updateSkillUI(){
   const ui = document.getElementById('skill-ui');
   if(!selectedSkillId || gameMode !== 'endless'){
@@ -11292,14 +11523,23 @@ function updateSkillUI(){
   const def = SKILL_DEFS.find(s=>s.id===selectedSkillId);
   if(!def) return;
   // アイコン・説明文
-  const btnIconPath = (typeof IMAGE_ASSET_PATHS !== 'undefined') ? IMAGE_ASSET_PATHS.skills[def.id] : null;
-  document.getElementById('skill-btn-icon').innerHTML = btnIconPath
-    ? `<img src="${btnIconPath}" alt="${def.name}">`
-    : def.icon;
+  // FB対応：「星宙玉フィーバー中だけ極端に重い」の実機トレース調査中に見つかった
+  // 副次的な無駄。updateSkillUI()は毎フレーム呼ばれるが、選択中スキルが変わって
+  // いない間はアイコン(innerHTML)・名前・説明文の内容は変化しない。それでも毎フレーム
+  // 同じ内容でinnerHTML/textContentを書き換え続けると、その都度DOM要素の再構築や
+  // スタイル再計算が発生し、無駄なコストになる。スキルIDが実際に変わった時だけ
+  // 書き換えるようにする（挙動は変えず、書き換え回数だけ減らす）。
+  if (__skillUILastId !== selectedSkillId) {
+    __skillUILastId = selectedSkillId;
+    const btnIconPath = (typeof IMAGE_ASSET_PATHS !== 'undefined') ? IMAGE_ASSET_PATHS.skills[def.id] : null;
+    document.getElementById('skill-btn-icon').innerHTML = btnIconPath
+      ? `<img src="${btnIconPath}" alt="${def.name}">`
+      : def.icon;
+    document.getElementById('skill-desc-name').textContent = def.name;
+    document.getElementById('skill-desc-text').textContent = def.desc;
+  }
   document.getElementById('skill-btn').classList.remove('holding'); // ホールド型スキルは廃止（シャボン玉はタップ式）
   document.getElementById('skill-btn').classList.toggle('active', skillActive);
-  document.getElementById('skill-desc-name').textContent = def.name;
-  document.getElementById('skill-desc-text').textContent = def.desc;
   // SPゲージ（canvas描画）
   const cvs = document.getElementById('skill-sp-canvas');
   const c = cvs.getContext('2d');
