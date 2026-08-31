@@ -58,6 +58,11 @@ canvas { display:block; width:100%; height:100%; }
 #battery-fill.recovering {
   background:#00a5ad;
 }
+/* FB対応：ブラックホールの危険半径内でバッテリーが実際に削れている間だけ赤く点灯させ、
+   ダメージを受けていることを視覚的にわかりやすくする（recoveringより後に書いて優先させる） */
+#battery-fill.bh-danger {
+  background:#ff3b3b;
+}
 /* 電池の電極突起（手書き風に少し傾ける） */
 #battery-bar::after {
   content:'';
@@ -536,9 +541,12 @@ canvas { display:block; width:100%; height:100%; }
   width:min(340px, 84vw);
   display:flex; flex-direction:column; align-items:center;
 }
-/* 画像が未配置（404）でも高さが0に潰れないよう、アスペクト比固定の枠を先に確保しておく */
+/* 画像が未配置（404）でも高さが0に潰れないよう、アスペクト比固定の枠を先に確保しておく。
+   FB対応：「枠の横が余っている」との指摘。実際のassets/tutorial/page1〜5.webpは1000×800px(5:4)
+   なのに、枠が4:3で組んであったため、object-fit:containで幅方向に余白ができていた。
+   実画像の比率(5:4)に合わせ、横幅ぴったり・その分だけ高さも広がるようにする */
 #howtoplay-image-box {
-  width:100%; aspect-ratio:4/3; border-radius:10px;
+  width:100%; aspect-ratio:5/4; border-radius:10px;
   border:1.5px solid rgba(255,255,255,0.2); background:#151b2c;
   display:flex; align-items:center; justify-content:center;
   overflow:hidden;
@@ -7360,6 +7368,9 @@ function update(dt){
 
   // ブラックホールの引力圏内フラグをこのフレーム分リセット（この下のループで、覚醒中のブラックホールがあれば立て直す）
   for(const m of marbles) m.bhField = false;
+  // FB対応：「ブラックホールに捉えられてる時のダメージを可視化したい」。危険半径内でバッテリーが
+  // 実際に削られているフレームだけtrueにする（下のループでの立て直し用に、ここで毎フレームリセット）
+  player.bhDanger = false;
 
   // ── 岩の状態管理（覚醒システム） ──
   for(const rk of rocks){
@@ -7505,12 +7516,17 @@ function update(dt){
           // FB対応：「イライラするのでもう少し抜け出しやすくしてほしい」との要望。captureR付近（一番強い場所）
           // での引力の定常到達速度が、プレイヤーの最高速度(5.0)に迫るほど強く、踏ん張っても振り切りにくかった。
           // 引力・渦を巻く力を全体的に弱め、さらに下の摩擦減衰も少し速くして、抗力に対する反応をよくした
-          const pRadial  = 0.18 + pRatio*0.85;  // 引き込み（以前の0.3+1.6よりだいぶ弱め）
-          const pTangent = 0.08 + pRatio*0.55;  // 渦を巻く力（中心に近いほど強くなる）
+          // FB対応：「ほんの少し強めてほしい」との要望で、直前の弱化から全体を控えめに(約+20%)引き上げ。
+          // 抜け出しやすさの土台（下の摩擦減衰0.68や、上のcaptureR底打ち）はそのまま維持する
+          const pRadial  = 0.22 + pRatio*1.0;   // 引き込み（0.18+0.85 → 少し強化）
+          const pTangent = 0.10 + pRatio*0.65;  // 渦を巻く力（中心に近いほど強くなる）
           player.bhVx += -pnx*pRadial + ptx*pTangent;
           player.bhVy += -pny*pRadial + pty*pTangent;
         }
         if(pdist < dangerR){
+          // FB対応：「捉えられてる時のダメージを可視化したい」。実際にバッテリーが削れているこの
+          // フレームだけtrueにし、updateHUD()側でバッテリーバーを赤くする合図として使う
+          player.bhDanger = true;
           player.battery = Math.max(0, player.battery - BH_BATTERY_DRAIN_PS*dtSec);
         }
 
@@ -8328,6 +8344,9 @@ function updateHUD(){
   const bat=player.battery;
   document.getElementById('battery-fill').style.width=bat+'%';
   document.getElementById('battery-fill').classList.toggle('recovering', skillActive && selectedSkillId==='energyConverter');
+  // FB対応：「ブラックホールに捉えられてる時のダメージを可視化したい」。危険半径内で実際に
+  // バッテリーが削れているフレームだけ赤く点灯させ、削られていることが一目でわかるようにする
+  document.getElementById('battery-fill').classList.toggle('bh-danger', !!player.bhDanger);
   document.getElementById('battery-row').classList.toggle('low-battery', bat < 20);
   document.getElementById('hud-score-val').textContent=score.toLocaleString();
   updateSkillUI();
@@ -10465,16 +10484,20 @@ function drawPlayer(){
   ctx.translate(px, py + introOffsetY);
   ctx.rotate(angle);
   // S極ホールド中は本体を半透明化（渦のコアとして溶け込む）
-  if(player.isCharging) ctx.globalAlpha = 0.45 + (1 - player.charge) * 0.4;
+  // FB対応：透明になりすぎるとの指摘で下限を0.45→0.6→0.8まで引き上げ（最大時は変わらず1.0）
+  if(player.isCharging) ctx.globalAlpha = 0.8 + (1 - player.charge) * 0.2;
 
   // ── 後部排熱ノズルの噴射炎（筐体は画像素材に統合済みのため炎のみ描画） ──
   // ※以前は手描きのノズル筐体もここで描いていたが、機体を画像素材に差し替えた際に
   // 　不要になった（Sホールド中に機体本体が半透明になると、画像の下からこの筐体が
   // 　透けて見えてしまっていたため削除）。
+  // FB対応：機体デザイン変更に伴い、噴射口の位置を新デザインに合わせて調整。
+  // -0.92r→-0.75r（内側寄せすぎとの指摘）→-0.835r（最初と-0.75rの中間）、
+  // ±0.48r→±0.4r→±0.44r（同じく中間）
   const sf=SPEEDS[player.speedIdx]/SPEEDS[4];
   const nozzleAlpha=0.35+sf*0.55;
-  const nozzleBaseX = -r*0.92; // 画像素材の噴射口位置（実測: 概ね-1.0〜-1.1r付近）に合わせて調整
-  for(const ny of [-r*0.48, r*0.48]){ // 画像素材の噴射口位置（実測: 概ね±0.47r）に合わせて調整
+  const nozzleBaseX = -r*0.835; // 新機体デザインの噴射口位置に合わせて調整（最初と前回の中間）
+  for(const ny of [-r*0.44, r*0.44]){ // 新機体デザインの噴射口位置に合わせて調整（最初と前回の中間）
     const nozzleGrad=ctx.createLinearGradient(nozzleBaseX, ny, nozzleBaseX-r*(0.6+sf*0.9), ny);
     nozzleGrad.addColorStop(0,`rgba(${glowCol},${nozzleAlpha})`);
     nozzleGrad.addColorStop(0.5,`rgba(${glowCol},${nozzleAlpha*0.4})`);
@@ -11941,9 +11964,9 @@ function renderAchievementScreen(){
 // title＝画像の上に出す一言キャッチ（中）、heading＝その下に出すページ見出し（ゲーム内最大の
 // 文字サイズ。#ad-placeholder-timerの44pxに合わせている）、caption＝画像の下に添える詳しい説明（小）。
 // FB対応②：キャッチ・見出し・本文とも中央揃えではなく左揃えに統一。
-// 画像はいずれもプレースホルダーとしてassets/tutorial/page1〜5.webpに仮格納中（後日差し替え予定）。
-// 想定サイズ：1200×900px（4:3、#howtoplay-image-boxのaspect-ratio:4/3に合わせる）程度のwebp。
-// object-fit:containで表示するため多少比率がずれても崩れないが、4:3に近いほど余白なく綺麗に収まる。
+// 画像はassets/tutorial/page1〜5.webpに格納。実サイズは1000×800px（5:4、
+// #howtoplay-image-boxのaspect-ratio:5/4に合わせてある）。
+// object-fit:containで表示するため多少比率がずれても崩れないが、5:4からずれるほど余白ができる。
 const HOWTOPLAY_PAGES = [
   {
     image: 'assets/tutorial/page1.webp',
