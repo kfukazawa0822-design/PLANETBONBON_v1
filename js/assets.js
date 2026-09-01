@@ -72,9 +72,15 @@ const IMAGE_ASSET_PATHS = {
     split:     'assets/rocks/split.svg',
     resonance: 'assets/rocks/resonance.svg',
   },
+  enemies: {
+    // 決戦フェーズの敵イラスト（drawEnemy()）。キーは各ゾーンのkindと一致させている
+    swarm:   'assets/enemies/enemy_swarm.webp',   // 雑魚複数体
+    squad:   'assets/enemies/enemy_squad.webp',   // 少数精鋭2〜3体
+    midboss: 'assets/enemies/enemy_midboss.webp', // 中ボス
+    boss:    'assets/enemies/enemy_boss.webp',    // BOSS
+  },
   // 今後の追加予定（フォルダを作ってからここにカテゴリを追加）：
   // ui:          { ... },
-  // enemies:     { ... },
   // backgrounds: { ... },
 };
 

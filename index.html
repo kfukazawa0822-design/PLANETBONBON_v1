@@ -271,6 +271,47 @@ canvas { display:block; width:100%; height:100%; }
   100%{ opacity:0; transform:translate(-50%,-40%) scale(1); }
 }
 
+/* ── 手応え強化バナー：Chainの段階突入／スコアの区切り到達を、画面上部にテキストのみで
+   知らせる演出（#top-notifyと同じ「画面上部」枠を使うが、カード背景を持たずグロー文字のみ）。
+   FB対応：「下から浮かび上がってきて、2回点滅してほしい」との指定で専用アニメーションにする */
+#feat-banner {
+  /* FB対応：「表示場所をもう少し下げてほしい。アイテム欄と同じか少し下あたり」→
+     #hud-items（アイテム一覧）が始まる高さに合わせてtopを引き下げ */
+  /* --featX：水平方向の寄せ方をキーフレーム側と分離するための変数。
+     中央寄せ(既定)は-50%、右寄せ(.align-right)は0%にして#hud-score(SCORE表示)の真下に揃える */
+  --featX: -50%;
+  position:fixed; top:120px; left:50%; right:auto; transform:translate(var(--featX),40px);
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Helvetica Neue','Hiragino Sans',sans-serif;
+  font-size:23px; font-weight:900; letter-spacing:1px;
+  white-space:nowrap; text-align:center;
+  pointer-events:none; z-index:60; opacity:0;
+}
+/* FB対応：「スコアだけ右に表示のほうがいいかも。スコアの真下くらいの位置に」→
+   スコア区切りバナーのみ、#hud-score（SCORE表示、text-align:rightでpadding:0 6vwの右端に揃っている）
+   と同じ右端基準に切り替える。Chain系(中央寄せ)とは表示中だけこのクラスの有無で出し分ける */
+#feat-banner.align-right {
+  left:auto; right:6vw; text-align:right;
+  --featX: 0%;
+}
+/* FB対応：「もっと点滅早く。脳汁出る感じ（スロット・パチンコとか）を目指してる」
+   →フェード(ease)ではなく、steps()でスパッと瞬時に切り替わる「本当の点滅」にし、
+   回数も2回→4回に増やして「ビカビカビカッ」という連打感を出す。全体尺も1.6s→1.4sに短縮 */
+#feat-banner.show { animation: featBannerRiseBlink 1.4s ease forwards; }
+@keyframes featBannerRiseBlink {
+  0%   { opacity:0;    transform:translate(var(--featX),40px); }
+  10%  { opacity:1;    transform:translate(var(--featX),0); }
+  14%  { opacity:0.1;  transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅1：消 */
+  18%  { opacity:1;    transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅1：点 */
+  22%  { opacity:0.1;  transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅2：消 */
+  26%  { opacity:1;    transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅2：点 */
+  30%  { opacity:0.1;  transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅3：消 */
+  34%  { opacity:1;    transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅3：点 */
+  38%  { opacity:0.1;  transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅4：消 */
+  42%  { opacity:1;    transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅4：点 */
+  80%  { opacity:1;    transform:translate(var(--featX),0); }
+  100% { opacity:0;    transform:translate(var(--featX),-14px); }
+}
+
 /* ── ギミック発動演出（画面中央・event-bannerより大きめ・目立たせる） ── */
 #gimmick-banner {
   position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -2474,6 +2515,7 @@ canvas { display:block; width:100%; height:100%; }
 <div id="event-banner"></div>
 <div id="skill-kanji-banner"></div>
 <div id="top-notify"></div>
+<div id="feat-banner"></div>
 
 <!-- シャボン玉：狙い中に出す案内文と「発射！」ボタン -->
 <div id="bubble-aim-banner" class="hide">飛ばす方向を決めよう</div>
@@ -3102,6 +3144,20 @@ let lastChainTier = 0; // 0=通常, 1=BIG CHAIN, 2=MEGA CHAIN（直近のチェ�
 let currentChainCause = null; // null=非プレイヤー起因, 'S'=S極吸引起因, 'N'=N極反発起因（チェインの起点で確定）
 let chainSpreadDistance = 0; // Nチェイン専用：爆発同士の道のりの合計（暴れまわるほど伸びる）
 let chainLastExplosionX = null, chainLastExplosionY = null; // 直前の爆発座標
+// FB対応：「目的地がわからず気持ちよくない」との指摘で追加。今回のチェインで既に
+// 画面上部の演出バナー(#feat-banner)を出した最高段階（0=未,1=BIG,2=MEGA）。
+// lastChainTierは毎ヒット再計算される「現在の段階」なので、それとは別に「もう announce したか」を持つ
+let chainTierBannerFired = 0;
+// FB対応：同上。スコアが区切りの良い額(SCORE_MILESTONE_INTERVAL点刻み)を超えるたびに1回だけ演出バナーを出す
+const SCORE_MILESTONE_INTERVAL = 50000; // FB対応：10000刻みは頻度が多すぎるとのことで50000刻みに変更
+let lastScoreMilestoneTier = 0;
+// FB対応：「色をそれぞれまとめてほしい。色変えたい」→ #feat-banner（BIG/MEGA CHAIN突入・
+// スコア区切り到達）で使う色をここに集約。色を変えたい時はここだけ書き換えればOK
+const FEAT_BANNER_COLORS = {
+  bigChain: '#00a5ad',       // BIG CHAIN突入！ FB対応：白→ティールに変更
+  megaChain: '#ffd700',      // MEGA CHAIN突入！ FB対応：ティール→ゴールドに変更
+  scoreMilestone: '#ffffff', // ○○点突破！ FB対応：ゴールド→白に変更
+};
 
 // ── バッテリー残10%以下：画面端の波線演出 ──────────
 let pulseFrame = { amp:0, jitter:0, time:0, visibility:0 }; // 現在の振幅・不安定度・出現度（滑らかに追従）
@@ -3186,6 +3242,7 @@ function initGame(mode) {
   };
   itemRewardCoinsThisSession = 0;
   lastChainTier=0; currentChainCause=null; chainSpreadDistance=0; chainLastExplosionX=null; chainLastExplosionY=null;
+  chainTierBannerFired=0; lastScoreMilestoneTier=0;
   pulseFrame={ amp:0, jitter:0, time:0, visibility:0 };
   rockHitCooldown=0;
   playTime=0; batteryDrainBoostAnnounced=false; currentChainDepth=0; screenShake={x:0,y:0,power:0}; releaseGraceTimer=0;
@@ -3944,6 +4001,26 @@ function queueBlackholeCollapseBanner(scoreBonus) {
   }, 200);
 }
 
+// ── 手応え強化バナー：Chainの段階突入／スコアの区切り到達（#feat-banner） ──
+// FB対応：「目的地がわからず気持ちよくない」との指摘。他の演出と同じ「キューに積んで
+// 順番に出す」仕組みに乗せることで、Chain突入とスコア区切りがほぼ同時に起きても
+// 両方きちんと表示される（取りこぼさない）
+function _showFeatBannerNow(text, color = '#ffd700', alignRight = false) {
+  const el = document.getElementById('feat-banner');
+  el.textContent = text;
+  el.style.color = color;
+  el.style.textShadow =
+    `-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 0 20px ${color}`;
+  // FB対応：「スコアだけ右に表示のほうがいいかも。スコアの真下くらいの位置に」
+  // →スコア区切りバナーだけ#hud-score（SCORE表示）の真下に揃える
+  el.classList.toggle('align-right', !!alignRight);
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+const _queueFeatBanner = makeSequentialPopup(_showFeatBannerNow, 1400);
+function showFeatBanner(text, color, alignRight) { _queueFeatBanner(text, color, alignRight); }
+
 // FB対応：「バッテリーがギミックの文字と被る」との指摘。#item-popupは既定で画面中央（#gimmick-bannerと同じ位置）
 // に出るため、世界干渉ギミック発動時のバッテリー回復ポップだけは、画面中央に出るギミック名テキストと
 // 毎回ぴったり重なって読めなくなっていた。offsetYPx を渡した時だけその分だけ縦にずらせるようにし、
@@ -4230,6 +4307,13 @@ function updateChainDisplay(n, depth, wx, wy, playerCaused=false) {
     text = `CHAIN ×${n}`;
   }
   lastChainTier = (n > 125 || depth >= 8) ? 2 : (n > 50 || depth >= 5) ? 1 : 0;
+  // FB対応：今回のチェインで初めてBIG/MEGAに突入した瞬間だけ、画面上部に演出バナーを出す
+  // （lastChainTierは毎ヒット再計算されるので、「もう出したか」はchainTierBannerFiredで別管理）
+  if (lastChainTier > chainTierBannerFired) {
+    chainTierBannerFired = lastChainTier;
+    if (lastChainTier === 1) showFeatBanner('BIG CHAIN突入！', FEAT_BANNER_COLORS.bigChain);
+    else if (lastChainTier === 2) showFeatBanner('MEGA CHAIN突入！', FEAT_BANNER_COLORS.megaChain);
+  }
   // 色・サイズはn基準
   if      (n <= 10)  { size=15; bold=false; color='#c9ccd6'; }
   else if (n <= 50)  { size=17; bold=false; color='#e6e8ee'; }
@@ -4365,7 +4449,8 @@ function getCannonAnchor(sizeRatio){
 
 // 実際に大砲玉を発射する（チャージ完了後、ホールド解除された瞬間に呼ばれる）
 function fireCannon(){
-  const spd = 61; // 摩擦込みで約2000px直進
+  // FB対応：「飛距離をもう少し短くしたい（3/4くらい・切りの良いpx）」→ 従来の約2000px→約1500pxに短縮
+  const spd = 47.5; // 摩擦込みで約1500px直進
   const pos = getCannonAnchor(1);
   const m = makeMarble(
     pos.x, pos.y,
@@ -4849,8 +4934,10 @@ const playShowdownPhase = (() => {
     });
   }
 
-  // 敵の見た目（簡易プレースホルダー：形とサイズだけでタイプを区別。専用イラスト実装待ち）
-  function drawEnemy(x, y, radius, color, hitFlash) {
+  // FB対応：専用イラスト（assets/enemies/）を格納してもらったので、drawEnemy()を画像描画に
+  // 差し替え。画像がまだ無い/読み込めていない場合は、従来の簡易プレースホルダー（丸＋目）に
+  // フォールバックする（フォールバック自体は他アセットが未読込の間の挙動と同じ考え方）
+  function drawEnemy(x, y, radius, color, hitFlash, kind) {
     sctx.save();
     sctx.translate(x, y);
     const rgb = sdHexToRgb(color);
@@ -4860,17 +4947,40 @@ const playShowdownPhase = (() => {
     g.addColorStop(1, 'transparent');
     sctx.beginPath(); sctx.arc(0,0,glowR,0,Math.PI*2); sctx.fillStyle=g; sctx.fill();
 
-    sctx.beginPath();
-    sctx.arc(0, 0, radius, 0, Math.PI*2);
-    sctx.fillStyle = hitFlash > 0 ? `rgba(255,255,255,${hitFlash})` : '#12182a';
-    sctx.fill();
-    sctx.lineWidth = 2;
-    sctx.strokeStyle = color;
-    sctx.stroke();
-    sctx.fillStyle = color;
-    const eyeR = Math.max(1.5, radius*0.14);
-    sctx.beginPath(); sctx.arc(-radius*0.3, -radius*0.08, eyeR, 0, Math.PI*2); sctx.fill();
-    sctx.beginPath(); sctx.arc(radius*0.3, -radius*0.08, eyeR, 0, Math.PI*2); sctx.fill();
+    const img = (kind && typeof IMAGE_ASSETS !== 'undefined') ? IMAGE_ASSETS.get('enemies', kind) : null;
+    const usingImg = !!(img && img.complete && img.naturalWidth > 0);
+    if (usingImg) {
+      // プレイヤー機体と同じ考え方：画像は「正面・中心配置」で作ってもらっている前提。
+      // 縦横比を保ったまま、長い方の辺が imgSize（当たり判定の直径よりひと回り大きめ。
+      // 触角・手足がはみ出す絵柄でも欠けないように）に収まるようスケーリングする
+      const imgSize = radius * 2.4;
+      const aspect = img.naturalWidth / img.naturalHeight;
+      const drawW = (aspect >= 1 ? imgSize : imgSize * aspect);
+      const drawH = (aspect >= 1 ? imgSize / aspect : imgSize);
+      sctx.drawImage(img, -drawW/2, -drawH/2, drawW, drawH);
+      if (hitFlash > 0) {
+        // 被弾フラッシュ：不透明部分だけを白く染める（source-atopなので透明部分には影響しない）
+        sctx.save();
+        sctx.globalCompositeOperation = 'source-atop';
+        sctx.globalAlpha = hitFlash;
+        sctx.fillStyle = '#ffffff';
+        sctx.fillRect(-drawW/2, -drawH/2, drawW, drawH);
+        sctx.restore();
+      }
+    } else {
+      // フォールバック：簡易プレースホルダー（丸＋目）
+      sctx.beginPath();
+      sctx.arc(0, 0, radius, 0, Math.PI*2);
+      sctx.fillStyle = hitFlash > 0 ? `rgba(255,255,255,${hitFlash})` : '#12182a';
+      sctx.fill();
+      sctx.lineWidth = 2;
+      sctx.strokeStyle = color;
+      sctx.stroke();
+      sctx.fillStyle = color;
+      const eyeR = Math.max(1.5, radius*0.14);
+      sctx.beginPath(); sctx.arc(-radius*0.3, -radius*0.08, eyeR, 0, Math.PI*2); sctx.fill();
+      sctx.beginPath(); sctx.arc(radius*0.3, -radius*0.08, eyeR, 0, Math.PI*2); sctx.fill();
+    }
     sctx.restore();
   }
 
@@ -4904,7 +5014,8 @@ const playShowdownPhase = (() => {
   let FLIGHT_LANE_X, SHIP_HOME_Y, HUD_Y, CAMERA_PIVOT_Y, STANDOFF, CAMERA_FRAME_STANDOFF;
   const ZOOM = 1.85;
 
-  // 自機（簡易プレースホルダー：試作と同じ三角形）
+  // 自機：本編と同じ機体イラスト（default機体・N極）を使用。画像が未読込の場合のみ、
+  // 従来の三角形プレースホルダーで代用する（drawEnemy()と同じフォールバックの考え方）
   function drawShip(x, y, glow, angle=0) {
     sctx.save();
     sctx.translate(x, y);
@@ -4916,16 +5027,32 @@ const playShowdownPhase = (() => {
       g.addColorStop(1, 'transparent');
       sctx.beginPath(); sctx.arc(0,0,gr,0,Math.PI*2); sctx.fillStyle=g; sctx.fill();
     }
-    sctx.beginPath();
-    sctx.moveTo(0,-20*S);
-    sctx.lineTo(15*S,14*S);
-    sctx.lineTo(0,6*S);
-    sctx.lineTo(-15*S,14*S);
-    sctx.closePath();
-    sctx.fillStyle = '#dfe6f2';
-    sctx.fill();
-    sctx.strokeStyle = '#8fa2c8'; sctx.lineWidth = 1.5; sctx.stroke();
-    sctx.beginPath(); sctx.arc(0,-3*S,3.6*S,0,Math.PI*2); sctx.fillStyle = '#5aa4ff'; sctx.fill();
+
+    const img = (typeof IMAGE_ASSETS !== 'undefined') ? IMAGE_ASSETS.get('player', 'default_n') : null;
+    const usingImg = !!(img && img.complete && img.naturalWidth > 0);
+    if (usingImg) {
+      // 本編用の画像は「右向き・中心配置」で作られているため、この画面の「上向き基準」
+      // （angle=0で真上を向く三角形と同じ向き）に合わせて、描画だけ90度追加で回転させる
+      sctx.save();
+      sctx.rotate(-Math.PI/2);
+      const imgSize = 42*S;
+      const aspect = img.naturalWidth / img.naturalHeight;
+      const drawW = (aspect >= 1 ? imgSize : imgSize * aspect);
+      const drawH = (aspect >= 1 ? imgSize / aspect : imgSize);
+      sctx.drawImage(img, -drawW/2, -drawH/2, drawW, drawH);
+      sctx.restore();
+    } else {
+      sctx.beginPath();
+      sctx.moveTo(0,-20*S);
+      sctx.lineTo(15*S,14*S);
+      sctx.lineTo(0,6*S);
+      sctx.lineTo(-15*S,14*S);
+      sctx.closePath();
+      sctx.fillStyle = '#dfe6f2';
+      sctx.fill();
+      sctx.strokeStyle = '#8fa2c8'; sctx.lineWidth = 1.5; sctx.stroke();
+      sctx.beginPath(); sctx.arc(0,-3*S,3.6*S,0,Math.PI*2); sctx.fillStyle = '#5aa4ff'; sctx.fill();
+    }
     sctx.restore();
   }
 
@@ -5154,7 +5281,7 @@ const playShowdownPhase = (() => {
       if (t >= 1) st.done = true;
       return;
     }
-    drawEnemy(x, y, radius, zone.color, st.hitFlash);
+    drawEnemy(x, y, radius, zone.color, st.hitFlash, zone.kind);
     if (st.crackGrowth > 0) drawCracks(x, y, radius, node.crackAngles, st.crackGrowth, 0.9);
     if (node.isBoss || st.hpRatio !== undefined) {
       drawHpBar(x - radius, y + radius + 9*S, radius*2, 6*S, st.hpRatio !== undefined ? st.hpRatio : 1, zone.color);
@@ -5521,6 +5648,11 @@ const playShowdownPhase = (() => {
     // 追従する（内部の描画解像度はこのsizeCanvas()が呼ばれた時点のサイズのままになるが、
     // 表示が崩れるよりも十分軽微なため許容する）。
     sctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    // FB対応：「エネミー画像がガビガビ」対策の一環。canvasの幅/高さを変更すると
+    // imageSmoothing設定は既定値に戻ってしまうため、リサイズのたびにここで明示的に
+    // 高品質スケーリングを指定し直す（敵イラストの縮小描画を綺麗に保つ）
+    sctx.imageSmoothingEnabled = true;
+    sctx.imageSmoothingQuality = 'high';
     S = H / 604; // 試作の604px高キャンバスを基準に、実機の画面の高さへ換算
     FLIGHT_LANE_X = W*0.5;
     SHIP_HOME_Y = H*0.88;
@@ -7710,6 +7842,7 @@ function update(dt){
     redBallCheckChain=0; goldBallCheckChain=0; // チェインが切れたら次のチェインでまたカウント0から
     currentChainCause=null; // チェイン起因（S/N/非プレイヤー）もリセット
     chainSpreadDistance=0; chainLastExplosionX=null; chainLastExplosionY=null; // 拡散距離もリセット
+    chainTierBannerFired=0; // チェインが切れたら、次のチェインでまたBIG/MEGA突入バナーを出せるようにする
   }
   // チェーンテキストのライフ更新
   for(const ct of chainTexts){ ct.life -= 0.012*dt; ct.y += ct.vy*dt; }
@@ -8047,8 +8180,10 @@ function spawnHoleMarbleBurst(x, y, count) {
 
 function triggerHoleGimmick(hole) {
   if (window.SoundSE) window.SoundSE.playGimmick();
-  // イベントごとの持続時間（超爆発ラッシュだけ15秒、他は30秒）
-  const GIMMICK_DURATIONS = { overcharge:30, rock_awaken:30, vortex:30, marble_fever:30, resonance_run:15 };
+  // イベントごとの持続時間
+  // FB対応：「星宙玉フィーバー中のゲームが重すぎる」→ 持続時間を30秒から15秒に短縮
+  // （超爆発ラッシュと同じ長さに変更）
+  const GIMMICK_DURATIONS = { overcharge:30, rock_awaken:30, vortex:30, marble_fever:15, resonance_run:15 };
   const DURATION = GIMMICK_DURATIONS[hole.gimmickId] || 30;
   // 装置は即座にオフ状態になる
   hole.isOpen = false;
@@ -8314,6 +8449,13 @@ function addScore(amount) {
   if(!amount || amount <= 0) return;
   score += amount;
   pendingScoreAddon += amount; // 演出は後でflushScoreAddon()がまとめて処理する
+  // FB対応：スコアがキリの良い額(SCORE_MILESTONE_INTERVAL点刻み)を超えるたびに演出バナーを出す。
+  // 大きな連鎖で一気に複数区切りをまたいだ場合も、バナーは最新（最も高い）区切り1件だけにする
+  const scoreTier = Math.floor(score / SCORE_MILESTONE_INTERVAL);
+  if (scoreTier > lastScoreMilestoneTier) {
+    lastScoreMilestoneTier = scoreTier;
+    showFeatBanner(`${(scoreTier * SCORE_MILESTONE_INTERVAL).toLocaleString()}点突破！`, FEAT_BANNER_COLORS.scoreMilestone, true);
+  }
 }
 // 1フレームに1回だけ呼ぶ（loop()内）。連鎖で何度addScore()が呼ばれても、
 // 実際のDOM更新は最大60回/秒に収まる。
@@ -9650,37 +9792,80 @@ function drawRocks(cullOx, cullOy){
 
 
 // 大砲玉専用スキン：星宙玉ではなく、手描き感のある黒い鉄球として描く
+// 大砲玉の星型シルエットのパスを1個ぶん構築するヘルパー（本体描画・残像の両方から使う）
+function buildCannonStarPath(r, wobSeed, t){
+  ctx.beginPath();
+  const segs = 40;
+  for(let i=0;i<=segs;i++){
+    const a = (i/segs)*Math.PI*2;
+    const wob = 1 + Math.sin(a*5 + wobSeed*3 + t*0.6)*0.34 + Math.sin(a*9 - wobSeed*2)*0.015;
+    const px = Math.cos(a)*r*wob, py = Math.sin(a)*r*wob;
+    i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+  }
+  ctx.closePath();
+}
+
 function drawCannonballSkin(m, t){
   const r = m.r;
   const wobSeed = m.phase || 0;
   ctx.save();
   ctx.translate(m.x, m.y);
-
-  // 輪郭：完全な真円ではなく、わずかにガタつかせて手描き感を出す
-  ctx.beginPath();
-  const segs = 28;
-  for(let i=0;i<=segs;i++){
-    const a = (i/segs)*Math.PI*2;
-    const wob = 1 + Math.sin(a*5 + wobSeed*3 + t*0.6)*0.018 + Math.sin(a*9 - wobSeed*2)*0.01;
-    const px = Math.cos(a)*r*wob, py = Math.sin(a)*r*wob;
-    i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+  // FB対応：「発射した時にくるくる回転したら可愛い」→ 発射後（実際に飛んでいる間）だけ
+  // 回転させる。チャージ中のプレビュー（isCannonballを持たないダミー座標）は従来通り回転なし
+  //
+  // FB対応：「回転が見えない」の実際の原因（推測ではなく、ピクセル単位で描画結果を
+  // 比較して特定済み）：tはDate.now()*0.001＝現在時刻（約17.8億など非常に大きい数）由来。
+  // これに回転速度を掛けた角度（数百億ラジアル規模）をそのままctx.rotate()に渡すと、
+  // canvasの変換行列は内部的に精度の低い数値表現を使っているため、1フレーム分
+  // （0.01〜0.02秒）の角度差はその内部精度の分解能より小さくなってしまい、実際には
+  // 「毎フレーム同じ回転角」として描画されてしまっていた（=見た目上まったく回転しない）。
+  // Math.sin/cos自体は正しく計算されていたため気づきにくいバグだった。
+  // 対策：ctx.rotate()に渡す角度は2π（1周）で割った余りに縮めてから使う。角度としての
+  // 意味は変わらないが、値が常に0〜2πの小さい範囲に収まるため、この精度落ちが起きない。
+  if (m.isCannonball) {
+    const baseAngle = (t * 14.0 + wobSeed) % (Math.PI * 2);
+    for (let k = 3; k >= 1; k--) {
+      ctx.save();
+      ctx.rotate(baseAngle - k * 0.26);
+      ctx.globalAlpha = 0.14 * (4 - k) / 3;
+      ctx.fillStyle = '#ffb04d';
+      buildCannonStarPath(r, wobSeed, t);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.rotate(baseAngle);
   }
-  ctx.closePath();
-  ctx.fillStyle = '#5a5a62';
+
+  // FB対応：「もっとお星さまっぽくポップなデザインに」との要望で鉄球見た目から一新。
+  // ※参考でいただいたトイストーリーのボール（黄色い球＋赤い星シール＋青いリング）は
+  // 　著作権に配慮し模倣しない。既存の「手描き円のガタつき」の仕組み（5方向にわずかに
+  // 　波打たせる式）をそのまま流用し、振幅だけを大きくして5方向にぷっくり膨らんだ、
+  // 　オリジナルの丸っこい星型シルエットにしている（トイストーリー案とは無関係の独自形状）
+  buildCannonStarPath(r, wobSeed, t);
+
+  // ポップな配色：中心はクリーム色、外側はあたたかいオレンジへのグラデーション
+  const grad = ctx.createRadialGradient(-r*0.15, -r*0.2, r*0.1, 0, 0, r*1.2);
+  grad.addColorStop(0, '#fff6c2');
+  grad.addColorStop(0.55, '#ffcf5c');
+  grad.addColorStop(1, '#ff9f45');
+  ctx.fillStyle = grad;
   ctx.fill();
-  ctx.lineWidth = Math.max(2, r*0.05);
-  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = Math.max(2, r*0.06);
+  ctx.strokeStyle = '#ff7a3d';
   ctx.lineJoin = 'round';
   ctx.stroke();
 
-  // 鉄球らしい控えめなハイライト（左上）
+  // 可愛らしい淡いハイライト（左上）
   ctx.save();
-  ctx.globalAlpha = 0.20;
+  ctx.globalAlpha = 0.55;
   ctx.beginPath();
-  ctx.ellipse(-r*0.32, -r*0.32, r*0.30, r*0.17, -0.6, 0, Math.PI*2);
+  ctx.ellipse(-r*0.28, -r*0.32, r*0.26, r*0.15, -0.6, 0, Math.PI*2);
   ctx.fillStyle = '#ffffff';
   ctx.fill();
   ctx.restore();
+
+  // ゲーム内の他の「星」演出（大砲の爆発など）と統一感を持たせる、小さなきらめき
+  drawGimmickBurst(ctx, r*0.5, -r*0.55, r*0.18, r*0.07, 4, 'rgba(255,255,255,0.85)');
 
   ctx.restore();
 }
