@@ -529,6 +529,65 @@ canvas { display:block; width:100%; height:100%; }
    PLAYボタン自体の下マージンは詰め、代わりに#title-howtoplay-btnの下に
    同じ80pxの余白を持たせることで、以前と同じ「グループ全体を底上げする」見え方を保つ。 */
 #title-play-btn { margin-bottom:22px; }
+
+/* FB対応：タイトル画面に、敵（スコアB＝少数精鋭部隊の見た目）がひょこっと覗いてくる演出。
+   FB反映履歴：
+   ①4秒ごとに1秒だけ登場→PLAYボタン脇に左右交互で表示（初回実装）
+   ②「もっと大きく」「表示時間を1→2秒に」「下に表示してほしい」「2パターンだと少ない」とのFBで、
+     画像サイズを60px→108px、表示時間を2秒に、表示位置をボタン群の下の余白に、
+     パターンを2→4種に変更（この時点では「下」を画面上の位置＝ボタン群より下と解釈していた）
+   ③「下というのはレイヤーの下（＝ボタンより奥）という意味だった。ボタンとかぶさる位置だが、
+     ボタンの方が上のレイヤーにきてボタンを邪魔しないように」との訂正を受けて、表示位置を
+     再びPLAYボタンに重なる位置へ戻した上で、z-indexをボタンより低くし、ボタンの背面に
+     回り込むようにした（PLAYボタン自体はbackground:noneで縁取りSVGと文字以外は透明なため、
+     背面にいても図柄の大部分はボタンの隙間から自然に透けて見える）。
+   既存ボタン群のレイアウト・マージンには一切手を触れず、position:fixedの独立した要素として
+   重ねているだけなので、ボタン周りの既存CSSへの影響はゼロ（位置はJS側で#title-play-btnの
+   getBoundingClientRect()から毎回計算する）。
+   #title-enemy-peek-posが「立ち位置」（左右反転・センタリング用のtranslateも含む静的transform）を、
+   内側の#title-enemy-peek-imgが「ひょこっと感」のバウンドアニメーションを別々に担当することで、
+   静的な反転(scaleX)とアニメーションのtransformが同じ要素で衝突しないようにしている。 */
+#title-enemy-peek-pos {
+  /* z-index:-1により、同じ#title-screen内でz-index:0の#title-play-btnや、
+     他の（z-index未指定＝実質0扱いの）通常要素より必ず後ろに描画される。
+     #title-screen自体の背景(#0a0e1a)より手前には出るため、真っ黒に消えることはない */
+  position:fixed; left:0; top:0; z-index:-1; pointer-events:none;
+  width:108px;
+}
+#title-enemy-peek-img {
+  display:block; width:100%; height:auto;
+  opacity:0;
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,0.35));
+}
+#title-enemy-peek-img.peek-play {
+  animation: titleEnemyPeek 2s cubic-bezier(.34,1.56,.64,1);
+}
+#title-enemy-peek-img.peek-play-wiggle {
+  animation: titleEnemyPeekWiggle 2s cubic-bezier(.34,1.56,.64,1);
+}
+/* 表示時間2秒のうち、出入り(フェード＋ポップ)に約0.3秒ずつ、残りを静止ホールドに充てる
+   タイミング配分は、以前の1秒版（22%/32%→78%）と実時間の比率をほぼ揃えている。
+   FB対応：「もうちょっと画像に角度をつけてほしい」とのFBで、ホールド中に軽く-6度ほど
+   傾いた状態で止まるようにした（真っ直ぐ立った状態だと固く見えるとのことだったため） */
+@keyframes titleEnemyPeek {
+  0%   { transform:translateY(26px) scale(0.8) rotate(0deg); opacity:0; }
+  14%  { transform:translateY(-3px) scale(1.05) rotate(-7deg); opacity:1; }
+  20%  { transform:translateY(0) scale(1) rotate(-6deg); opacity:1; }
+  84%  { transform:translateY(0) scale(1) rotate(-6deg); opacity:1; }
+  100% { transform:translateY(22px) scale(0.85) rotate(0deg); opacity:0; }
+}
+/* 4パターン目：ホールド中に左右にプルプル揺れる「ご機嫌」バージョン（同じ立ち絵でも
+   動きだけで見た目のバリエーションを増やすための演出） */
+@keyframes titleEnemyPeekWiggle {
+  0%   { transform:translateY(26px) scale(0.8) rotate(0deg); opacity:0; }
+  14%  { transform:translateY(-3px) scale(1.05) rotate(-5deg); opacity:1; }
+  20%  { transform:translateY(0) scale(1) rotate(5deg); opacity:1; }
+  35%  { transform:translateY(0) scale(1) rotate(-7deg); opacity:1; }
+  50%  { transform:translateY(0) scale(1) rotate(7deg); opacity:1; }
+  65%  { transform:translateY(0) scale(1) rotate(-5deg); opacity:1; }
+  84%  { transform:translateY(0) scale(1) rotate(0deg); opacity:1; }
+  100% { transform:translateY(22px) scale(0.85) rotate(0deg); opacity:0; }
+}
 /* アチーブメント／遊び方：PLAYボタンより控えめな、手描き枠なしの小さいピル型ボタン。
    #title-settings-btnと同じ白黒基調で、タイトル画面の主役(PLAY)を邪魔しない見た目にする */
 #title-achievement-btn, #title-howtoplay-btn {
@@ -2154,14 +2213,14 @@ canvas { display:block; width:100%; height:100%; }
       <div class="option-row">
         <div class="option-label">プレイヤーの移動操作方法</div>
         <div class="option-desc">
-          タッチ位置操作：タッチした位置の方向に機体が動きます。<br>
-          タッチ追従スティック：タッチした場所にスティックが表示されます。<br>
-          タッチ追従スティックのみ：（モバイル限定）仮想スティック非表示。
+          固定仮想スティック：画面右下に固定表示されたスティックで操作します。<br>
+          複合型：固定スティックに加えて、タッチした場所にも追従スティックが表示されます。<br>
+          タッチ追従スティック：固定スティックは非表示になり、タッチした場所に追従スティックが表示されます。
         </div>
         <div class="option-toggle option-toggle-3">
-          <button class="option-toggle-btn" id="opt-absolute">タッチ位置</button>
-          <button class="option-toggle-btn" id="opt-floating">タッチ追従<br>スティック</button>
-          <button class="option-toggle-btn" id="opt-floating-only">タッチ追従<br>スティックのみ</button>
+          <button class="option-toggle-btn" id="opt-absolute">固定仮想<br>スティック</button>
+          <button class="option-toggle-btn" id="opt-floating">複合型</button>
+          <button class="option-toggle-btn" id="opt-floating-only">タッチ追従<br>スティック</button>
         </div>
       </div>
 
@@ -2241,6 +2300,9 @@ canvas { display:block; width:100%; height:100%; }
     <img id="title-logo-img" src="assets/ui/title_logo.webp" alt="プラネットボンボン">
   </div>
   <button id="title-play-btn">PLAY</button>
+  <!-- FB対応：PLAYボタン脇にひょこっと覗いてくる敵（スコアB=少数精鋭部隊）演出。
+       表示位置はJS側でtitle-play-btnの実座標から毎回計算するため、DOM上の位置はどこでもよい -->
+  <div id="title-enemy-peek-pos"><img id="title-enemy-peek-img" src="assets/enemies/enemy_squad.webp" alt=""></div>
   <button id="title-achievement-btn">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M8 3.5h8v4.2a4 4 0 0 1-8 0z" stroke="#f5f7fa" stroke-width="1.6" stroke-linejoin="round"/>
@@ -2775,7 +2837,8 @@ function defaultSaveData() {
     bestScores: [],        // 自己ベストTOP3（降順、最大3件）。リザルト画面「自己ベストTOP3」表示用
     howToPlaySeen: false,  // 「遊び方」オーバーレイを一度でも見たか（true化後は初回自動表示をしない）
     favoriteSkillTipSeen: false, // FB対応：「お気に入りスキル」機能の案内ポップアップを一度でも見たか（見せるのはスキルを初めて獲得した時の1回だけ）
-    settings: { dragMode: 'absolute', favoriteSkillId: '', bgmEnabled: true, seEnabled: true, speedBarVisible: false },
+    // FB対応：デフォルトの操作方法を「固定仮想スティック」から「複合型」（仮想スティック＋追従仮想スティック）に変更
+    settings: { dragMode: 'floating', favoriteSkillId: '', bgmEnabled: true, seEnabled: true, speedBarVisible: false },
     pendingSkillUnlocks: [], // レベル到達済みだが、まだタイトル画面でポップアップ通知していないスキルidの一覧
   };
 }
@@ -5704,6 +5767,11 @@ const playShowdownPhase = (() => {
   // 既定の動作＝他経路（quitFromPause()等）での通常表示には一切影響しない）。
   return async function playShowdownPhase(score) {
     const myId = ++runId;
+    // FB対応：バッテリー切れの赤い点滅演出（#battery-empty-flash）が、実機だと
+    // タイミングのズレ等で稀に消え残り、決戦フェーズ中も赤みが見えてしまうとの指摘。
+    // 通常は元のsetTimeout側で消しているが、それとは別に決戦フェーズ開始時点で
+    // 必ず強制非表示にする安全策をここに追加しておく（詳細はforceHideBatteryEmptyFlash定義部を参照）。
+    forceHideBatteryEmptyFlash();
     stopAnim();
     captureSnapshot();
     sizeCanvas();
@@ -5748,7 +5816,22 @@ function getResultScoreShineColor(sc) {
   }
   return RESULT_RANK_COLORS[RESULT_RANK_COLORS.length - 1].color; // S到達（1000万以上）
 }
+// FB対応：バッテリー切れ時の赤い点滅演出（#battery-empty-flash）が、実機（特にスマホ）だと
+// 決戦フェーズやリザルト画面まで赤みが残って見えてしまうケースがあるとの指摘。
+// 原因になり得るタイマー遅延・描画タイミングのズレをテスト環境で完全再現することは
+// できなかったが、根本原因の特定有無によらず確実に消えるようにするため、決戦フェーズ開始時
+// （playShowdownPhase側）とリザルト表示開始時（triggerGameOver側）の両方で、通常の
+// setTimeoutによる解除処理とは独立に、強制的に非表示にする安全策を入れておく。
+// classList.remove('show')だけでなくinline style.displayも直接'none'にすることで、
+// 万一.showクラスの解除漏れ・遅延があってもCSS側の優先順位に関係なく確実に消える。
+// ※次回バッテリー切れ時に再度表示する際は、下のバッテリー消費処理側でinline styleを
+// 明示的にリセットしている（style.display=''）ので、この安全策が今後の表示を妨げることはない。
+function forceHideBatteryEmptyFlash(){
+  const el = document.getElementById('battery-empty-flash');
+  if (el){ el.classList.remove('show'); el.style.display = 'none'; }
+}
 function triggerGameOver() {
+  forceHideBatteryEmptyFlash();
   gameRunning=false; gameOver=true;
   if (window.SoundBGM) window.SoundBGM.play('result');
   joystickWrap.classList.remove('show');
@@ -6695,6 +6778,10 @@ function update(dt){
     // （以前は200msとほぼ即座に決戦フェーズへ切り替わっており、ゆとりが無いとの指摘。
     // 一度4秒で実装したが「長すぎる」とのFBで2秒に短縮）。
     const emptyFlash = document.getElementById('battery-empty-flash');
+    // forceHideBatteryEmptyFlash()による前回のinline style.display='none'が
+    // 残っている場合に備え、表示前に明示的にリセットしておく（残っていると.showを
+    // 付けても表示されなくなってしまうため）
+    emptyFlash.style.display = '';
     emptyFlash.classList.add('show');
     setTimeout(()=>{
       emptyFlash.classList.remove('show');
@@ -6888,7 +6975,11 @@ function update(dt){
     // 玉と違い強制取得はしない。ITEM_PULL_STOP_R以内まで寄せたら止め、
     // 実際に拾うかは通常の当たり判定まで自分で近づく必要があるようにして、
     // バッテリー等のハズレ運アイテムを判断の余地なく踏んでしまう「事故」を防ぐ
-    const ITEM_PULL_STOP_R = 250;
+    // FB対応：「引き寄せが近すぎて勝手に拾ってしまう」→ 250だと通常の磁力範囲
+    // （BASE_MAGNET_RANGE=470、レンジアップでさらに伸びる）の内側で止まってしまい、
+    // 強制引き寄せが終わった直後に通常の磁力でそのまま続けて引き込まれ、判断の余地なく
+    // 拾ってしまっていた。通常の磁力範囲より確実に外側で止まるよう500→400に調整
+    const ITEM_PULL_STOP_R = 400;
     for(const it of items){
       if(it.collecting) continue;
       let idx2=it.x-player.wx, idy2=it.y-player.wy;
@@ -11938,6 +12029,95 @@ document.getElementById('go-menu').addEventListener('click', withResultInterstit
 document.getElementById('go-menu').addEventListener('touchstart', withResultInterstitial(doGoMenu), {passive:false});
 
 // ── タイトル画面 ──────────────────────────────────
+// FB対応：タイトル画面に、敵（スコアB＝少数精鋭部隊。決戦フェーズのZONES['B']と同じ
+// enemy_squad.webp）が4秒ごとに2秒だけひょこっと覗いてくる演出。
+// 位置はPLAYボタンの実座標(getBoundingClientRect)から毎回計算するため、画面サイズや
+// レイアウト変更（機種・向き）に依存せず常にPLAYボタンに重なる位置に出せる。
+// z-indexをボタンより低くしてボタンの背面に配置しているため、ボタン自体は隠れず邪魔しない
+// （FB対応：「下」を画面上の位置と誤解してボタン群の下の余白に出していたが、実際は
+// 「ボタンより奥のレイヤー」という意味だったとの訂正を受けて、位置をPLAYボタンへ重ねる形に戻し、
+// z-indexだけ変更する形に直した）。
+// 中央／やや左／やや右（反転）／中央でご機嫌に揺れる、の4パターンを順番にローテーションし、
+// 単調にならないようにしている（FB対応：2パターンだと少ないとのことで2→4種に増加）。
+// タイトル画面が非表示の間（プレイ中など）は無駄な処理をしないよう、実行直前に
+// #title-screen.hideを見て早期リターンするだけで、setIntervalの発行/停止という
+// ライフサイクル管理自体は不要にしている（このアニメ自体が軽量なため）。
+// FB対応：「ボタンの下にガンガンかぶさっちゃってる（覆われすぎ）ので、もう少し覗く感じに
+// ボタンから少しはみ出させてほしい」とのFBを受けて、左右オフセットを64px→118pxに拡大し、
+// ボタンに隠れる面積そのものを大きく減らした（横方向の重なりが約78%→約16%相当に減少）
+// FB対応：「①と④の表示位置がほぼ同じなので、どちらかを右（若干下）から顔をのぞかせてる
+// 感じに配置し直してほしい」「もうちょっと画像に角度をつけてほしい」とのFBを受けて、
+// ・右下から顔をのぞかせるパターンを追加。顔から肩・腕あたりまでは見える程度に、体の下側は
+//   ボタン／アチーブメントボタンの背面に隠れる分量を増やしている
+// ・4パターン全部に軽い傾き（後述のtitleEnemyPeekキーフレーム側にrotateを追加）を適用
+// FB対応：「右上パターンがボタンに被りすぎて見えなかった。もっと右に」とのFBを受けて、
+// 右寄りパターンのdxを118→170に拡大（反転(scaleX(-1))すると、銃を持つ腕が中央側＝ボタン側
+// を向く関係で、左寄りパターンと同じdxでは体がより隠れて見えてしまっていたための調整）。
+// FB対応：「出現順を右上→左上→右下→上にしたい。揺れるアニメは4回目の上出現時にすること」
+// とのFBを受けて、配列の並び順を変更し、ご機嫌に揺れるアニメーション(peek-play-wiggle)を
+// 中央パターン（4番目）に付け替えた（元々④に付いていた右下パターンは通常のpeek-playに戻した）
+// FB対応：「出現1(右上)が右に行き過ぎ、出現3(右下)が被って見えない（値が逆かも）」とのFBを
+// 受けて再調整。左右で値をそのまま入れ替えたわけではなく、それぞれ個別に見た目を確認した上で、
+// 右上は170→145（左上-118と横並びで見比べて同程度の露出になる値）、右下は90→140
+// （体の下側がボタンに隠れて見えなかったため拡大。ただしdy:54は維持し、右上より低い位置から
+// 覗いている見た目の違いは残るようにしている）に調整した
+// FB対応：「出現順②(左上)だけ、もう少し下・若干左に移動し、反時計回りの角度をつけてほしい」との
+// FBを受けて微調整。dxを-118→-135（さらに左）、dyを0→18（さらに下）に変更。角度については
+// パターン①③も同じpeek-playクラス（共通の-6deg傾きを含むアニメ）を使っているため、共通の
+// キーフレームは変更せず、代わりに個別指定用のrotフィールドを新設し、②だけにrot:-8を設定。
+// このrotは静的な外側ラッパー(#title-enemy-peek-pos)のtransformに追加のrotate()として重ねる
+// ことで、内側(#title-enemy-peek-img)側のアニメーション回転とは別レイヤーで合成され、①③には
+// 影響しない
+const TITLE_ENEMY_PEEK_PATTERNS = [
+  { dx:145, dy:0,  flip:true,  anim:'peek-play' },                     // ①右上
+  { dx:-135,dy:18, flip:false, anim:'peek-play', rot:-8 },             // ②左上
+  { dx:140, dy:54, flip:true,  anim:'peek-play' },                     // ③右下から顔をのぞかせる
+  { dx:0,   dy:0,  flip:false, anim:'peek-play-wiggle' },              // ④中央・ご機嫌に揺れるバージョン
+];
+let titleEnemyPeekIdx = 0;
+function showTitleEnemyPeek(){
+  const titleScreen = document.getElementById('title-screen');
+  if (!titleScreen || titleScreen.classList.contains('hide')) return;
+  // PLAYボタンに重なる位置に出す（z-indexで背面に回すのでボタン自体は隠れず邪魔しない）
+  const anchorBtn = document.getElementById('title-play-btn');
+  const posEl = document.getElementById('title-enemy-peek-pos');
+  const imgEl = document.getElementById('title-enemy-peek-img');
+  if (!anchorBtn || !posEl || !imgEl) return;
+  const rect = anchorBtn.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return; // 念のため未描画時は何もしない
+  const pattern = TITLE_ENEMY_PEEK_PATTERNS[titleEnemyPeekIdx];
+  titleEnemyPeekIdx = (titleEnemyPeekIdx + 1) % TITLE_ENEMY_PEEK_PATTERNS.length;
+  // 画面が狭い端末でも横にはみ出さないよう、中心からのオフセットを画面幅に応じて制限する
+  const maxDx = Math.max(0, window.innerWidth / 2 - 58);
+  const dx = Math.max(-maxDx, Math.min(maxDx, pattern.dx));
+  const cx = rect.left + rect.width / 2 + dx;
+  // FB対応：ボタン中央にきっちり重ねると、キャラの高さ(108px)に対してボタンの高さ(44px)分が
+  // まるごと隠れてしまい「覆われすぎ」に見えていたため、基準点をボタンよりだいぶ上寄りにして、
+  // 体の大部分（頭・腕・銃を持つ手）を常にボタンの上に完全に露出させ、ボタンに隠れるのは
+  // 足元（触手の先）の一部だけになるよう調整している
+  let cy = rect.top - 24 + (pattern.dy || 0);
+  // 画面の上下端でも見切れないよう、画像の高さ分の余白を確保して縦位置をクランプする
+  const imgH = posEl.offsetHeight || 108;
+  const minCy = imgH / 2 + 4;
+  const maxCy = window.innerHeight - imgH / 2 - 4;
+  cy = Math.max(minCy, Math.min(maxCy, cy));
+  posEl.style.left = cx + 'px';
+  posEl.style.top = cy + 'px';
+  posEl.style.transform = `translate(-50%, -50%) scaleX(${pattern.flip ? -1 : 1}) rotate(${pattern.rot || 0}deg)`;
+  // アニメーションを毎回確実に再生させるため、一度クラスを外してリフローしてから付け直す
+  imgEl.classList.remove('peek-play', 'peek-play-wiggle');
+  void imgEl.offsetWidth;
+  imgEl.classList.add(pattern.anim);
+}
+// タイトル画面ページを初めて開いた瞬間からしばらく待たされる印象にならないよう、
+// 起動後1回だけ少し早めに最初の登場を出す。以降がずれなく正確に4秒間隔になるよう、
+// setIntervalはこの最初の1回のコールバック内で開始する（page load基準で独立に
+// setTimeoutとsetIntervalを両方仕掛けると、1回目と2回目の間隔だけ4秒からズレてしまうため）
+setTimeout(() => {
+  showTitleEnemyPeek();
+  setInterval(showTitleEnemyPeek, 4000);
+}, 1500);
+
 // タイトル画面が唯一の入口。PLAYボタンは、旧モード選択画面を経由せず
 // 直接エンドレスモードのボタンが行っていた処理(tryOpenEndless→スキル選択)を呼ぶ。
 document.getElementById('title-play-btn').addEventListener('click', () => {
