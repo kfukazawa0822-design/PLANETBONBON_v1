@@ -1117,6 +1117,47 @@ canvas { display:block; width:100%; height:100%; }
   font-size:28px; letter-spacing:8px; color:#f5f7fa;
   margin-bottom:28px; font-weight:bold;
 }
+/* FB対応：スコアが1000万点を超えたときだけ、ド派手な祝いテキストを出したいとのFB。
+   当初は#go-titleの真上（枠の中）に入れていたが、「枠の中に収めず、レベルアップ演出
+   （#go-levelup-banner）と同じ場所に配置してほしい。ただし衝突はさせないでほしい」との
+   FBを受けて、#go-levelup-bannerと完全に同じ浮遊スロット（position:absolute; left:50%;
+   top:-14px; translate(-50%,-100%)）を共有する方式に変更した。
+   衝突対策は「別の場所に置く」のではなく「同じ場所を時間差で使う」方式にしている：
+   #go-levelup-bannerが実際に表示されている間だけ、showLevelUpBanner()側でこのバナーに
+   yield-to-levelupクラスを付けて一時的にフェードアウトさせ、レベルアップ演出が終わったら
+   自動的にまた見えるようにする（詳細はshowLevelUpBanner()のコメントを参照）。
+   スコア1000万超えの状態が続く間ずっとこのバナーは表示され続けるのに対し、レベルアップ
+   演出は数百ms〜1秒程度のポップアップなので、この「一瞬だけ道を譲る」方式なら、狭い
+   画面でも上下に2段ぶんのスペースを確保する必要がなく、レベルアップ演出単体で
+   これまで問題なく収まっていたのと同じ省スペースな見た目のまま両立できる。
+   虹色×ギラギラ演出は従来どおり：背景に虹色のグラデーションを敷いてテキストでマスクし
+   （-webkit-background-clip:text）、background-positionを流し続けて虹色が常時流れて
+   見えるようにした上で、拡大縮小＋わずかな左右の傾きをリズミカルに繰り返している。
+   表示/非表示はtriggerGameOver()側でスコア判定して.hideクラスの付け外しのみで制御する。 */
+#go-congrats-banner.hide { display:none; }
+#go-congrats-banner {
+  position:absolute; left:50%; top:-14px;
+  transform:translate(-50%, -100%) scale(1) rotate(-2deg);
+  font-size:16px; font-weight:900; letter-spacing:1.5px;
+  white-space:nowrap; pointer-events:none;
+  background-image:linear-gradient(90deg,
+    #ff3b3b, #ff9d3b, #fff23b, #3bff57, #3bd4ff, #6a3bff, #ff3bd4, #ff3b3b);
+  background-size:300% 100%;
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:drop-shadow(0 0 6px rgba(255,255,255,0.6));
+  animation:congratsRainbowFlow 1.6s linear infinite, congratsGlitterPulse 0.7s ease-in-out infinite;
+  transition:opacity 0.25s ease;
+}
+/* レベルアップ演出が同じスロットに出ている間だけ、道を譲って一時的に消える */
+#go-congrats-banner.yield-to-levelup { opacity:0; }
+@keyframes congratsRainbowFlow {
+  0%   { background-position:0% 0; }
+  100% { background-position:300% 0; }
+}
+@keyframes congratsGlitterPulse {
+  0%, 100% { transform:translate(-50%,-100%) scale(1) rotate(-2deg); }
+  50%      { transform:translate(-50%,-100%) scale(1.1) rotate(2deg); }
+}
 .go-stat {
   display:flex; justify-content:space-between; align-items:baseline;
   font-size:10px; letter-spacing:2px; color:rgba(255,255,255,0.55);
@@ -2359,6 +2400,7 @@ canvas { display:block; width:100%; height:100%; }
 <!-- リザルト画面 -->
 <div id="gameover">
   <div id="gameover-box">
+    <div id="go-congrats-banner" class="hide">GALAXY LEGEND!!</div>
     <div id="go-levelup-banner"><span id="go-levelup-text">LEVEL UP！ Lv.2</span></div>
     <div id="go-title">FINISH</div>
     <div class="go-stat">
@@ -2674,6 +2716,17 @@ if (typeof IMAGE_ASSETS !== 'undefined') IMAGE_ASSETS.preloadAll();
 // アイテムアイコンの表示スケール（当たり判定もこの値に合わせて調整している。updateItems/drawItemsで共通利用）
 const ITEM_ICON_DISPLAY_SCALE = 2.0;
 
+// アイテムアイコンを丸型バッジ（フィールド上のアイテム／画面外ナビの八角形バッジ）に
+// 円形クリップして描く際の、アイコンごとの縮小補正。
+// 通常は1.0（無補正）でよいが、アイコン素材によっては図柄が正方形キャンバスの隅近くまで
+// 伸びており、円形クリップでその先端が見切れてしまうことがある（例：range_upの矢印の穂先や
+// 残像線が、丸バッジの円クリップ境界の外に出てしまい欠けて見える）。
+// そうしたアイコンだけ、ここで描画サイズを少し縮めて円の内側に収める。
+// ※ .go-item-icon / .hud-item-icon （リザルト画面・HUDの<img>表示）は円形クリップされないため対象外。
+const ITEM_ICON_CIRCLE_CLIP_SCALE = {
+  range_up: 0.85,
+};
+
 // アイテム定義
 const ITEM_DEFS = [
   { id:'s_boost',        label:'S極強化',           color:'#ff6688', cat:'magnet'  },
@@ -2715,24 +2768,32 @@ function formatItemLevelSimple(d, lv){
   return lv >= d.maxLv ? 'MAX' : `Lv.${lv}`;
 }
 
-// 上限まで育て切った強化アイテムが再抽選された時に代わりに出す「ハズレ枠」救済アイテム
-const EP_BONUS_AMOUNT = 30;
-const EP_BONUS_ITEM_DEF = { id:'ep_bonus', label:`+${EP_BONUS_AMOUNT}EP`, color:'#dddddd', cat:'bonus' };
-// 強化系アイテムのID → 対応するupgradesキー・上限値
-const ITEM_UPGRADE_CAPS = {
-  s_boost:     { key:'sBoost',     cap:3   },
-  n_boost:     { key:'nBoost',     cap:4   },
-  range_up:    { key:'rangeUp',    cap:2.5 },
-  chain_multi: { key:'chainMulti', cap:5   },
-  explode_up:  { key:'explodeUp',  cap:3   },
-};
-// 抽選されたdefが既に上限に達した強化アイテムなら、+30EPアイテムに差し替える
-function resolveItemDef(def) {
-  const upgradeInfo = ITEM_UPGRADE_CAPS[def.id];
-  if (upgradeInfo && upgrades[upgradeInfo.key] >= upgradeInfo.cap) {
-    return EP_BONUS_ITEM_DEF;
-  }
-  return def;
+// FB対応：以前は「既にLv上限まで育て切った強化アイテムが抽選された場合、代わりに
+// +30EPアイテムに差し替える」仕様だったが、EPという概念自体が廃止済み（内部的にはXP換算のみ）
+// のため表示だけが残ってしまっていた。EPでの救済ではなく、そもそも抽選プールの時点でLv上限済みの
+// 強化アイテムを除外し、まだ伸びしろのある他のアイテムから選び直す方式に変更する。
+//
+// 判定はPLAYER_ITEM_DEFS（base/inc/maxLv）を単一の情報源として使う。
+// ※以前は専用のキャップ表(ITEM_UPGRADE_CAPS)を別途持っていたが、chain_multi/explode_upの
+// キャップ値がPLAYER_ITEM_DEFSのmaxLvと微妙にズレており（四捨五入誤差ではなく設定ミス）、
+// chain_multiは本来のLv10到達より1段階早くLv9時点で抽選から除外されてしまう、
+// explode_upは逆に本当のLv上限（Lv10）に達しても値が上限に届かず一切除外されない、
+// という2つの不具合を抱えていた。単一の情報源に統一することでこれらも解消する。
+function getPlayerItemDef(id){
+  return PLAYER_ITEM_DEFS.find(d => d.id === id);
+}
+// 強化系アイテムかつ、既にLv上限まで到達済みかどうか（バッテリー・スキル・レア系など
+// 強化系ではないアイテムは対象外＝常にfalseで、いつでも抽選対象になる）
+function isUpgradeItemMaxed(id){
+  const d = getPlayerItemDef(id);
+  if (!d) return false;
+  return computeItemLevel(d) >= d.maxLv;
+}
+// 抽選プールから、既にLv上限に達した強化アイテムを除外する
+// （強化系以外のアイテムはそのまま残る。バッテリー・スキルチャージャー・レアブースターに
+// 上限は無いため、強化系が全部MAXでもプールが空になることはない）
+function filterEligibleItemDefs(basePool){
+  return basePool.filter(d => !isUpgradeItemMaxed(d.id));
 }
 
 // ── ゲーム状態 ────────────────────────────────────
@@ -2753,7 +2814,6 @@ let introState = null;
 // }
 let playTime    = 0;
 let batteryDrainBoostAnnounced = false; // 180秒到達時のバッテリー不安定演出を出したか
-let itemRewardCoinsThisSession = 0; // 「+30EP」アイテムでこのプレイ中に獲得したEPの合計（リザルト表示用）
 let releaseGraceTimer = 0; // N極切替直後の爆発無効タイマー（秒）
 let screenShake = { x:0, y:0, power:0 };
 
@@ -3303,7 +3363,6 @@ function initGame(mode) {
     hitScoreByTier: { 0:0, 1:0, 2:0 },
     waveBonus: 0, spreadBonus: 0, lastChainSpreadDistance: 0, other: 0,
   };
-  itemRewardCoinsThisSession = 0;
   lastChainTier=0; currentChainCause=null; chainSpreadDistance=0; chainLastExplosionX=null; chainLastExplosionY=null;
   chainTierBannerFired=0; lastScoreMilestoneTier=0;
   pulseFrame={ amp:0, jitter:0, time:0, visibility:0 };
@@ -3792,7 +3851,8 @@ function spawnItem() {
   let pool=[...ITEM_DEFS];
   if(gameMode === 'quick') pool = pool.filter(d=>d.cat!=='battery' && d.cat!=='skill'); // クイックプレイにはバッテリー・スキル関連アイテムは出さない
   if (player.battery<40) pool=[...pool,...ITEM_DEFS.filter(d=>d.cat==='battery' && gameMode!=='quick')];
-  const def = resolveItemDef(pool[Math.floor(Math.random()*pool.length)]);
+  pool = filterEligibleItemDefs(pool); // 既にLv上限に達した強化アイテムは抽選対象から除外
+  const def = pool[Math.floor(Math.random()*pool.length)];
   // プレイヤーから1000〜1800px・岩・玉と重ならない位置に配置
   let x, y, ok=false, tries=0;
   while(!ok && tries<50){
@@ -3819,7 +3879,8 @@ function spawnComboItem(wx, wy) {
   if(comboItems.length >= 10) return; // COMBO報酬の上限10個
   let pool=[...ITEM_DEFS];
   if(gameMode === 'quick') pool = pool.filter(d=>d.cat!=='battery' && d.cat!=='skill'); // クイックプレイにはバッテリー・スキル関連アイテムは出さない
-  const def = resolveItemDef(pool[Math.floor(Math.random()*pool.length)]);
+  pool = filterEligibleItemDefs(pool); // 既にLv上限に達した強化アイテムは抽選対象から除外
+  const def = pool[Math.floor(Math.random()*pool.length)];
   // 発生場所付近にスポーン（岩と重ならない）
   let x=wx, y=wy, ok=false, tries=0;
   while(!ok && tries<30){
@@ -3886,10 +3947,6 @@ function applyItem(def) {
       const lvAfter = computeItemLevel(PLAYER_ITEM_DEFS.find(x=>x.id==='explode_up'));
       msg=`爆発強化 +Lv${lvAfter-lvBefore}`; break;
     }
-    case 'ep_bonus':
-      itemRewardCoinsThisSession += EP_BONUS_AMOUNT;
-      msg = `+${EP_BONUS_AMOUNT}EP 獲得！`; col = '#dddddd';
-      break;
     case 'bat_stable':
       player.battery=Math.min(100,player.battery+20); msg='バッテリー +20%';
       if (window.SoundSE) window.SoundSE.playBatteryHit();
@@ -5843,6 +5900,9 @@ function triggerGameOver() {
     scoreEl.style.setProperty('--rank-shine-color', getResultScoreShineColor(score));
     scoreEl.classList.add('go-score-shine');
   }
+  // FB対応：1000万点（Sランク到達ライン。RESULT_RANK_COLORSのneed:10000000と同じ基準）を
+  // 超えたときだけ、リザルト画面最上部に虹色でギラギラ動く祝いバナーを出す
+  document.getElementById('go-congrats-banner').classList.toggle('hide', score < 10000000);
   document.getElementById('go-chain').textContent=maxChainCount;
   document.getElementById('go-time').textContent=`${m}:${s}`;
   document.getElementById('go-title').textContent='FINISH';
@@ -5915,7 +5975,7 @@ function triggerGameOver() {
     }
   }
   if (window.SoundSE) window.SoundSE.playEpGet();
-  const grandTotalXpBonus = xpScoreBase + xpScoreBonus + itemRewardCoinsThisSession;
+  const grandTotalXpBonus = xpScoreBase + xpScoreBonus;
   const levelUps = grantXP(grandTotalXpBonus * 10);
   showLevelUpBanner(null); // 前回表示ぶんを隠しておく（アニメーション側で必要なタイミングで出す）
 
@@ -6020,8 +6080,10 @@ async function playXpGainAnimation(segments) {
 // いずれかが10の倍数（big）だった場合は演出を派手にする。nullなら非表示にするだけ。
 function showLevelUpBanner(levelUps) {
   const banner = document.getElementById('go-levelup-banner');
+  const congratsBanner = document.getElementById('go-congrats-banner');
   if (!levelUps || levelUps.length === 0) {
     banner.classList.remove('show', 'big');
+    if (congratsBanner) congratsBanner.classList.remove('yield-to-levelup');
     return;
   }
   const finalLevel = levelUps[levelUps.length - 1].newLevel;
@@ -6032,6 +6094,19 @@ function showLevelUpBanner(levelUps) {
   // 再生のたびにアニメーションをリスタートさせる
   void banner.offsetWidth;
   banner.classList.add('show');
+  // FB対応：「GALAXY LEGEND!!」バナー(#go-congrats-banner)と同じ浮遊スロット（箱の外・
+  // 上部）を共有しているため、レベルアップのポップアップ演出が実際に画面に出ている間
+  // だけ道を譲って一時的にフェードアウトさせる。ポップアップ演出の残り時間を秒数で
+  // 見積もる代わりに、実際のCSSアニメーション終了(animationend)を検知して自動で戻す
+  // ことで、通常時(2.2秒)とbig時(2.6秒)の長さの違いや、連続レベルアップでアニメーションが
+  // 途中で再生し直された場合にも正確に追従できるようにしている
+  if (congratsBanner) {
+    congratsBanner.classList.add('yield-to-levelup');
+    banner.addEventListener('animationend', function onLevelUpPopEnd(){
+      banner.removeEventListener('animationend', onLevelUpPopEnd);
+      congratsBanner.classList.remove('yield-to-levelup');
+    });
+  }
 }
 
 // ── ポーズ ────────────────────────────────────────
@@ -8163,9 +8238,16 @@ function updateItems(dt,dtSec){
     const item=items[i];
     item.pulse+=0.05*dt; item.life-=dtSec;
     // 既にフィールドに出ている強化アイテムでも、対応する強化が別の取得で先にMAXへ達した場合は
-    // 毎フレーム再判定して即座に+30EPアイテムへ切り替える（従来は出現時点の判定のみで、
-    // 見た目・効果ともに拾うまで古いまま＝MAX後に拾っても効果が無いのに気づきにくい問題があった）
-    item.def = resolveItemDef(item.def);
+    // 毎フレーム再判定し、まだLv上限に達していない他のアイテムに即座に差し替える（出現時点の
+    // 判定だけだと、見た目・効果ともに拾うまで古いまま＝MAX後に拾っても効果が無いのに
+    // 気づきにくい問題があるため）。以前はここで専用の「+30EP」救済アイテムに差し替えていたが、
+    // EPという概念自体が廃止済みのため、代わりに他の抽選候補から選び直す方式にしている。
+    if (isUpgradeItemMaxed(item.def.id)) {
+      let elig = ITEM_DEFS;
+      if (gameMode === 'quick') elig = elig.filter(d=>d.cat!=='battery' && d.cat!=='skill');
+      elig = filterEligibleItemDefs(elig);
+      if (elig.length) item.def = elig[Math.floor(Math.random()*elig.length)];
+    }
     if(item.collecting){
       item.collectTimer+=dt;
       // FB対応（初期からの既知バグ）：ワールドはループ（トロイダル）構造なのに、
@@ -8749,7 +8831,7 @@ function drawOffscreenNavIcon(kind, x, y, scale, extra){
     const def = extra; // drawOffscreenNav()からitemDefが第4引数として渡ってくる
     const img = (def && typeof IMAGE_ASSETS !== 'undefined') ? IMAGE_ASSETS.get('items', def.id) : null;
     if (img && img.complete && img.naturalWidth > 0) {
-      const iconR = octR * 0.74;
+      const iconR = octR * 0.74 * ((def && ITEM_ICON_CIRCLE_CLIP_SCALE[def.id]) || 1);
       ctx.save();
       ctx.beginPath(); ctx.arc(0, 0, octR*0.82, 0, Math.PI*2); ctx.clip();
       ctx.drawImage(img, -iconR, -iconR, iconR*2, iconR*2);
@@ -10268,7 +10350,7 @@ function drawItems(){
     // アイコン本体：円をはみ出さないよう、円形にクリップした上でSVGアイコンを最大サイズで描画
     const img = (typeof IMAGE_ASSETS !== 'undefined') ? IMAGE_ASSETS.get('items', def.id) : null;
     if (img && img.complete && img.naturalWidth > 0) {
-      const iconR = circR * 0.92;
+      const iconR = circR * 0.92 * ((def && ITEM_ICON_CIRCLE_CLIP_SCALE[def.id]) || 1);
       ctx.save();
       ctx.beginPath(); ctx.arc(0,0,circR*0.97,0,Math.PI*2); ctx.clip();
       ctx.drawImage(img, -iconR, -iconR, iconR*2, iconR*2);
@@ -12074,33 +12156,102 @@ const TITLE_ENEMY_PEEK_PATTERNS = [
   { dx:140, dy:54, flip:true,  anim:'peek-play' },                     // ③右下から顔をのぞかせる
   { dx:0,   dy:0,  flip:false, anim:'peek-play-wiggle' },              // ④中央・ご機嫌に揺れるバージョン
 ];
+// FB対応：「1000万スコア到達（アチーブ『超一流航行士』=ach_024）以降、タイトルのエネミー
+// 演出をもっと豪華にしてほしい。パターン数は4つのままでいいので、出現場所をもっと色んな
+// 場所にバラけさせ、今までenemy_squadだけだったのを全種類のエネミーが出るようにしてほしい」
+// とのFB。ach_024が未解除の間は上のTITLE_ENEMY_PEEK_PATTERNS（従来通りenemy_squadのみ、
+// ボタン周りの4パターン）をそのまま使い、解除後だけ下のDELUXE版に切り替える
+// （showTitleEnemyPeek()側で毎回チェックしているだけなので、実績解除後にタイトルへ
+// 戻ればその場で反映される）。
+// ※enemy_boss.webpは本編共通アセット(js/assets.js経由、決戦フェーズでも使用)をそのまま
+// 参照している（この画像は既に背景が透過済みのため、他の3種と同様に加工なしで使える）。
+// anchorフィールドで出現位置の基準点を切り替えられるようにした（未指定時は従来通り
+// PLAYボタン基準＝'playBtn'）。各アンカーの意味はshowTitleEnemyPeek()内のコメントを参照。
+// FB対応：「enemy_midbossをもう少し上に移動、enemy_bossをもう少し大きく、もう少し左上に
+// 移動してほしい」とのFBを受けて、②のdyを0→-25（さらに上）に、③のdx/dyを150/-40→120/-65
+// （さらに左・さらに上）に調整。③には新設のsizeフィールドで134px（デフォルト108pxより拡大）
+// を指定し、posEl.style.widthを上書きして表示サイズだけ変えられるようにした
+const TITLE_ENEMY_PEEK_PATTERNS_DELUXE = [
+  // ①画面右下。エネミーの右側を画面端で若干見切れさせる
+  { src:'assets/enemies/enemy_swarm.webp',   anchor:'screenBottomRight', dx:-24, dy:-64, flip:false, anim:'peek-play' },
+  // ②タイトルロゴとボタン群のちょうど中間あたり、若干左寄り
+  { src:'assets/enemies/enemy_midboss.webp', anchor:'logoMid',           dx:-30, dy:-25, flip:false, anim:'peek-play-wiggle' },
+  // ③ボタン群の右上（他より一回り大きく表示）
+  { src:'assets/enemies/enemy_boss.webp',    anchor:'playBtn',           dx:120, dy:-65, flip:true,  anim:'peek-play', size:134 },
+  // ④ボタン群の左、若干下寄り
+  { src:'assets/enemies/enemy_squad.webp',   anchor:'groupLower',        dx:-130,dy:0,   flip:false, anim:'peek-play', rot:-6 },
+];
 let titleEnemyPeekIdx = 0;
 function showTitleEnemyPeek(){
   const titleScreen = document.getElementById('title-screen');
   if (!titleScreen || titleScreen.classList.contains('hide')) return;
-  // PLAYボタンに重なる位置に出す（z-indexで背面に回すのでボタン自体は隠れず邪魔しない）
+  // PLAYボタンに重なる位置に出す（z-indexで背面に回すのでボタン自体は隠れず邪魔しない）。
+  // deluxe版の一部パターンでもPLAYボタンの実座標を各種計算の基準に使うため、常に取得しておく
   const anchorBtn = document.getElementById('title-play-btn');
   const posEl = document.getElementById('title-enemy-peek-pos');
   const imgEl = document.getElementById('title-enemy-peek-img');
   if (!anchorBtn || !posEl || !imgEl) return;
   const rect = anchorBtn.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return; // 念のため未描画時は何もしない
-  const pattern = TITLE_ENEMY_PEEK_PATTERNS[titleEnemyPeekIdx];
-  titleEnemyPeekIdx = (titleEnemyPeekIdx + 1) % TITLE_ENEMY_PEEK_PATTERNS.length;
-  // 画面が狭い端末でも横にはみ出さないよう、中心からのオフセットを画面幅に応じて制限する
-  const maxDx = Math.max(0, window.innerWidth / 2 - 58);
-  const dx = Math.max(-maxDx, Math.min(maxDx, pattern.dx));
-  const cx = rect.left + rect.width / 2 + dx;
-  // FB対応：ボタン中央にきっちり重ねると、キャラの高さ(108px)に対してボタンの高さ(44px)分が
-  // まるごと隠れてしまい「覆われすぎ」に見えていたため、基準点をボタンよりだいぶ上寄りにして、
-  // 体の大部分（頭・腕・銃を持つ手）を常にボタンの上に完全に露出させ、ボタンに隠れるのは
-  // 足元（触手の先）の一部だけになるよう調整している
-  let cy = rect.top - 24 + (pattern.dy || 0);
+
+  const isDeluxe = !!(window.Achievements && window.Achievements.getState('ach_024').unlocked);
+  const patterns = isDeluxe ? TITLE_ENEMY_PEEK_PATTERNS_DELUXE : TITLE_ENEMY_PEEK_PATTERNS;
+  const pattern = patterns[titleEnemyPeekIdx % patterns.length];
+  titleEnemyPeekIdx = (titleEnemyPeekIdx + 1) % patterns.length;
+
+  // 表示するエネミー画像の切り替え（通常版は常にenemy_squad固定。srcが同じ時は
+  // 余計な再読み込みを避けるため、変わる時だけ書き換える）
+  const desiredSrc = pattern.src || 'assets/enemies/enemy_squad.webp';
+  if (imgEl.getAttribute('src') !== desiredSrc) imgEl.src = desiredSrc;
+  // FB対応：「enemy_bossをもう少し大きく」。sizeフィールド指定時だけ表示幅を上書きする
+  // （他のパターンは指定なし＝デフォルトの108pxのまま）。下の縦位置クランプで実際の高さを
+  // 参照するため、クランプより前に幅を確定させておく必要がある
+  posEl.style.width = (pattern.size || 108) + 'px';
+
+  const anchor = pattern.anchor || 'playBtn';
+  let cx, cy;
+  if (anchor === 'screenBottomRight') {
+    // FB対応：「画面右下、エネミーの右側を若干見切れさせる」専用のアンカー。他のパターンと
+    // 違い、画面中央基準の左右クランプは適用せず、画面右下の角そのものを基準にdx/dyを
+    // そのままオフセットとして使う（html/bodyがoverflow:hiddenのため、画面端からはみ出た
+    // 分は自然にビューポート外へ切れて見えるだけで、スクロールバー等は発生しない）
+    cx = window.innerWidth + (pattern.dx || 0);
+    cy = window.innerHeight + (pattern.dy || 0);
+  } else {
+    let baseX, baseY;
+    if (anchor === 'logoMid') {
+      // タイトルロゴ(#title-logo-area)の下端とPLAYボタンの上端のちょうど中間
+      const logoEl = document.getElementById('title-logo-area');
+      const logoRect = logoEl ? logoEl.getBoundingClientRect() : rect;
+      baseX = rect.left + rect.width / 2;
+      baseY = (logoRect.bottom + rect.top) / 2;
+    } else if (anchor === 'groupLower') {
+      // ボタン群（PLAY〜遊び方）の上端から下端までの間で、やや下寄りの位置
+      const howtoEl = document.getElementById('title-howtoplay-btn');
+      const howtoRect = howtoEl ? howtoEl.getBoundingClientRect() : rect;
+      baseX = rect.left + rect.width / 2;
+      baseY = rect.top + (howtoRect.bottom - rect.top) * 0.62;
+    } else {
+      // 'playBtn'（従来通り）
+      baseX = rect.left + rect.width / 2;
+      baseY = rect.top - 24;
+    }
+    // 画面が狭い端末でも横にはみ出さないよう、中心からのオフセットを画面幅に応じて制限する
+    const maxDx = Math.max(0, window.innerWidth / 2 - 58);
+    const dx = Math.max(-maxDx, Math.min(maxDx, pattern.dx || 0));
+    cx = baseX + dx;
+    cy = baseY + (pattern.dy || 0);
+  }
+
   // 画面の上下端でも見切れないよう、画像の高さ分の余白を確保して縦位置をクランプする
-  const imgH = posEl.offsetHeight || 108;
-  const minCy = imgH / 2 + 4;
-  const maxCy = window.innerHeight - imgH / 2 - 4;
-  cy = Math.max(minCy, Math.min(maxCy, cy));
+  // （screenBottomRightパターンだけは、右下の角で意図的に見切れさせる演出のため対象外）
+  if (anchor !== 'screenBottomRight') {
+    const imgH = posEl.offsetHeight || 108;
+    const minCy = imgH / 2 + 4;
+    const maxCy = window.innerHeight - imgH / 2 - 4;
+    cy = Math.max(minCy, Math.min(maxCy, cy));
+  }
+
   posEl.style.left = cx + 'px';
   posEl.style.top = cy + 'px';
   posEl.style.transform = `translate(-50%, -50%) scaleX(${pattern.flip ? -1 : 1}) rotate(${pattern.rot || 0}deg)`;
@@ -12750,6 +12901,7 @@ requestAnimationFrame(loop);
   <div class="debug-title">⚠ DEBUG TOOLS ⚠</div>
   <button id="debug-add-level-5">レベル +5</button>
   <button id="debug-add-level-10">レベル +10</button>
+  <button id="debug-add-score-10m">スコア +1000万</button>
   <button id="debug-perf-toggle">パフォーマンス表示 ON/OFF</button>
 </div>
 <div id="perf-overlay-content"></div>
@@ -12780,6 +12932,26 @@ requestAnimationFrame(loop);
   }
   document.getElementById('debug-add-level-5').addEventListener('click', () => debugAddLevels(5));
   document.getElementById('debug-add-level-10').addEventListener('click', () => debugAddLevels(10));
+
+  // FB対応：スコア1000万超え（GALAXY LEGEND!!バナー）の確認が実プレイだとほぼ不可能なため、
+  // 確認用にワンタップでスコアを底上げできるボタンを追加。本編のスコア加算と全く同じ
+  // addScore()経由で加算することで、スコア表示・スコア区切りバナー・スコアの内訳集計など、
+  // 本編側の状態を一切バイパスせず安全に加算できるようにしている（変数を直接書き換えない）。
+  // プレイ中（gameRunning）でない時にaddScore()を呼んでもscoreの値自体は正しく増えるが、
+  // 実際にリザルト画面で確認したいはずなので、プレイ中でない場合はその旨を案内するだけに留める
+  function debugAddScore(amount){
+    if (typeof gameRunning === 'undefined' || !gameRunning) {
+      alert('ゲームプレイ中のみ使えます。まずPLAYでゲームを開始してから押してください。');
+      return;
+    }
+    if (typeof addScore !== 'function') {
+      alert('スコア加算処理が見つかりませんでした');
+      return;
+    }
+    addScore(amount);
+    alert('スコアを+' + amount.toLocaleString() + 'しました（現在' + score.toLocaleString() + '点）');
+  }
+  document.getElementById('debug-add-score-10m').addEventListener('click', () => debugAddScore(10000000));
 
   // パフォーマンス表示（rAF頻度・実処理フレーム数・最悪フレーム時間・玉/粒/連鎖文字の数を可視化）
   document.getElementById('debug-perf-toggle').addEventListener('click', () => {
