@@ -17,11 +17,15 @@
 
 (function(){
   const BGM_FILES = {
-    menu:      'assets/sound/bgm/bgm_menu.mp3',      // モード選択/オプション/実績ログ/ショップ/コレクション一式/スキル選択
+    // FB対応：ここみさんのBGM一覧に合わせて更新。
+    // タイトル画面（オプション/アチーブメント/遊び方画面含む）→menu、Play中→stage、
+    // 180秒経過後→stageEnd、決戦フェーズ（エネミー討伐シーン）→enemy、
+    // リザルト画面→BGMなし（キーを渡さずnullで停止扱い。旧resultは廃止）
+    menu:      'assets/sound/bgm/bgm_menu.mp3',      // タイトル画面（オプション/アチーブメント/遊び方画面含む）/スキル選択
     stage:     'assets/sound/bgm/bgm_stage.mp3',     // Play中
     stageEnd:  'assets/sound/bgm/bgm_stage_end.mp3', // Play中・180秒経過後
-    result:    'assets/sound/bgm/bgm_result.mp3',    // リザルト画面
-    // タイトル画面はBGM無し（キーを渡さない/nullで停止扱い）
+    enemy:     'assets/sound/bgm/bgm_enemy.mp3',     // エネミー討伐シーン（決戦フェーズ：バッテリー切れ〜敵撃破演出の間）
+    // リザルト画面はBGM無し（キーを渡さない/nullで停止扱い）
   };
 
   const audioEl = new Audio();

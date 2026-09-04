@@ -3189,6 +3189,10 @@ function checkPendingSkillUnlocks() {
 // チェック漏れが起きないよう、title-screenを表示する箇所は必ずこの関数を通す）
 function showTitleScreen() {
   document.getElementById('title-screen').classList.remove('hide');
+  // FB対応：タイトル画面（オプション/アチーブメント/遊び方画面含む）はbgm_menuを流す。
+  // これらの画面はすべてタイトルから移動するだけ（BGMを切り替える処理を挟まない）ので、
+  // ここで一度鳴らしておけば裏でそのまま流れ続ける
+  if (window.SoundBGM) window.SoundBGM.play('menu');
   checkPendingSkillUnlocks();
 }
 
@@ -6015,7 +6019,7 @@ function forceHideBatteryEmptyFlash(){
 function triggerGameOver() {
   forceHideBatteryEmptyFlash();
   gameRunning=false; gameOver=true;
-  if (window.SoundBGM) window.SoundBGM.play('result');
+  if (window.SoundBGM) window.SoundBGM.stop(); // リザルト画面はBGM無し（決戦フェーズのenemyから無音へ）
   joystickWrap.classList.remove('show');
   joyTouchId = null; joyReset();
   const m=Math.floor(playTime/60), s=Math.floor(playTime%60).toString().padStart(2,'0');
@@ -6998,6 +7002,7 @@ function update(dt){
     emptyFlash.classList.add('show');
     setTimeout(()=>{
       emptyFlash.classList.remove('show');
+      if (window.SoundBGM) window.SoundBGM.play('enemy'); // エネミー討伐シーン（決戦フェーズ開始）
       playShowdownPhase(score).then(triggerGameOver);
     }, 2000);
     return;
