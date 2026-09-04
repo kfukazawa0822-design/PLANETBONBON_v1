@@ -27,18 +27,29 @@
     batteryHit:     'assets/sound/se/se_battery_hit.mp3',   // アイテム：バッテリーのあたり
     batteryMiss:    'assets/sound/se/se_battery_miss.mp3',  // アイテム：バッテリーのハズレ
     gimmick:        'assets/sound/se/se_gimmick.mp3',       // ギミック装置発動時
-    epGet:          'assets/sound/se/se_ep_get.mp3',        // リザルト：スコアボーナスをXPに加算する瞬間(旧EP獲得音。ファイル名は将来リネーム候補)
+    epGet:          'assets/sound/se/se_exp_get.mp3',       // リザルト：EXPの音（スコアボーナスをXPに加算する瞬間。旧EP獲得音からファイル名をリネーム。ぎゅーーんっ、な感じ）
     achievementUnlock: 'assets/sound/se/se_achievement_unlock.mp3', // 実績解除トースト（画面左下からポップがスライドしてくる瞬間）
     skillBlink:     'assets/sound/se/se_skill_blink.mp3',
     skillFreeze:    'assets/sound/se/se_skill_freeze.mp3',  // フリーズショット（内部id: bubble）
     skillSweep:     'assets/sound/se/se_skill_sweep.mp3',
     skillShield:    'assets/sound/se/se_skill_shield.mp3',
     skillTyphoon:   'assets/sound/se/se_skill_typhoon.mp3',
-    skillBeacon:    'assets/sound/se/se_skill_beacon.mp3',  // ワープビーコン：1回目（設置）
+    skillBeacon:    'assets/sound/se/se_skill_beacon.mp3',  // フリーズハンド発動時（画面タップして引き寄せ始めた瞬間）
     skillWarp:      'assets/sound/se/se_skill_warp.mp3',    // ワープビーコン：2回目（ワープ実行）
     skillDash:      'assets/sound/se/se_skill_dash.mp3',
     skillCannon:    'assets/sound/se/se_skill_cannon.mp3',
     skillConvert:   'assets/sound/se/se_skill_convert.mp3', // エネルギー変換器
+
+    // ── ここから、ここみさんの新SEリスト（プラネットボンボン版）で追加された分 ──
+    gameStart:            'assets/sound/se/se_game_start.mp3',             // SKILLSELECT決定開始時（「STARTGAME」ボタン押下時）
+    blackholeCollapse:    'assets/sound/se/se_blackhole_collapse.mp3',     // ブラックホール崩壊時
+    blackholeDamage:      'assets/sound/se/se_blackhole_damage.mp3',       // ブラックホールダメージ食らってる時（危険半径内にいる間ループ再生）
+    delayOrbDamage:       'assets/sound/se/se_delay_orb_damage.mp3',       // 遅延星宙玉の爆発ダメージを食らった
+    energyCannonCharge:   'assets/sound/se/se_energy_cannon_charge.mp3',   // エネルギー砲チャージ時（決戦フェーズ）
+    enemyDefeat:          'assets/sound/se/se_enemy_defeat.mp3',           // エネミーを倒した時（決戦フェーズ、パリンって感じ）
+    energyCannonDespawn:  'assets/sound/se/se_energy_cannon_despawn.mp3',  // エネルギー砲が消える時（決戦フェーズ、弾がはじけて消える瞬間）
+    resultTenMillion:     'assets/sound/se/se_result_10million.mp3',      // リザルト：1000万スコア超え時（めっちゃおめでたい感じ）
+    skillUnlock:          'assets/sound/se/se_skill_unlock.mp3',          // レベルアップ：スキル獲得時（NEW SKILLポップアップ表示時、おめでたくチャキーンって感じ）
   };
 
   // 爆発エフェクトスキンID → SEキー（js/explosionSkins.jsのEXPLOSION_SKIN_DEFSに対応）
@@ -67,6 +78,7 @@
   const MIN_INTERVAL_MS = 20;  // 同一SEの最短再発動間隔（極端な連打時の負荷対策）
   const lastPlayedAt = {};
   let buttonHoldSource = null; // ホバー/長押し中のSE（押している間だけループ再生する専用の1本）
+  let blackholeDamageSource = null; // ブラックホールの危険半径内にいる間だけループ再生する専用の1本
 
   function getCtx(){
     if (!audioCtx){
@@ -202,12 +214,49 @@
   function playBeaconSet(){ play('skillBeacon'); }
   function playBeaconWarp(){ play('skillWarp'); }
 
+  // ── ここから、ここみさんの新SEリスト（プラネットボンボン版）で追加された分 ──
+  function playGameStart(){ play('gameStart'); } // SKILLSELECT決定開始時（「STARTGAME」ボタン押下時）
+  function playBlackholeCollapse(){ play('blackholeCollapse'); } // ブラックホール崩壊時
+  // ブラックホールダメージ：危険半径内にいる間ずっと鳴らすループ音。buttonHoldと同じ考え方で、
+  // 専用のstopBlackholeDamage()を呼ぶまで鳴り続ける（index.html側で危険半径の出入りを検知して呼び出す）
+  function playBlackholeDamage(){
+    if (!seEnabled()) return;
+    const ac = getCtx();
+    if (!ac) return;
+    const buf = buffers['blackholeDamage'];
+    if (!buf) return;
+    if (blackholeDamageSource) return; // 既に鳴っている場合は多重再生しない
+    try{
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(ac.destination);
+      src.start(0);
+      blackholeDamageSource = src;
+    }catch(err){ /* 再生失敗はゲームを止めずに無視する */ }
+  }
+  function stopBlackholeDamage(){
+    if (blackholeDamageSource){
+      try{ blackholeDamageSource.stop(); }catch(err){}
+      blackholeDamageSource = null;
+    }
+  }
+  function playDelayOrbDamage(){ play('delayOrbDamage'); } // 遅延星宙玉の爆発ダメージを食らった
+  function playEnergyCannonCharge(){ play('energyCannonCharge'); } // エネルギー砲チャージ時（決戦フェーズ）
+  function playEnemyDefeat(){ play('enemyDefeat'); } // エネミーを倒した時（決戦フェーズ）
+  function playEnergyCannonDespawn(){ play('energyCannonDespawn'); } // エネルギー砲が消える時（決戦フェーズ）
+  function playResultTenMillion(){ play('resultTenMillion'); } // リザルト：1000万スコア超え時
+  function playSkillUnlock(){ play('skillUnlock'); } // レベルアップ：スキル獲得時
+
   window.SoundSE = {
     playButton, playButtonHold, stopButtonHold, playPage, playPopup, playTutorial, playDoctor,
     playExplosionSE,
     playItemGet, playBatteryHit, playBatteryMiss, playGimmick,
     playEpGet, playAchievementGet, playAchievementUnlock, playEpUse,
     playSkill, playBeaconSet, playBeaconWarp,
+    playGameStart, playBlackholeCollapse, playBlackholeDamage, stopBlackholeDamage,
+    playDelayOrbDamage, playEnergyCannonCharge, playEnemyDefeat, playEnergyCannonDespawn,
+    playResultTenMillion, playSkillUnlock,
     resume: resumeCtx, // オプション画面のSEトグルなど、外から明示的に再開を試みたい時用
   };
   // 既存のtriggerExplosion()は `typeof playExplosionSE === 'function'` というグローバル関数名を
@@ -247,14 +296,18 @@
     'profile-back', 'profile-icon-picker-close',
     'tutorial-back', 'achievement-back', 'zukan-back',
     'zukan-menu-btn', 'zukan-drawer-close', 'zukan-popup-close',
-    'skill-back-btn', 'skill-start-btn', 'bubble-fire-btn',
+    'skill-back-btn', 'bubble-fire-btn', // skill-start-btn（STARTGAME）は専用のplayGameStart()で鳴らすので対象外（二重再生防止）
     'story-name-submit', 'story-skill-grant-claim-btn',
+    // FB対応：タイトル画面の「実績」「遊び方」ボタンと、遊び方オーバーレイの×／とじるボタンが
+    // このリストに未登録で鳴っていなかった分を追加（プラネットボンボンの実画面で実際に押せるボタン）
+    'title-achievement-btn', 'title-howtoplay-btn', 'howtoplay-close', 'howtoplay-finish-close',
   ];
   // 動的生成される「選ぶ」系ボタン（実績カードは playAchievementGet() 側で鳴らすため対象外）
   const DYNAMIC_BUTTON_SELECTORS = ['.shop-card', '.shop-card-list', '.skill-card', '.profile-icon-picker-item'];
   const PAGE_SELECTORS = [
     '#zukan-prev', '#zukan-next', '#shop-prev', '#shop-next',
     '#zukan-popup-prev', '#zukan-popup-next', '.zukan-dot',
+    '#howtoplay-prev', '#howtoplay-next', // FB対応：本作で実際に使う「遊び方」カルーセルの矢印ボタンを追加
   ];
   const POPUP_SELECTORS = ['.zukan-cell:not(.empty)', '.tutorial-card'];
 

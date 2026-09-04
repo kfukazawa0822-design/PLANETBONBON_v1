@@ -694,6 +694,86 @@ canvas { display:block; width:100%; height:100%; }
 .howtoplay-dot { width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.25); transition:background 0.15s; }
 .howtoplay-dot.active { background:#f5f7fa; }
 
+/* ── 初回プレイ専用ミニチュートリアル（2枚）。#howtoplay-overlayと見た目を揃えているが、
+   ページ送りが単純（1枚目=次へのみ／2枚目=前へ＋完了のみ）なため専用のID・要素で分離している。
+   FB対応：宇宙船の落下演出のあと・波動が起きる直前に挟み込むよう表示タイミングを変更したため、
+   背後にまだフィールド（着地した自機）が見えている。そのため背景は不透明ではなく、
+   薄く暗くするだけの半透明の黒に変更（フィールドがうっすら透けて見えるように）。
+   スキル選択直後・フィールド開始直前に挟むオーバーレイなので、#skill-select(z-index:200)より
+   上、#howtoplay-overlayと同じ320に置く。 ── */
+#firstplay-tutorial-overlay {
+  position:fixed; inset:0; z-index:320;
+  background:rgba(0,0,0,0.72);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none; transition:opacity 0.2s ease;
+  padding:24px 24px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  box-sizing:border-box;
+}
+#firstplay-tutorial-overlay.show { opacity:1; pointer-events:auto; }
+/* FB対応：「スキル獲得ポップアップ（#skill-unlock-box）みたいに四角で囲ってほしい」との要望で、
+   従来の背景無しテキスト直置きから、同ポップアップと同系統の枠デザイン（背景・ボーダー・
+   角丸・drop shadow）を持つカードに変更。ボタン類もカードの外に置かず内側にまとめている。 */
+#firstplay-tutorial-card {
+  position:relative; /* FB対応：矢印ボタン(#firstplay-tutorial-nav)をカード基準で絶対配置するため */
+  /* FB対応：矢印をカードの外に完全に離して置けるよう、左右に矢印+隙間ぶんの余白が
+     常に確保されるようカード幅を84vw→72vwへ少し控えめに変更（スマホの画面幅が
+     360px程度でも矢印が画面外にはみ出さないようにするため） */
+  width:min(300px, 72vw); box-sizing:border-box;
+  display:flex; flex-direction:column; align-items:center;
+  background:rgba(20,20,30,0.98); border:1.5px solid rgba(255,204,0,0.55);
+  box-shadow:0 0 30px rgba(255,204,0,0.2);
+  border-radius:14px; padding:26px 22px 22px;
+}
+#firstplay-tutorial-overlay.show #firstplay-tutorial-card { animation: skillUnlockPop 0.3s ease; }
+#firstplay-tutorial-heading {
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:22px; font-weight:bold; line-height:1.3;
+  color:#f5f7fa; text-align:left; margin-bottom:12px; width:100%;
+}
+#firstplay-tutorial-body {
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:13px; line-height:1.8; color:rgba(245,247,250,0.9); text-align:left;
+  width:100%; white-space:pre-line; /* body文字列中の\n\nを段落の空行として表示するため */
+}
+#firstplay-tutorial-finish {
+  margin-top:22px;
+  padding:14px 46px;
+  border-radius:999px; border:none;
+  background:#ffcc00; color:#0a0e1a;
+  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
+  font-size:16px; font-weight:bold; letter-spacing:4px;
+  cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,0.25);
+  -webkit-tap-highlight-color:transparent; transition:transform 0.1s, box-shadow 0.1s;
+}
+#firstplay-tutorial-finish:active { transform:translateY(3px); box-shadow:none; }
+#firstplay-tutorial-finish.hide { display:none; }
+/* FB対応：矢印ボタンをカードの内側の行に並べる形から、カードの枠を左右に飛び出す形へ変更。
+   右矢印＝カードの右端中央、左矢印＝カードの左端中央に、それぞれ独立してabsolute配置する
+   （#firstplay-tutorial-card基準）。#firstplay-tutorial-nav自体はカード全体に重ねる透明な
+   配置用レイヤーなので、pointer-events:noneにして下のカード内容へのタップを妨げないようにし、
+   ボタン自身にはpointer-events:autoを戻してタップ可能にする。この方式なら矢印の有無で
+   カード自体の幅が変わらない＝カードは常に画面中央のまま左右にずれない。
+   FB対応：「矢印がカードに近すぎる、完全に離してほしい」との指摘で、境界と半分重なる
+   配置（旧：left/right:-19px）から、枠と一切重ならない完全に外側の配置に変更。
+   left:100%（またはright:100%）でカードの反対側の辺ぴったりの位置に一旦揃えたうえで、
+   margin-left/margin-right でそこからさらに離す＝カードの幅に関わらず必ずカードの外側、
+   隙間を空けた位置に来る（重なりが起こり得ない配置方法）。 */
+#firstplay-tutorial-nav {
+  position:absolute; inset:0;
+  pointer-events:none;
+}
+#firstplay-tutorial-prev, #firstplay-tutorial-next {
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:38px; height:38px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.35);
+  background:#151b2c; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  pointer-events:auto;
+  -webkit-tap-highlight-color:transparent; transition:background 0.12s, opacity 0.12s;
+}
+#firstplay-tutorial-prev { right:100%; margin-right:10px; }
+#firstplay-tutorial-next { left:100%; margin-left:10px; }
+#firstplay-tutorial-prev:active, #firstplay-tutorial-next:active { background:#1c2438; }
+#firstplay-tutorial-prev.hide, #firstplay-tutorial-next.hide { display:none; }
+
 /* ── 実績ログタブ（ベルボタン専用。コレクション・実績称号一覧とは独立） ── */
 #achv-log-screen {
   position:fixed; inset:0; z-index:210;
@@ -2397,6 +2477,33 @@ canvas { display:block; width:100%; height:100%; }
   </div>
 </div>
 
+<!-- FB対応：初回プレイ専用の2枚ミニチュートリアル。スキル選択後、宇宙船が上から落下してくる
+     イントロ演出の「落下→静止」が終わった直後・波動が起きる直前のタイミングで、初回の1回だけ
+     挟み込む（詳細はloop()内のintroStateフェーズ管理、およびopenFirstPlayTutorial()参照）。
+     FB対応：「四角で囲ったカードにしてほしい」との要望により、見た目は#skill-unlock-box
+     （スキル獲得ポップアップ）の枠デザイン（背景・ボーダー・角丸・drop shadow）を踏襲。
+     ページ送りの構成は要件に合わせて単純化：1枚目＝次へ（右矢印）のみ、
+     2枚目＝前へ（左矢印）＋完了（黄色ボタン）のみ、ドット無し。 -->
+<div id="firstplay-tutorial-overlay">
+  <div id="firstplay-tutorial-card">
+    <div id="firstplay-tutorial-heading"></div>
+    <div id="firstplay-tutorial-body"></div>
+    <button id="firstplay-tutorial-finish" class="hide">はじめる</button>
+    <div id="firstplay-tutorial-nav">
+      <button id="firstplay-tutorial-prev" aria-label="前のページ" class="hide">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15 5l-7 7 7 7" stroke="#f5f7fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <button id="firstplay-tutorial-next" aria-label="次のページ">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9 5l7 7-7 7" stroke="#f5f7fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- リザルト画面 -->
 <div id="gameover">
   <div id="gameover-box">
@@ -2725,6 +2832,7 @@ const ITEM_ICON_DISPLAY_SCALE = 2.0;
 // ※ .go-item-icon / .hud-item-icon （リザルト画面・HUDの<img>表示）は円形クリップされないため対象外。
 const ITEM_ICON_CIRCLE_CLIP_SCALE = {
   range_up: 0.85,
+  rare_booster: 0.9, // FB対応：手描きで作り直した新デザイン（星2つ）も先端が円クリップ境界を超えていたため
 };
 
 // アイテム定義
@@ -2812,6 +2920,12 @@ let introState = null;
 //   waveR: 0,          // ウェーブ半径（ワールド座標）
 //   waveAlpha: 0,      // ウェーブ不透明度
 // }
+// FB対応：初回プレイ専用ミニチュートリアルを「落下演出の直後・波動が始まる直前」で
+// 挟み込むためのフラグ。pendingFirstPlayTutorial＝今回のゲーム開始で見せる予定があるか、
+// introTutorialHoldActive＝現在その静止（'wait'フェーズで足止め中）が実際に発動しているか。
+// 詳細はloop()内のintroStateフェーズ管理とopenFirstPlayTutorial()を参照。
+let pendingFirstPlayTutorial = false;
+let introTutorialHoldActive = false;
 let playTime    = 0;
 let batteryDrainBoostAnnounced = false; // 180秒到達時のバッテリー不安定演出を出したか
 let releaseGraceTimer = 0; // N極切替直後の爆発無効タイマー（秒）
@@ -2897,6 +3011,7 @@ function defaultSaveData() {
     bestScores: [],        // 自己ベストTOP3（降順、最大3件）。リザルト画面「自己ベストTOP3」表示用
     howToPlaySeen: false,  // 「遊び方」オーバーレイを一度でも見たか（true化後は初回自動表示をしない）
     favoriteSkillTipSeen: false, // FB対応：「お気に入りスキル」機能の案内ポップアップを一度でも見たか（見せるのはスキルを初めて獲得した時の1回だけ）
+    firstPlayTutorialSeen: false, // FB対応：初回プレイ時だけ出す2枚のミニチュートリアルを一度でも見たか（見せるのはスキル選択後、初回のゲーム開始時の1回だけ）
     // FB対応：デフォルトの操作方法を「固定仮想スティック」から「複合型」（仮想スティック＋追従仮想スティック）に変更
     settings: { dragMode: 'floating', favoriteSkillId: '', bgmEnabled: true, seEnabled: true, speedBarVisible: false },
     pendingSkillUnlocks: [], // レベル到達済みだが、まだタイトル画面でポップアップ通知していないスキルidの一覧
@@ -2925,6 +3040,8 @@ function migrateSaveData(parsed) {
   if (typeof parsed.howToPlaySeen === 'boolean') data.howToPlaySeen = parsed.howToPlaySeen;
   // 同上：既存セーブにキーが無い場合はfalseのまま（＝次に何かスキルを獲得した時に一度だけ案内ポップアップを出す）
   if (typeof parsed.favoriteSkillTipSeen === 'boolean') data.favoriteSkillTipSeen = parsed.favoriteSkillTipSeen;
+  // 同上：既存セーブにキーが無い場合はfalseのまま（＝次にスキル選択後ゲームを開始する時に一度だけミニチュートリアルを出す）
+  if (typeof parsed.firstPlayTutorialSeen === 'boolean') data.firstPlayTutorialSeen = parsed.firstPlayTutorialSeen;
   if (parsed.settings && typeof parsed.settings === 'object') {
     data.settings = { ...data.settings, ...parsed.settings };
     if (data.settings.favoriteSkillId === 'stop') data.settings.favoriteSkillId = 'bubble'; // 同上の移行
@@ -3103,6 +3220,7 @@ function advanceSkillUnlockPopup() {
   iconEl.innerHTML = iconPath ? `<img src="${iconPath}" alt="${def.name}">` : `<span>${def.icon}</span>`;
   document.getElementById('skill-unlock-name').textContent = def.name;
   document.getElementById('skill-unlock-desc').textContent = def.desc;
+  if (window.SoundSE) window.SoundSE.playSkillUnlock(); // レベルアップ：スキル獲得時
   overlay.classList.add('show');
 }
 // 「お気に入りスキル」機能の案内ポップアップ表示（advanceSkillUnlockPopup側から一度だけ呼ばれる）
@@ -3370,6 +3488,7 @@ function initGame(mode) {
   playTime=0; batteryDrainBoostAnnounced=false; currentChainDepth=0; screenShake={x:0,y:0,power:0}; releaseGraceTimer=0;
   skillSP=0; skillStock=0; skillActive=false; skillTimer=0;
   bubbleAiming=false; bubbleAimElapsed=0; bubbleFiring=false; bubbleFireQueue=[]; bubbleFireElapsed=0; dragFreezeActive=false; dragPoint=null; dragFreezeElapsed=0;
+  if (bhDangerSEPlaying && window.SoundSE) { window.SoundSE.stopBlackholeDamage(); bhDangerSEPlaying = false; } // 新しいランの開始時に前回分のループ音が残らないようにする
   { const b1=document.getElementById('bubble-aim-banner'), b2=document.getElementById('bubble-fire-btn'), b3=document.getElementById('beacon-ok-btn');
     if(b1) b1.classList.add('hide'); if(b2) b2.classList.add('hide'); if(b3) b3.classList.add('hide'); }
   rockSpawnTimer=0; itemSpawnTimer=0; redBallCheckChain=0; goldBallCheckChain=0; comboItemCheckDepth=0; comboItemCooldown=0;
@@ -4830,7 +4949,8 @@ function activateBeacon(){
   beaconZoomHoldTimer = 2.5; // 発動〜解除〜少し見届ける時間ぶん、このズームを維持する
   const okBtn = document.getElementById('beacon-ok-btn');
   if (okBtn) okBtn.classList.add('hide'); // 1秒経つまでは非表示（フリーズショットの「発射！」ボタンと同じ）
-  if (window.SoundSE) window.SoundSE.playBeaconSet(); // 既存の発動音（skillBeacon）を流用
+  // FB対応：「スキルボタン押した時ではなく、発動して画面タップしてる瞬間だけ鳴らしてほしい」。
+  // ここ（発動処理）では鳴らさず、実際に画面へ触れた瞬間（touchstart/mousedown側）で鳴らす
   showSkillKanjiBanner('フリーズハンド！');
 }
 
@@ -5541,6 +5661,7 @@ const playShowdownPhase = (() => {
     //    演出（drawChargeGatherSparks）を追加 ④ためきった直後、発射までの一呼吸
     //    （ピークホールド）を新設し、溜めと解放の間に「間」を作る ──
     const CHARGE_MS = 1400;
+    if (window.SoundSE) window.SoundSE.playEnergyCannonCharge(); // エネルギー砲チャージ時
     await animate(CHARGE_MS, (t) => {
       const eased = 1 - Math.pow(1-t, 2);
       // 終盤ほど速く・大きく脈打つ（限界までためている緊張感の表現）
@@ -5608,6 +5729,7 @@ const playShowdownPhase = (() => {
         return {
           node, st: states[item.index], localBeat: BEAT_BY_KIND[node.kind],
           hitAtMs: totalDist > 0 ? (distFromStart/totalDist)*totalDuration : 0,
+          seFired: false, // エネミーを倒した時のSEを、このレグにつき1回だけ鳴らすためのフラグ
         };
       });
 
@@ -5631,6 +5753,7 @@ const playShowdownPhase = (() => {
             leg.st.shakeX = 0;
             leg.st.breakT = lt;
             frameShake = Math.max(frameShake, 1.3*(1-lt*2.2));
+            if (!leg.seFired) { leg.seFired = true; if (window.SoundSE) window.SoundSE.playEnemyDefeat(); } // エネミーを倒した時
           } else {
             leg.st.breakT = 1;
           }
@@ -5686,6 +5809,7 @@ const playShowdownPhase = (() => {
     if (myId !== runId) return;
 
     if (full) {
+      if (window.SoundSE) window.SoundSE.playEnemyDefeat(); // エネミーを倒した時（列の最後の1体）
       // 撃破の瞬間にドンと大きく震えて、すぐ収まる。弾は砕けた後もその場に残す
       await animate(tierBeat.break, (t) => {
         st.breakT = t;
@@ -5711,6 +5835,7 @@ const playShowdownPhase = (() => {
     // （＝そこで止まる）のはヒビ止まり＝fullがfalseの場合も同じなので、if(full)の外に出し、
     // 撃破の有無に関わらず必ず弾の爆発を見せるようにする（ヒビ止まりの場合は敵自身は
     // 砕けず、ヒビが入ったまま生き残った状態の上に弾だけがはじけて消える見た目になる）。
+    if (window.SoundSE) window.SoundSE.playEnergyCannonDespawn(); // エネルギー砲が消える時
     await animate(BULLET_BURST_MS, (t) => {
       renderScene({
         showScore: true,
@@ -5903,6 +6028,7 @@ function triggerGameOver() {
   // FB対応：1000万点（Sランク到達ライン。RESULT_RANK_COLORSのneed:10000000と同じ基準）を
   // 超えたときだけ、リザルト画面最上部に虹色でギラギラ動く祝いバナーを出す
   document.getElementById('go-congrats-banner').classList.toggle('hide', score < 10000000);
+  if (score >= 10000000 && window.SoundSE) window.SoundSE.playResultTenMillion(); // リザルト：1000万スコア超え時
   document.getElementById('go-chain').textContent=maxChainCount;
   document.getElementById('go-time').textContent=`${m}:${s}`;
   document.getElementById('go-title').textContent='FINISH';
@@ -6594,8 +6720,20 @@ function loop(ts){
     } else if(introState.phase === 'wait'){
       // 待機フェーズ（0.2秒）：静止
       if(introState.timer >= 0.2){
-        introState.phase = 'wave';
-        introState.timer = 0;
+        // FB対応：初回プレイ時はここ（落下完了直後・波動が始まる直前）でintro演出を
+        // 静止させ続け、その間に初回専用ミニチュートリアルを表示する。
+        // timerをこれ以上'wave'へ進めない＝'wait'フェーズに留まり続けることで、
+        // gameRunningがfalseのまま（＝実質「時間を止めた」状態）でチュートリアルを見せられる。
+        if (pendingFirstPlayTutorial && !introTutorialHoldActive) {
+          introTutorialHoldActive = true;
+          introState.timer = 0.2;
+          openFirstPlayTutorial();
+        } else if (!introTutorialHoldActive) {
+          introState.phase = 'wave';
+          introState.timer = 0;
+        }
+        // introTutorialHoldActiveがtrueの間は何もしない
+        // （closeFirstPlayTutorialAndResumeIntro()が呼ばれるまで'wait'のまま静止）
       }
     } else if(introState.phase === 'wave'){
       const WAVE_DURATION = 1.5;
@@ -7824,6 +7962,7 @@ function update(dt){
         if(pdist < dangerR){
           // FB対応：「捉えられてる時のダメージを可視化したい」。実際にバッテリーが削れているこの
           // フレームだけtrueにし、updateHUD()側でバッテリーバーを赤くする合図として使う
+          // （SEのループ再生も、このplayer.bhDangerの立ち上がり/立ち下がりをupdateHUD()側で見て制御している）
           player.bhDanger = true;
           player.battery = Math.max(0, player.battery - BH_BATTERY_DRAIN_PS*dtSec);
         }
@@ -7834,6 +7973,7 @@ function update(dt){
         // 崩壊した瞬間にこの覚醒サイクル自体を終了させ(normalへ強制遷移)、次に正式に覚醒するまでは
         // 崩壊が起きないようにする
         if(rk.bhMass >= BH_COLLAPSE_MASS){
+          if (window.SoundSE) window.SoundSE.playBlackholeCollapse(); // ブラックホール崩壊時
           const captured = marbles.filter(m=>m.alive && m.bhOwner===rk);
           // FB対応：「崩壊したはずなのに何も起きていないように見える／崩壊ラベルが連続で出続ける」バグの本当の原因。
           // 従来はcaptured[0]の1点だけを起爆し、あとは連鎖判定（triggerExplosionのsetTimeoutスイープ）が
@@ -8210,6 +8350,7 @@ function update(dt){
       if(pdx>WORLD_W/2) pdx-=WORLD_W; else if(pdx<-WORLD_W/2) pdx+=WORLD_W;
       if(pdy>WORLD_H/2) pdy-=WORLD_H; else if(pdy<-WORLD_H/2) pdy+=WORLD_H;
       if(Math.hypot(pdx,pdy) < player.r + 90){
+        if (window.SoundSE) window.SoundSE.playDelayOrbDamage(); // 遅延星宙玉の爆発ダメージを食らった
         player.battery = Math.max(0, player.battery - 12);
         updateHUD();
         cam.shakeX=(Math.random()-0.5)*10;
@@ -8655,6 +8796,7 @@ function flushScoreAddon() {
   pendingScoreAddon = 0;
 }
 
+let bhDangerSEPlaying = false; // ブラックホールダメージSEが今ループ再生中かどうか（updateHUD側の出入り検知用）
 function updateHUD(){
   const bat=player.battery;
   document.getElementById('battery-fill').style.width=bat+'%';
@@ -8662,6 +8804,17 @@ function updateHUD(){
   // FB対応：「ブラックホールに捉えられてる時のダメージを可視化したい」。危険半径内で実際に
   // バッテリーが削れているフレームだけ赤く点灯させ、削られていることが一目でわかるようにする
   document.getElementById('battery-fill').classList.toggle('bh-danger', !!player.bhDanger);
+  // ブラックホールダメージSE：危険半径への出入りをここで検知し、ループ再生の開始/停止を切り替える
+  // （buttonHold等と同じ「押している/触れている間だけ鳴らす」方式。1フレームに1回ここを通る）
+  if (window.SoundSE) {
+    if (player.bhDanger && !bhDangerSEPlaying) {
+      window.SoundSE.playBlackholeDamage();
+      bhDangerSEPlaying = true;
+    } else if (!player.bhDanger && bhDangerSEPlaying) {
+      window.SoundSE.stopBlackholeDamage();
+      bhDangerSEPlaying = false;
+    }
+  }
   document.getElementById('battery-row').classList.toggle('low-battery', bat < 20);
   document.getElementById('hud-score-val').textContent=score.toLocaleString();
   updateSkillUI();
@@ -11255,7 +11408,10 @@ canvas.addEventListener('touchstart', e => {
   if (dragFreezeActive) {
     e.preventDefault();
     const t = e.changedTouches[0];
-    if (t) dragPoint = worldFromScreen(t.clientX, t.clientY);
+    if (t) {
+      if (window.SoundSE) window.SoundSE.playBeaconSet(); // 発動後、実際に画面をタップした瞬間だけ鳴らす
+      dragPoint = worldFromScreen(t.clientX, t.clientY);
+    }
     return;
   }
   if (!gameRunning || gamePaused) return;
@@ -11355,7 +11511,11 @@ canvas.addEventListener('touchcancel', e => {
 // マウス操作（PC動作確認用）
 let mouseChargeTimer = null;
 canvas.addEventListener('mousedown', e => {
-  if (dragFreezeActive) { dragPoint = worldFromScreen(e.clientX, e.clientY); return; }
+  if (dragFreezeActive) {
+    if (window.SoundSE) window.SoundSE.playBeaconSet(); // 発動後、実際に画面をタップした瞬間だけ鳴らす（PC動作確認用）
+    dragPoint = worldFromScreen(e.clientX, e.clientY);
+    return;
+  }
   if (!gameRunning || gamePaused) return;
   touch.active = true;
   touch.startX = e.clientX; touch.startY = e.clientY;
@@ -11872,10 +12032,19 @@ function showSkillSelect(){
 }
 
 document.getElementById('skill-start-btn').addEventListener('click',()=>{
+  if (window.SoundSE) window.SoundSE.playGameStart(); // SKILLSELECT決定開始時（STARTGAMEボタン押下時）
   document.getElementById('skill-select').classList.add('hide');
   if (window.Achievements && selectedSkillId) {
     window.Achievements.markSkillUsed(selectedSkillId);
     window.Achievements.markSkillSelected(selectedSkillId); // 実績「〇〇の使い手」（スキルごとの選択回数）用
+  }
+  // FB対応：初回のゲーム開始時だけ、宇宙船の落下演出のあと・波動が起きる直前に
+  // 2枚のミニチュートリアルを挟む。initGame()自体は常にここで呼び、イントロ演出を開始する
+  // （静止させるタイミングの判定・実際の一時停止はloop()内のintroStateフェーズ管理で行う）。
+  pendingFirstPlayTutorial = !saveData.firstPlayTutorialSeen;
+  if (pendingFirstPlayTutorial) {
+    saveData.firstPlayTutorialSeen = true;
+    saveSaveData();
   }
   initGame('endless');
 });
@@ -12587,6 +12756,84 @@ if (!saveData.howToPlaySeen) {
   saveData.howToPlaySeen = true;
   saveSaveData();
 }
+
+// ── 初回プレイ専用ミニチュートリアル（2枚） ──────────────────
+// スキル選択後、initGame('endless')は#skill-start-btnのクリック時点で通常通り呼ばれ、
+// 宇宙船が落下してくるイントロ演出が始まる。初回プレイ時だけ、その「落下→静止」が
+// 終わった直後・波動が起きる直前（loop()内のintroStateが'wait'フェーズの終端）で
+// イントロ演出を静止させ、その間にこの2枚を挟み込む（gameRunningはまだfalseのままなので
+// 実質「時間を止めた」状態になる）。openFirstPlayTutorial()はそのタイミングでloop()から
+// 呼ばれる。2枚目を読み終えて「はじめる」を押した時点で、closeFirstPlayTutorialAndResumeIntro()
+// が静止を解除し、通常通り波動フェーズ以降へ進める。
+// FB対応：「文章が長ったらしくてめんどくさく感じる」との指摘で、要点だけ残して短く整えた
+// （旧テキストは変更前のコミット履歴を参照）。
+const FIRSTPLAY_TUTORIAL_PAGES = [
+  {
+    heading: '基本のあそびかた',
+    body: 'タッチ中は引き寄せモード（赤）、離すと反発モード（青）。星宙玉を連鎖させてエネルギーに変えよう！\n\nアイテムで自機を強化したり、スキルゲージが溜まったら発動したりして有利に進めよう。',
+  },
+  {
+    heading: 'バッテリーに注意',
+    body: '画面上部のバッテリーが0になると実験終了。\n\nバッテリーアイテムを拾うと実験延長？！緑は確実に少し回復、黄色と赤は当たれば大きく回復します（外れると逆に減ることも）。',
+  },
+];
+let firstPlayTutorialPageIndex = 0;
+
+function renderFirstPlayTutorialPage(){
+  const page = FIRSTPLAY_TUTORIAL_PAGES[firstPlayTutorialPageIndex];
+  if (!page) return;
+  const headingEl = document.getElementById('firstplay-tutorial-heading');
+  const bodyEl = document.getElementById('firstplay-tutorial-body');
+  if (headingEl) headingEl.textContent = page.heading;
+  if (bodyEl) bodyEl.textContent = page.body;
+  const isFirst = firstPlayTutorialPageIndex === 0;
+  const isLast = firstPlayTutorialPageIndex === FIRSTPLAY_TUTORIAL_PAGES.length - 1;
+  // FB要件：1枚目＝次へ（右矢印）のみ、2枚目＝前へ（左矢印）＋完了（黄色ボタン）のみ
+  const prevBtn = document.getElementById('firstplay-tutorial-prev');
+  const nextBtn = document.getElementById('firstplay-tutorial-next');
+  const finishBtn = document.getElementById('firstplay-tutorial-finish');
+  if (prevBtn) prevBtn.classList.toggle('hide', isFirst);
+  if (nextBtn) nextBtn.classList.toggle('hide', isLast);
+  if (finishBtn) finishBtn.classList.toggle('hide', !isLast);
+}
+function firstPlayTutorialGoTo(index){
+  firstPlayTutorialPageIndex = Math.max(0, Math.min(FIRSTPLAY_TUTORIAL_PAGES.length - 1, index));
+  renderFirstPlayTutorialPage();
+}
+function openFirstPlayTutorial(){
+  const el = document.getElementById('firstplay-tutorial-overlay');
+  if (!el) {
+    // 要素が見つからない万一の場合：静止させず、通常通りintro演出を続行させる
+    // （この時点でinitGame()はすでに呼ばれ、intro演出が進行中のため）
+    pendingFirstPlayTutorial = false;
+    introTutorialHoldActive = false;
+    return;
+  }
+  firstPlayTutorialPageIndex = 0;
+  renderFirstPlayTutorialPage();
+  el.classList.add('show');
+}
+// 2枚目の「はじめる」を押した時だけ呼ばれる：オーバーレイを閉じて、静止させていたintro演出
+// （波動フェーズ）を再開する。initGame()はすでに呼ばれ済みなのでここでは呼び直さない。
+function closeFirstPlayTutorialAndResumeIntro(){
+  const el = document.getElementById('firstplay-tutorial-overlay');
+  if (el) el.classList.remove('show');
+  pendingFirstPlayTutorial = false;
+  introTutorialHoldActive = false;
+  if (introState) {
+    introState.phase = 'wave';
+    introState.timer = 0;
+  } else if (!gameRunning) {
+    // 万一introStateが消えてしまっていた場合の保険（通常は起こらない）
+    initGame('endless');
+  }
+}
+document.getElementById('firstplay-tutorial-prev').addEventListener('click', () => firstPlayTutorialGoTo(firstPlayTutorialPageIndex - 1));
+document.getElementById('firstplay-tutorial-prev').addEventListener('touchstart', e => { e.preventDefault(); firstPlayTutorialGoTo(firstPlayTutorialPageIndex - 1); },{passive:false});
+document.getElementById('firstplay-tutorial-next').addEventListener('click', () => firstPlayTutorialGoTo(firstPlayTutorialPageIndex + 1));
+document.getElementById('firstplay-tutorial-next').addEventListener('touchstart', e => { e.preventDefault(); firstPlayTutorialGoTo(firstPlayTutorialPageIndex + 1); },{passive:false});
+document.getElementById('firstplay-tutorial-finish').addEventListener('click', () => closeFirstPlayTutorialAndResumeIntro());
+document.getElementById('firstplay-tutorial-finish').addEventListener('touchstart', e => { e.preventDefault(); closeFirstPlayTutorialAndResumeIntro(); },{passive:false});
 
 // ── 実績ログタブ（ベルボタン）──────────────────────────
 // 実績称号一覧(#achievement-screen)やコレクションの解放状態には一切触れない、
