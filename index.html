@@ -22,13 +22,8 @@ canvas { display:block; width:100%; height:100%; }
 #hud-top {
   position:fixed; top:0; left:0; right:0;
   padding:0;
-  display:flex; flex-direction:column; gap:8px;
+  display:flex; flex-direction:column; gap:2px; /* FB対応：アイテム/スコア行をバッテリー行にもう少し近づけるため8pxから縮小 */
   pointer-events:none; z-index:20;
-}
-
-/* バッテリー行＋ギミック行のブロック（間隔を詰めてくっつけて見せるため専用のgapを持つ） */
-#battery-block {
-  display:flex; flex-direction:column; gap:0px;
 }
 
 /* バッテリー行 */
@@ -86,34 +81,9 @@ canvas { display:block; width:100%; height:100%; }
   animation:battery-shake 0.15s infinite;
 }
 
-/* ギミックタイマー行（発動中のみ表示。バッテリー行と同じpadding構造にすることで、
-   バー同士が縦に揃う）。
-   FB対応：汎用アイコン＋残り秒数の構成をやめ、左に効果名の短いラベル、その右を
-   全部バーにする構成に変更（スマホでも読めるよう文字要素を最小限にする狙い） */
-#gimmick-row {
-  display:flex; align-items:center; gap:8px;
-  height:18px;
-  padding:0 calc(6vw + 52px) 0 6vw;
-}
-#gimmick-row.hide { display:none; }
-/* 効果名ラベル：どのギミックが発動中かを一目で示す短い文言（例：磁力UP／スコア2倍）。
-   FB対応：秒数表示の廃止でスペースに余裕ができた分、文字サイズを一回り拡大（12px→15px） */
-#gimmick-label {
-  flex-shrink:0;
-  font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;
-  font-size:15px; font-weight:900;
-  letter-spacing:0.5px; white-space:nowrap; color:#f5f7fa;
-}
-#gimmick-bar {
-  position:relative; flex:1; height:8px;
-  background:#151b2c; border-radius:5px;
-  overflow:hidden; border:2px solid #f5f7fa;
-}
-#gimmick-fill {
-  height:100%; width:0%;
-  background:#ffdd44;
-  transition:width 0.3s linear, background-color 0.2s;
-}
+/* FB対応：ギミック発動中の演出は、DOM側のバー(#gimmick-row、廃止済み)ではなく
+   画面端の色付きバー（drawWorldEventOverlay()、キャンバス描画）だけにして、
+   そこに縦書きのラベルを直接乗せる方式に変更した。詳細はJS側のコメントを参照。 */
 
 /* 上部2カラム行（アイテム一覧＋スコア） */
 #hud-mid {
@@ -125,18 +95,20 @@ canvas { display:block; width:100%; height:100%; }
 /* 左：アイテム一覧 + タイマー（左揃え・SCOREの数字部分と高さを揃えている） */
 #hud-items {
   flex:1; display:flex; flex-direction:column; align-items:flex-start;
-  gap:5px; padding-top:18px; min-width:0;
+  gap:5px; padding-top:4px; min-width:0; /* FB対応：#hud-score（padding-top:4px）と厳密に同じ値にして開始位置を揃えた */
 }
 #hud-items-row {
   display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-start;
 }
-/* スマホ(タッチ操作)限定：獲得アイテムの表示を1行5個までに固定して折り返す。
+/* スマホ(タッチ操作)限定：獲得アイテムの表示を1行4個までに固定して折り返す。
    PC版は元通り、幅に応じて自然に折り返す挙動のまま変えない。
-   （スマホだとSCORE表示と横並びの幅が狭く、個数が多いと重なって見えていたための対応） */
+   （スマホだとSCORE表示と横並びの幅が狭く、個数が多いと重なって見えていたための対応）
+   FB対応：5列だと右端の1個が#score-addon（+スコア演出、SCOREの左に表示）と
+   被る恐れがあったため、常に1列ぶんの余白ができるよう4列に減らした */
 @media (pointer: coarse) {
   #hud-items-row {
     display:grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 .hud-item-chip {
@@ -185,6 +157,23 @@ canvas { display:block; width:100%; height:100%; }
   font-size:clamp(18px, 4.5vw, 26px); letter-spacing:1px;
   color:#f5f7fa;
   display:inline-block; min-width:7ch; /* 最大7桁(9,999,999)想定の固定幅。桁が増減しても周りのレイアウトが動かないようにする */
+  transform-origin:right center; /* 右揃えのSCORE表示なので、拡大時に右端を基準に膨らませる */
+}
+/* FB対応：5万点刻みの区切り演出を、離れた場所に出るバナー(#feat-banner)から、
+   スコアの数字自体が一瞬だけ拡大＋太字になるパルスに変更（区切りに到達した「その場」で
+   気づけるようにする狙い）。0.8秒で元のサイズ・太さに戻る（FB対応：0.4秒だと短いとのことで延長）。
+   FB対応：Bランク以上のスコア域では、一瞬そのランクカラーに色づくようにした
+   （--milestone-pulse-colorはJS側pulseScoreMilestone()がその都度セットする。
+   Cランク以下は同関数がデフォルト色#f5f7faを渡すので白のまま） */
+#hud-score-val.milestone-pulse {
+  animation: scoreMilestonePulse 0.8s ease;
+}
+/* font-weight・colorをここ(キーフレーム内)だけに書くことで、アニメーション終了後は
+   fill-modeが既定のnone＝クラスを外し忘れても自動的に通常の太さ・色へ戻る */
+@keyframes scoreMilestonePulse {
+  0%   { transform:scale(1);     font-weight:400; color:#f5f7fa; }
+  35%  { transform:scale(1.22);  font-weight:900; color:var(--milestone-pulse-color, #f5f7fa); }
+  100% { transform:scale(1);     font-weight:400; color:#f5f7fa; }
 }
 /* スコア加算演出 */
 #score-addon {
@@ -209,41 +198,6 @@ canvas { display:block; width:100%; height:100%; }
   animation: scoreAddonAnim 2.4s ease forwards;
 }
 
-/* イベント通知 */
-#event-banner {
-  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-  font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
-  font-size:16px; letter-spacing:3px;
-  color:#fff; text-align:center; pointer-events:none; opacity:0;
-  z-index:40; white-space:nowrap;
-  text-shadow: 0 0 20px currentColor;
-}
-#event-banner.show { animation: bannerFade 2.2s ease forwards; }
-/* ── スキル発動時の中央ラベル：スキルの効果を表す短い文言を、画面中央に固定して表示 ──
-   絵文字・色分けは廃止し、黒一色・全スキル共通の同じ演出（このCSSアニメーションだけ）に統一。
-   出現：透明0%・80%サイズ → 素早く100%まで拡大 → 105%まで少しオーバーシュート → 100%に収まる
-   維持：そのまま少し表示
-   退場：透明度を落としてフェードアウト */
-#skill-kanji-banner {
-  /* FB対応：画面中央(50%)だとギミック発動演出(#gimmick-banner)やアイテム取得ポップアップ
-     (#item-popup)と同じ位置に出るため、スキル発動と重なるタイミングでは互いに隠れてしまっていた。
-     左右は中央のまま、高さだけ上寄り(30%)にずらして棲み分けるようにする */
-  position:fixed; top:30%; left:50%; transform:translate(-50%,-50%) scale(0.8);
-  font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue','Hiragino Sans',sans-serif;
-  font-size:22px; font-weight:900; color:#f5f7fa;
-  text-shadow:0 0 10px rgba(0,0,0,0.85), 0 0 10px rgba(0,0,0,0.85), 0 0 6px rgba(0,0,0,0.85);
-  pointer-events:none; white-space:nowrap; z-index:45; opacity:0;
-}
-#skill-kanji-banner.show { animation: skillKanjiPop 2.0s cubic-bezier(.2,.8,.2,1) forwards; }
-@keyframes skillKanjiPop {
-  0%   { opacity:0;   transform:translate(-50%,-50%) scale(0.8); }
-  12%  { opacity:1;   transform:translate(-50%,-50%) scale(1.0); }
-  22%  { opacity:1;   transform:translate(-50%,-50%) scale(1.05); }
-  32%  { opacity:1;   transform:translate(-50%,-50%) scale(1.0); }
-  75%  { opacity:1;   transform:translate(-50%,-50%) scale(1.0); }
-  100% { opacity:0;   transform:translate(-50%,-50%) scale(1.0); }
-}
-
 /* ── バッテリー警告など：スマホの通知風に上からスッと出て、上へスッと消える ── */
 #top-notify {
   position:fixed; top:0; left:50%; transform:translate(-50%,-120%);
@@ -264,57 +218,46 @@ canvas { display:block; width:100%; height:100%; }
   87%  { opacity:1; transform:translate(-50%,0%); }
   100% { opacity:0; transform:translate(-50%,-120%); }
 }
-@keyframes bannerFade {
-  0%  { opacity:0; transform:translate(-50%,-60%) scale(0.8); }
-  15% { opacity:1; transform:translate(-50%,-50%) scale(1.05); }
-  70% { opacity:1; transform:translate(-50%,-50%) scale(1); }
-  100%{ opacity:0; transform:translate(-50%,-40%) scale(1); }
-}
-
-/* ── 手応え強化バナー：Chainの段階突入／スコアの区切り到達を、画面上部にテキストのみで
-   知らせる演出（#top-notifyと同じ「画面上部」枠を使うが、カード背景を持たずグロー文字のみ）。
-   FB対応：「下から浮かび上がってきて、2回点滅してほしい」との指定で専用アニメーションにする */
+/* ── BIG/MEGA CHAIN継続中バナー：画面上部で「連鎖が今まさに継続中かどうか」を伝える演出。
+   FB対応：「突入した瞬間すぐラベル表示してほしい。継続中はどんどんフェードアウトするが、
+   実際の連鎖持続時間（0.8秒）以内に次の爆発が起きればまたはっきり浮かび上がって、
+   連鎖が続いていることをわかりやすくしたい」との指定で、固定尺の一発点滅アニメーションから、
+   chainTimer（連鎖が継続しているかを管理する既存の残り時間。ヒットのたび0.8秒分＝72に
+   リセットされる）に連動してJS側で毎フレーム不透明度を更新する方式に変更した。
+   ヒットが続く限りその瞬間また満点の明るさに戻り、爆発が止まればそのまま自然にフェード
+   アウト→連鎖切れ（chainTimer切れ）と同時に完全非表示になる。
+   FB対応：「地味に感じる」との指摘で、文字自体を常時明滅させるグロー(発光)アニメーションを追加。
+   不透明度(JS制御)とは別軸で、影の強さ(ぼかし量)だけを0.85秒周期でゆっくり明滅させることで、
+   ネオンサインのような「発光している」質感を出す。色は--chainGlow変数でJS側から設定する */
 #feat-banner {
-  /* FB対応：「表示場所をもう少し下げてほしい。アイテム欄と同じか少し下あたり」→
-     #hud-items（アイテム一覧）が始まる高さに合わせてtopを引き下げ */
-  /* --featX：水平方向の寄せ方をキーフレーム側と分離するための変数。
-     中央寄せ(既定)は-50%、右寄せ(.align-right)は0%にして#hud-score(SCORE表示)の真下に揃える */
   --featX: -50%;
-  position:fixed; top:120px; left:50%; right:auto; transform:translate(var(--featX),40px);
+  --chainGlow: #ffd700;
+  position:fixed; top:120px; left:50%; right:auto; transform:translate(var(--featX),0);
   font-family:'Courier New',-apple-system,BlinkMacSystemFont,'Helvetica Neue','Hiragino Sans',sans-serif;
   font-size:23px; font-weight:900; letter-spacing:1px;
   white-space:nowrap; text-align:center;
   pointer-events:none; z-index:60; opacity:0;
+  animation: featBannerGlowPulse 0.85s ease-in-out infinite;
 }
-/* FB対応：「スコアだけ右に表示のほうがいいかも。スコアの真下くらいの位置に」→
-   スコア区切りバナーのみ、#hud-score（SCORE表示、text-align:rightでpadding:0 6vwの右端に揃っている）
-   と同じ右端基準に切り替える。Chain系(中央寄せ)とは表示中だけこのクラスの有無で出し分ける */
-#feat-banner.align-right {
-  left:auto; right:6vw; text-align:right;
-  --featX: 0%;
-}
-/* FB対応：「もっと点滅早く。脳汁出る感じ（スロット・パチンコとか）を目指してる」
-   →フェード(ease)ではなく、steps()でスパッと瞬時に切り替わる「本当の点滅」にし、
-   回数も2回→4回に増やして「ビカビカビカッ」という連打感を出す。全体尺も1.6s→1.4sに短縮 */
-#feat-banner.show { animation: featBannerRiseBlink 1.4s ease forwards; }
-@keyframes featBannerRiseBlink {
-  0%   { opacity:0;    transform:translate(var(--featX),40px); }
-  10%  { opacity:1;    transform:translate(var(--featX),0); }
-  14%  { opacity:0.1;  transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅1：消 */
-  18%  { opacity:1;    transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅1：点 */
-  22%  { opacity:0.1;  transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅2：消 */
-  26%  { opacity:1;    transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅2：点 */
-  30%  { opacity:0.1;  transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅3：消 */
-  34%  { opacity:1;    transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅3：点 */
-  38%  { opacity:0.1;  transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅4：消 */
-  42%  { opacity:1;    transform:translate(var(--featX),0); animation-timing-function:steps(1,end); } /* 点滅4：点 */
-  80%  { opacity:1;    transform:translate(var(--featX),0); }
-  100% { opacity:0;    transform:translate(var(--featX),-14px); }
+@keyframes featBannerGlowPulse {
+  0%, 100% {
+    text-shadow:
+      -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000,
+      0 0 12px var(--chainGlow), 0 0 20px var(--chainGlow);
+  }
+  50% {
+    text-shadow:
+      -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000,
+      0 0 26px var(--chainGlow), 0 0 46px var(--chainGlow);
+  }
 }
 
-/* ── ギミック発動演出（画面中央・event-bannerより大きめ・目立たせる） ── */
+/* ── ギミック発動演出（画面上部寄り・大きめの文字で目立たせる） ──
+   FB対応：「もっともっと上に配置してほしい。①（BIG/MEGA CHAINバナー）と③（アイテム取得・
+   バッテリー回復ポップ）のちょうど間くらいの位置」との指定で、42%→28%にさらに引き上げ。
+   #item-popup（アイテム取得・バッテリー回復）は参照画像の通り引き続き画面中央(50%)のまま */
 #gimmick-banner {
-  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  position:fixed; top:28%; left:50%; transform:translate(-50%,-50%);
   text-align:center; pointer-events:none; opacity:0;
   z-index:45; white-space:nowrap;
 }
@@ -1683,7 +1626,11 @@ canvas { display:block; width:100%; height:100%; }
   width:84px; height:84px; flex-shrink:0;
   background:#ffffff;
   /* メインの手書き円：太く・非均一なborder-radiusでガタガタ感 */
-  border:5px solid #111111;
+  /* FB対応：白地の土台・黒アイコンはそのままでよく、その周りを縁取る
+     手描き風のいびつなリング（このborderと下の::before/::afterの3本）だけが
+     黒だとゲーム背景の黒とほぼ同化して見えなくなるとのFB。土台・アイコンは
+     変更せず、リングの色だけ白系に変更した。 */
+  border:5px solid #ffffff;
   border-radius:54% 46% 51% 49% / 47% 53% 48% 52%;
   cursor:pointer; pointer-events:auto; position:relative;
   display:flex; align-items:center; justify-content:center;
@@ -1691,23 +1638,23 @@ canvas { display:block; width:100%; height:100%; }
   overflow:visible;
   box-shadow:none;
 }
-/* 2本目：繊細な外側ゴースト線 — 1px・黒・少しズレて回転 */
+/* 2本目：繊細な外側ゴースト線 — 1px・少しズレて回転（黒地に同化しないよう白系に変更） */
 #skill-btn::before {
   content:'';
   position:absolute;
   inset:-5px;
   border-radius:47% 53% 52% 48% / 55% 45% 54% 46%;
-  border:1px solid rgba(17,17,17,0.70);
+  border:1px solid rgba(255,255,255,0.70);
   transform:translate(3px,-2px) rotate(14deg);
   pointer-events:none;
 }
-/* 3本目：さらに細い逆方向ゴースト線 */
+/* 3本目：さらに細い逆方向ゴースト線（黒地に同化しないよう白系に変更） */
 #skill-btn::after {
   content:'';
   position:absolute;
   inset:-3px;
   border-radius:50% 50% 53% 47% / 52% 48% 50% 50%;
-  border:1px solid rgba(17,17,17,0.40);
+  border:1px solid rgba(255,255,255,0.40);
   transform:translate(-2px,3px) rotate(-10deg);
   pointer-events:none;
 }
@@ -1723,6 +1670,52 @@ canvas { display:block; width:100%; height:100%; }
 @keyframes skillActiveGlow {
   0%,100% { box-shadow: 0 0 0 0 rgba(13,148,136,0.55); }
   50%     { box-shadow: 0 0 16px 7px rgba(13,148,136,0.55); }
+}
+/* FB対応：スキル発動の合図として「スキルボタンからぱっと光が放たれる」演出を追加。
+   発動の瞬間だけ.flashクラスを付け外しして、ボタン中心から光が一瞬広がって消える
+   バーストを再生する（.active の常時グロー演出とは別物・共存可）。
+   FB対応：「パンチ演出は最高、このままで」→.punchは変更なし。
+   「フラッシュの光を少しだけ抑えて」→明るさ・広がりを一段階控えめに調整。
+   「通信中継衛星のマークみたいな、簡易版の円のエフェクトを3〜4本、黄色で追加してほしい」→
+   信号が同心円状に発信されていくような輪(#skill-btn-rings)を新設。太さの細い黄色い円を
+   数本、時間差(0.12秒ずつ)で少しずつ大きく・薄くしながら発射することで、レーダー/通信の
+   ような「発信されている感」を表現する */
+#skill-btn-flash {
+  position:absolute; inset:-30px; z-index:3;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.6) 30%, rgba(255,255,255,0.25) 55%, rgba(255,255,255,0) 76%);
+  opacity:0; pointer-events:none;
+}
+#skill-btn-flash.flash { animation: skillBtnFlash 0.5s ease-out; }
+@keyframes skillBtnFlash {
+  0%   { opacity:0.85; transform:scale(0.3); }
+  30%  { opacity:0.8;  transform:scale(1.3); }
+  65%  { opacity:0.4;  transform:scale(2.2); }
+  100% { opacity:0;    transform:scale(3.0); }
+}
+#skill-btn.punch { animation: skillBtnPunch 0.3s ease-out; }
+@keyframes skillBtnPunch {
+  0%   { transform:scale(1); }
+  25%  { transform:scale(1.35); }
+  55%  { transform:scale(0.92); }
+  100% { transform:scale(1); }
+}
+#skill-btn-rings {
+  position:absolute; inset:0; z-index:2; pointer-events:none;
+}
+#skill-btn-rings span {
+  position:absolute; inset:0; margin:auto;
+  border:3px solid #ffd400; border-radius:50%;
+  opacity:0;
+}
+#skill-btn-rings.ping span { animation: skillBtnRingPing 0.9s ease-out; }
+#skill-btn-rings.ping span:nth-child(1) { animation-delay:0s; }
+#skill-btn-rings.ping span:nth-child(2) { animation-delay:0.12s; }
+#skill-btn-rings.ping span:nth-child(3) { animation-delay:0.24s; }
+#skill-btn-rings.ping span:nth-child(4) { animation-delay:0.36s; }
+@keyframes skillBtnRingPing {
+  0%   { opacity:0.85; transform:scale(1); }
+  100% { opacity:0;    transform:scale(2.3); }
 }
 /* アイコンは白色SVGなのでinvertで黒に変換して使用。SPゲージ(半径33px)に被らないサイズに収めている */
 #skill-btn-icon {
@@ -2157,7 +2150,7 @@ canvas { display:block; width:100%; height:100%; }
 
 /* ── レスポンシブ：画面高さ700px未満（小型スマホ） ── */
 @media (max-height: 700px) {
-  #hud-top { gap:4px; }
+  #hud-top { gap:1px; }
   #battery-row { height:50px; }
   .hud-item-icon { width:16px; height:16px; font-size:16px; }
   #hud-timer { font-size:14px; letter-spacing:3px; }
@@ -2199,26 +2192,14 @@ canvas { display:block; width:100%; height:100%; }
 
 <!-- HUD上部：バッテリー行のみ -->
 <div id="hud-top">
-  <div id="battery-block">
-    <div id="battery-row">
-      <svg id="battery-icon-svg" width="18" height="26" viewBox="0 0 18 26" fill="none">
-        <path d="M11 1.5 L3.5 13.5 L8.5 13 L7 24.5 L15 11.5 L9.5 12 Z"
-              stroke="#f5f7fa" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
-      </svg>
-      <div id="battery-bar"><div id="battery-fill" style="width:100%"></div></div>
-    </div>
-    <!-- デバッグ用バッテリー%（確認後削除） -->
-
-    <!-- ギミックタイマー行（発動中のみ表示。バッテリー行と同じ横幅構造にして、
-         バー同士が縦に揃うようにしている）。
-         FB対応：「今どんな効果が乗っているかわからない」との指摘で、汎用アイコン＋残り秒数
-         だった構成をやめ、左に効果名の短いラベル、その右を全部バーにする構成に変更。
-         秒数の代わりにバーの縮み方そのもので残り時間を伝える -->
-    <div id="gimmick-row" class="hide">
-      <span id="gimmick-label"></span>
-      <div id="gimmick-bar"><div id="gimmick-fill"></div></div>
-    </div>
+  <div id="battery-row">
+    <svg id="battery-icon-svg" width="18" height="26" viewBox="0 0 18 26" fill="none">
+      <path d="M11 1.5 L3.5 13.5 L8.5 13 L7 24.5 L15 11.5 L9.5 12 Z"
+            stroke="#f5f7fa" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+    </svg>
+    <div id="battery-bar"><div id="battery-fill" style="width:100%"></div></div>
   </div>
+  <!-- デバッグ用バッテリー%（確認後削除） -->
 
   <!-- 2カラム行：左=アイテム+タイマー、右=スコア -->
   <div id="hud-mid">
@@ -2235,6 +2216,7 @@ canvas { display:block; width:100%; height:100%; }
       <div id="hud-score-val">0</div>
     </div>
   </div>
+
 </div>
 
 <!-- 仮想スティック（右下・スマホ用） -->
@@ -2279,6 +2261,8 @@ canvas { display:block; width:100%; height:100%; }
     <canvas id="skill-sp-canvas" width="176" height="140"></canvas>
     <span id="skill-btn-icon">⚡</span>
     <div id="skill-stock-label"></div>
+    <div id="skill-btn-flash"></div>
+    <div id="skill-btn-rings"><span></span><span></span><span></span><span></span></div>
   </div>
   <div id="skill-stocks"></div>
   <div id="skill-desc-panel">
@@ -2722,9 +2706,6 @@ canvas { display:block; width:100%; height:100%; }
   <button id="skill-start-btn" disabled>START GAME</button>
 </div>
 
-<!-- イベントバナー -->
-<div id="event-banner"></div>
-<div id="skill-kanji-banner"></div>
 <div id="top-notify"></div>
 <div id="feat-banner"></div>
 
@@ -3396,12 +3377,11 @@ let chainTierBannerFired = 0;
 // FB対応：同上。スコアが区切りの良い額(SCORE_MILESTONE_INTERVAL点刻み)を超えるたびに1回だけ演出バナーを出す
 const SCORE_MILESTONE_INTERVAL = 50000; // FB対応：10000刻みは頻度が多すぎるとのことで50000刻みに変更
 let lastScoreMilestoneTier = 0;
-// FB対応：「色をそれぞれまとめてほしい。色変えたい」→ #feat-banner（BIG/MEGA CHAIN突入・
-// スコア区切り到達）で使う色をここに集約。色を変えたい時はここだけ書き換えればOK
+// FB対応：「色をそれぞれまとめてほしい。色変えたい」→ #feat-banner（BIG/MEGA CHAIN突入）
+// で使う色をここに集約。色を変えたい時はここだけ書き換えればOK
 const FEAT_BANNER_COLORS = {
   bigChain: '#00a5ad',       // BIG CHAIN突入！ FB対応：白→ティールに変更
   megaChain: '#ffd700',      // MEGA CHAIN突入！ FB対応：ティール→ゴールドに変更
-  scoreMilestone: '#ffffff', // ○○点突破！ FB対応：ゴールド→白に変更
 };
 
 // ── バッテリー残10%以下：画面端の波線演出 ──────────
@@ -3462,9 +3442,6 @@ resize();
 function initGame(mode) {
   gameMode = mode;
   if (window.SoundBGM) window.SoundBGM.play('stage');
-  // 前の画面（モード選択など）で表示していたバナー（例：ロック中メッセージ）が
-  // アニメーション途中でも、ゲーム開始時には確実に消しておく
-  document.getElementById('event-banner').classList.remove('show');
   player.wx = WORLD_W/2; player.wy = WORLD_H/2;
   player.angle = -Math.PI/2;
   player.speedIdx = 4; player.magnet = 'N'; player.battery = 100;
@@ -3503,7 +3480,6 @@ function initGame(mode) {
   beaconZoomHoldTimer = 0; beaconZoomTarget = cam.baseZoom;
   resonanceEdgeFX=[];
   activeWorldEvent=null; vortexEventDir=1;
-  document.getElementById('gimmick-row').classList.add('hide');
   gameOver=false; gameRunning=false; gamePaused=false; // イントロ中はfalse
   gameStartProtection=false;
   document.getElementById('pause-screen').classList.remove('show');
@@ -4129,23 +4105,39 @@ function applyItem(def) {
   updateHudItems();
 }
 
-// ── バナー表示 ────────────────────────────────────
-function showBanner(msg, color='#ffffff') {
-  const el=document.getElementById('event-banner');
-  el.textContent=msg; el.style.color=color;
-  el.style.textShadow=`0 0 20px ${color}`;
-  el.classList.remove('show');
-  void el.offsetWidth;
-  el.classList.add('show');
-}
-
-// スキル発動時の中央ラベル：スキルの効果を表す短い文言を表示する（色・演出は全スキル共通）
-function showSkillKanjiBanner(kanji) {
-  const el = document.getElementById('skill-kanji-banner');
-  el.textContent = kanji;
-  el.classList.remove('show');
-  void el.offsetWidth;
-  el.classList.add('show');
+// ── スキル発動演出：①画面全体が一瞬揺れる／②スキルボタンからぱっと光が放たれる ──
+// FB対応：削除した「スキル発動時の中央ラベル(#skill-kanji-banner)」の代わりとして追加。
+// SEが鳴るタイミングに合わせて呼び出す（各スキルのSE再生箇所から直接呼び出している）。
+// ①はチェインヒットやブラックホール崩壊と同じ既存のscreenShake（毎フレーム自然減衰する
+// 揺れの仕組み）にpowerを加算するだけで実現し、②は#skill-btn-flashに.flashを、
+// #skill-btnに.punchを付け外しして、光のバースト＋ボタン自体のパンチ拡大を同時再生する。
+// FB対応：「どちらもわかりにくすぎる」との指摘で、①の揺れの強さをチェイン/ブラックホール
+// 崩壊（上限12）よりはるかに大きい専用の強さ（上限34）に引き上げ、②もバースト自体を
+// 大幅に拡大・増光した上でボタン本体のパンチ演出を追加し、二段構えで目立たせた。
+// FB対応：「パンチ演出は最高、このまま。フラッシュの光は少し抑えて、通信中継衛星の
+// マークみたいな簡易的な円のエフェクトを3〜4本、黄色で追加してほしい」→フラッシュは
+// #skill-btn-flash側のCSSで控えめに調整済み。新たに#skill-btn-ringsへ.pingを付け外しして、
+// 黄色い輪が時間差で同心円状に発信されていくリングエフェクトを追加する
+function triggerSkillActivationFX() {
+  screenShake.power = Math.min(screenShake.power + 30, 34);
+  const btnEl = document.getElementById('skill-btn');
+  if (btnEl) {
+    btnEl.classList.remove('punch');
+    void btnEl.offsetWidth;
+    btnEl.classList.add('punch');
+  }
+  const flashEl = document.getElementById('skill-btn-flash');
+  if (flashEl) {
+    flashEl.classList.remove('flash');
+    void flashEl.offsetWidth;
+    flashEl.classList.add('flash');
+  }
+  const ringsEl = document.getElementById('skill-btn-rings');
+  if (ringsEl) {
+    ringsEl.classList.remove('ping');
+    void ringsEl.offsetWidth;
+    ringsEl.classList.add('ping');
+  }
 }
 
 // スマホの通知風トースト（上からスッと出て、上へスッと消える。約2秒表示）
@@ -4244,25 +4236,33 @@ function queueBlackholeCollapseBanner(scoreBonus) {
   }, 200);
 }
 
-// ── 手応え強化バナー：Chainの段階突入／スコアの区切り到達（#feat-banner） ──
-// FB対応：「目的地がわからず気持ちよくない」との指摘。他の演出と同じ「キューに積んで
-// 順番に出す」仕組みに乗せることで、Chain突入とスコア区切りがほぼ同時に起きても
-// 両方きちんと表示される（取りこぼさない）
-function _showFeatBannerNow(text, color = '#ffd700', alignRight = false) {
+// ── BIG/MEGA CHAIN継続中バナー（#feat-banner） ──
+// FB対応：「突入した瞬間すぐラベル表示。継続中はどんどんフェードアウトするが、実際の
+// 連鎖持続時間（0.8秒＝chainTimerが72から0になるまで）以内に次の爆発が起きれば、
+// またはっきり浮かび上がって連鎖継続中だとわかるようにしたい」との指定。
+// テキスト自体はチェインの段階が上がった瞬間だけ書き換え、表示の明滅はここでは行わず
+// 毎フレームのupdateChainBannerFade()にchainTimerと連動させて任せる（下記参照）。
+// FB対応：「『突入！』ではなく『継続中！』のほうがいい」→文言変更。
+// 「地味に感じる」→グロー(発光)の色を--chainGlow変数に渡し、実際の明滅アニメーションは
+// CSS側(featBannerGlowPulse)に任せる
+function updateChainBannerText(tier) {
   const el = document.getElementById('feat-banner');
+  if (!el) return;
+  const text = tier === 2 ? 'MEGA CHAIN継続中！' : 'BIG CHAIN継続中！';
+  const color = tier === 2 ? FEAT_BANNER_COLORS.megaChain : FEAT_BANNER_COLORS.bigChain;
   el.textContent = text;
   el.style.color = color;
-  el.style.textShadow =
-    `-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 0 20px ${color}`;
-  // FB対応：「スコアだけ右に表示のほうがいいかも。スコアの真下くらいの位置に」
-  // →スコア区切りバナーだけ#hud-score（SCORE表示）の真下に揃える
-  el.classList.toggle('align-right', !!alignRight);
-  el.classList.remove('show');
-  void el.offsetWidth;
-  el.classList.add('show');
+  el.style.setProperty('--chainGlow', color);
 }
-const _queueFeatBanner = makeSequentialPopup(_showFeatBannerNow, 1400);
-function showFeatBanner(text, color, alignRight) { _queueFeatBanner(text, color, alignRight); }
+// 毎フレーム呼び出し。chainTierBannerFiredが0（未突入 or 連鎖切れ）の間は非表示、
+// 突入中はchainTimer/72（0〜1）をそのまま不透明度にする。ヒットのたびchainTimerは
+// 72にリセットされるので、連鎖が続く限りその瞬間また不透明度1（満点の明るさ）に戻り、
+// 爆発が止まれば0.8秒かけて自然にフェードアウト→連鎖切れと同時に完全非表示になる
+function updateChainBannerFade() {
+  const el = document.getElementById('feat-banner');
+  if (!el) return;
+  el.style.opacity = chainTierBannerFired > 0 ? String(Math.max(0, Math.min(1, chainTimer / 72))) : '0';
+}
 
 // FB対応：「バッテリーがギミックの文字と被る」との指摘。#item-popupは既定で画面中央（#gimmick-bannerと同じ位置）
 // に出るため、世界干渉ギミック発動時のバッテリー回復ポップだけは、画面中央に出るギミック名テキストと
@@ -4554,8 +4554,7 @@ function updateChainDisplay(n, depth, wx, wy, playerCaused=false) {
   // （lastChainTierは毎ヒット再計算されるので、「もう出したか」はchainTierBannerFiredで別管理）
   if (lastChainTier > chainTierBannerFired) {
     chainTierBannerFired = lastChainTier;
-    if (lastChainTier === 1) showFeatBanner('BIG CHAIN突入！', FEAT_BANNER_COLORS.bigChain);
-    else if (lastChainTier === 2) showFeatBanner('MEGA CHAIN突入！', FEAT_BANNER_COLORS.megaChain);
+    updateChainBannerText(lastChainTier);
   }
   // 色・サイズはn基準
   if      (n <= 10)  { size=15; bold=false; color='#c9ccd6'; }
@@ -4616,7 +4615,7 @@ function useSkill(){
   // シャボン玉/大砲は「狙い/チャージ」入りのタイミングであり実際の発射時に別途鳴らす。
   // フリーズハンドは発動音として既存の「ビーコン設置」音（skillBeacon）を専用関数経由で
   // 流用するため、activateBeacon()側で明示的に鳴らす
-  if (window.SoundSE && selectedSkillId !== 'bubble' && selectedSkillId !== 'cannon' && selectedSkillId !== 'beacon') window.SoundSE.playSkill(selectedSkillId);
+  if (window.SoundSE && selectedSkillId !== 'bubble' && selectedSkillId !== 'cannon' && selectedSkillId !== 'beacon') { window.SoundSE.playSkill(selectedSkillId); triggerSkillActivationFX(); }
   // 使用後も現在貯まっている途中のゲージ(skillSP)はそのまま継続する
   switch(selectedSkillId){
     case 'blink':   activateBlink();  break;
@@ -4656,14 +4655,12 @@ function activateBlink(){
     particles.push({x:player.wx,y:player.wy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
       hue:200,r:2+Math.random()*2,life:1,maxLife:0.4+Math.random()*0.2});
   }
-  showSkillKanjiBanner('パルス！');
 }
 
 function activateDash(){
   // 3秒間、速度を2倍に
   skillActive = true;
   skillTimer = 3.0;
-  showSkillKanjiBanner('3秒ブースト！');
 }
 
 const CANNON_R = MARBLE_R * 3;   // 星宙玉の3倍サイズ（S/N極には一切反応しない専用玉として扱う）
@@ -4710,7 +4707,7 @@ function fireCannon(){
   m.cannonArmed = false;  // true になったら通常の起爆(0.4秒後に爆発)フローに合流する
   marbles.push(m);
   if (window.SoundSE) window.SoundSE.playSkill('cannon'); // FBにより、ここ（実際に砲弾が発射される瞬間）でSEを鳴らす
-  showSkillKanjiBanner('発射！');
+  triggerSkillActivationFX();
   // 発射時の反動パーティクル
   for(let i=0;i<10;i++){
     const a=player.angle+Math.PI+(Math.random()-0.5)*0.8;
@@ -4724,14 +4721,12 @@ function activateTyphoon(){
   // 3秒間、プレイヤー周囲の玉をゆっくり吸い寄せる
   skillActive = true;
   skillTimer = 3.0;
-  showSkillKanjiBanner('重力崩壊');
 }
 
 function activateShield(){
   // 10秒間、シールド発動
   skillActive = true;
   skillTimer = 10.0;
-  showSkillKanjiBanner('シールド展開');
 }
 
 // シャボン玉：発動すると時間停止（プレイヤーの旋回だけは可能）になり、
@@ -4766,6 +4761,7 @@ function finishBubbleAim(){
   // 自動発射(5秒経過)／再タップでの早期確定／「発射！」ボタンのいずれから来ても
   // 必ずここを通るので、このタイミングに1回だけ鳴らせばよい
   if (window.SoundSE) window.SoundSE.playSkill('bubble');
+  triggerSkillActivationFX();
   const aimBanner = document.getElementById('bubble-aim-banner');
   if (aimBanner) aimBanner.classList.add('hide');
   const fireBtn = document.getElementById('bubble-fire-btn');
@@ -4798,7 +4794,6 @@ function finishBubbleAim(){
   });
   bubbleFiring = true;
   bubbleFireElapsed = 0;
-  showSkillKanjiBanner('発射！');
 }
 
 // シャボン玉：輪の位置から1発を実際に撃ち出す（命中弾は分裂、外れ弾はそのまま単発）。
@@ -4922,15 +4917,12 @@ function activateSweep(){
   // 発動の瞬間に軽くカメラを揺らして、一撃のインパクトを強める
   cam.shakeX=(Math.random()-0.5)*6;
   cam.shakeY=(Math.random()-0.5)*6;
-
-  showSkillKanjiBanner('スターウェーブ！');
 }
 
 // エネルギー変換器：約10秒間、玉が爆発するたびバッテリーが1%回復する（triggerExplosion側で加算）
 function activateEnergyConverter(){
   skillActive = true;
   skillTimer = 10.0;
-  showSkillKanjiBanner('エネルギー変換開始');
 }
 
 // フリーズハンド：フリーズショットと同じ「時間を止める」仕組みを使い、
@@ -4955,7 +4947,6 @@ function activateBeacon(){
   if (okBtn) okBtn.classList.add('hide'); // 1秒経つまでは非表示（フリーズショットの「発射！」ボタンと同じ）
   // FB対応：「スキルボタン押した時ではなく、発動して画面タップしてる瞬間だけ鳴らしてほしい」。
   // ここ（発動処理）では鳴らさず、実際に画面へ触れた瞬間（touchstart/mousedown側）で鳴らす
-  showSkillKanjiBanner('フリーズハンド！');
 }
 
 // フリーズハンド：時間停止を早めに解除して再開する（スキルボタン再タップ・「OK」ボタン・
@@ -5033,11 +5024,13 @@ const playShowdownPhase = (() => {
     snapshotCtx.drawImage(gameCanvas, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
   }
 
-  // ゾーン定義：C=青/10万・B=本編のブランドカラーである青緑(#00a5ad)/50万・A=黄色/200万・
-  // S=ビビッドな赤紫/1000万（試作で詰めた配色・閾値をそのまま採用）
+  // ゾーン定義：C=青/20万・B=本編のブランドカラーである青緑(#00a5ad)/100万・A=黄色/200万・
+  // S=ビビッドな赤紫/1000万
+  // FB対応：スコアランク表（C:0〜20万／B:20万1〜100万／A:100万1〜200万／S:200万1〜、
+  // Sの撃破ラインのみ1000万）にしきい値を合わせて調整。色は既存のまま踏襲。
   const ZONES = [
-    { key:'C', label:'漂流する敵影',    enemyLabel:'雑魚複数体',   need:100000,   color:'#5aa4ff', enemyCount:5, kind:'swarm' },
-    { key:'B', label:'少数精鋭部隊',    enemyLabel:'少数精鋭2〜3体', need:500000, color:'#00a5ad', enemyCount:3, kind:'squad' },
+    { key:'C', label:'漂流する敵影',    enemyLabel:'雑魚複数体',   need:200000,   color:'#5aa4ff', enemyCount:5, kind:'swarm' },
+    { key:'B', label:'少数精鋭部隊',    enemyLabel:'少数精鋭2〜3体', need:1000000, color:'#00a5ad', enemyCount:3, kind:'squad' },
     { key:'A', label:'中型の脅威',      enemyLabel:'中ボス',        need:2000000, color:'#ffd700', enemyCount:1, kind:'midboss' },
     { key:'S', label:'深宇宙の覇者',    enemyLabel:'BOSS',          need:10000000, color:'#e91e8c', enemyCount:1, kind:'boss' },
   ];
@@ -5991,8 +5984,8 @@ const playShowdownPhase = (() => {
 // 揃えてある。triggerGameOver()はplayShowdownPhase側のクロージャに閉じたZONESへ直接アクセス
 // できないため、表示用にここでも同じ配色を保持している（配色・しきい値を変える場合は両方揃える）。
 const RESULT_RANK_COLORS = [
-  { need:100000,   color:'#5aa4ff' }, // C：漂流する敵影
-  { need:500000,   color:'#00a5ad' }, // B：少数精鋭部隊
+  { need:200000,   color:'#5aa4ff' }, // C：漂流する敵影
+  { need:1000000,  color:'#00a5ad' }, // B：少数精鋭部隊
   { need:2000000,  color:'#ffd700' }, // A：中型の脅威
   { need:10000000, color:'#e91e8c' }, // S：深宇宙の覇者
 ];
@@ -6012,9 +6005,18 @@ function getResultScoreShineColor(sc) {
 // 万一.showクラスの解除漏れ・遅延があってもCSS側の優先順位に関係なく確実に消える。
 // ※次回バッテリー切れ時に再度表示する際は、下のバッテリー消費処理側でinline styleを
 // 明示的にリセットしている（style.display=''）ので、この安全策が今後の表示を妨げることはない。
+//
+// 追加調査（画面上部だけ赤みが残る不具合）：実際の原因はこの#battery-empty-flashではなく
+// #chaos-overlay（バッテリー30%未満で徐々に濃くなる赤いオーバーレイ）だった。
+// updateChaosOverlay()はupdate(dt)ループの中でしか呼ばれておらず、バッテリーが0になった瞬間に
+// gameRunning=falseでループそのものが止まるため、その時点の不透明度（バッテリーが低いほど
+// 濃い赤）がリセットされないまま決戦フェーズ・リザルト画面まで残り続けていた。
+// #battery-empty-flashと同じ理由で残ってしまう問題のため、同じ安全策としてここで一緒に消す。
 function forceHideBatteryEmptyFlash(){
   const el = document.getElementById('battery-empty-flash');
   if (el){ el.classList.remove('show'); el.style.display = 'none'; }
+  const chaos = document.getElementById('chaos-overlay');
+  if (chaos){ chaos.style.opacity = '0'; }
 }
 function triggerGameOver() {
   forceHideBatteryEmptyFlash();
@@ -8155,6 +8157,8 @@ function update(dt){
     chainSpreadDistance=0; chainLastExplosionX=null; chainLastExplosionY=null; // 拡散距離もリセット
     chainTierBannerFired=0; // チェインが切れたら、次のチェインでまたBIG/MEGA突入バナーを出せるようにする
   }
+  // BIG/MEGA CHAINバナー(#feat-banner)の明るさをchainTimerの残量に連動させる（詳細は関数コメント参照）
+  updateChainBannerFade();
   // チェーンテキストのライフ更新
   for(const ct of chainTexts){ ct.life -= 0.012*dt; ct.y += ct.vy*dt; }
   chainTexts = chainTexts.filter(ct => ct.life > 0);
@@ -8768,13 +8772,36 @@ function addScore(amount) {
   if(!amount || amount <= 0) return;
   score += amount;
   pendingScoreAddon += amount; // 演出は後でflushScoreAddon()がまとめて処理する
-  // FB対応：スコアがキリの良い額(SCORE_MILESTONE_INTERVAL点刻み)を超えるたびに演出バナーを出す。
-  // 大きな連鎖で一気に複数区切りをまたいだ場合も、バナーは最新（最も高い）区切り1件だけにする
+  // FB対応：スコアがキリの良い額(SCORE_MILESTONE_INTERVAL点刻み)を超えるたびにパルス演出を出す。
+  // 大きな連鎖で一気に複数区切りをまたいだ場合も、パルスは1回だけ発生させる
   const scoreTier = Math.floor(score / SCORE_MILESTONE_INTERVAL);
   if (scoreTier > lastScoreMilestoneTier) {
     lastScoreMilestoneTier = scoreTier;
-    showFeatBanner(`${(scoreTier * SCORE_MILESTONE_INTERVAL).toLocaleString()}点突破！`, FEAT_BANNER_COLORS.scoreMilestone, true);
+    pulseScoreMilestone(score);
   }
+}
+// FB対応：Cランク範囲は今まで通り白のまま、Bランク以上に到達している間は、そのスコアに
+// 対応したランクカラーで一瞬色づくようにする。
+// FB対応（バグ修正）：以前はここだけ独自のしきい値判定（sc>=X.need）を持っていたため、
+// 決戦フェーズの巨大ランク文字やリザルト画面のスコア光彩(getResultScoreShineColor、
+// どちらも「まだ到達していない次の階級」を表示する判定方式)と食い違い、たとえば200万点台
+// なのにリザルトではS表示になる、といった不一致が起きていた。判定を自前で持たず
+// getResultScoreShineColor()の結果をそのまま使うことで、常に他の表示と同じランク判定になる
+// ようにし、Cランクの色の時だけ白に差し替える
+function getScoreMilestonePulseColor(sc) {
+  const color = getResultScoreShineColor(sc);
+  return (color === RESULT_RANK_COLORS[0].color) ? null : color; // Cランクの色なら白のまま
+}
+// スコア区切り到達時のパルス演出：#hud-score-valに.milestone-pulseを付け直して
+// CSS側のアニメーション(0.8s)を再生する。flushScoreAddon()と同じく、毎フレーム起こり得る
+// 処理ではないため強制リフロー(void el.offsetWidth)で十分だが、念のため既存の
+// 他の一過性演出と同じrequestAnimationFrameでの付け直しパターンに揃えている
+function pulseScoreMilestone(sc) {
+  const el = document.getElementById('hud-score-val');
+  if (!el) return;
+  el.style.setProperty('--milestone-pulse-color', getScoreMilestonePulseColor(sc) || '#f5f7fa');
+  el.classList.remove('milestone-pulse');
+  requestAnimationFrame(() => { el.classList.add('milestone-pulse'); });
 }
 // 1フレームに1回だけ呼ぶ（loop()内）。連鎖で何度addScore()が呼ばれても、
 // 実際のDOM更新は最大60回/秒に収まる。
@@ -9242,9 +9269,19 @@ function drawDashVfx(){
   ctx.restore();
 }
 
-// ── 世界イベント画面オーバーレイ（画面端の色付きバーのみ。ギミックタイマー本体はDOM側の#gimmick-rowで表示） ─────────────────
+// ── 世界イベント画面オーバーレイ（画面端の色付きバー＋縦書きラベル） ─────────────────
+// FB対応：ギミック発動中の演出として、バッテリー行の下に別のバー(#gimmick-row)を
+// 出す構成は「違和感がある」とのことで廃止。画面端の色付きバー（このsideBarW幅の帯）
+// だけを残し、その帯の上に効果名を縦書き（1文字ずつ縦に並べる）で乗せることで、
+// 画面上部の高さを一切増やさずに「今どの効果が発動中か」を伝えられるようにした。
+const GIMMICK_LABEL_MAP = {
+  overcharge:    '磁力UP',
+  rock_awaken:   'スコア2倍',
+  vortex:        '大回転',
+  marble_fever:  '玉数UP',
+  resonance_run: '爆発力UP',
+};
 function drawWorldEventOverlay() {
-  updateGimmickRow(); // #gimmick-row（DOM）の表示・進捗を同期
   if (!activeWorldEvent) return;
   const ev = activeWorldEvent;
   const ratio = ev.timer / ev.totalDuration;
@@ -9272,42 +9309,26 @@ function drawWorldEventOverlay() {
   ctx.fillRect(0,        sideBarY, sideBarW, sideBarH); // 左
   ctx.fillRect(W-sideBarW, sideBarY, sideBarW, sideBarH); // 右
 
-  ctx.restore();
-}
-
-// ── ギミックタイマー行（DOM）の表示・進捗同期 ──
-// 発動中のみ#gimmick-rowを表示し、色・進捗（バー幅）を反映する。
-// FB対応：「今どんな効果が乗っているかわからない」との指摘で、以前は汎用アイコン＋残り秒数
-// だけだった構成をやめ、左に効果名の短いラベルを常時表示するようにした（秒数は廃止し、
-// バーの縮み具合そのもので残り時間の目安を伝える）
-const GIMMICK_COLOR_MAP = {
-  overcharge:    '#ffdd44',
-  rock_awaken:   '#ff8844',
-  vortex:        '#aa66ff',
-  marble_fever:  '#44ffcc',
-  resonance_run: '#ff4488',
-};
-const GIMMICK_LABEL_MAP = {
-  overcharge:    '磁力UP',
-  rock_awaken:   'スコア2倍',
-  vortex:        '大回転',
-  marble_fever:  '玉数UP',
-  resonance_run: '爆発力UP',
-};
-function updateGimmickRow() {
-  const rowEl = document.getElementById('gimmick-row');
-  if (!rowEl) return;
-  if (!activeWorldEvent) {
-    rowEl.classList.add('hide');
-    return;
+  // 縦書きラベル：バーの残量に関わらず、画面の縦中央に常に表示する
+  // （バーの高さ＝残り時間、ラベル＝今の効果の種類、と役割を分けているため固定位置にしている。
+  //  FB対応：画面上端付近だと目立たないとのことで、画面の縦中央に変更）
+  const label = GIMMICK_LABEL_MAP[ev.id] || '';
+  if (label) {
+    ctx.font = '900 13px -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.shadowColor = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur = 3;
+    const chars = [...label];
+    const lineH = 17;
+    const startY = H / 2 - (chars.length - 1) * lineH / 2; // 文字列全体を画面の縦中央に揃える
+    [sideBarW / 2, W - sideBarW / 2].forEach(cx => {
+      chars.forEach((ch, i) => ctx.fillText(ch, cx, startY + i * lineH));
+    });
   }
-  rowEl.classList.remove('hide');
-  const ev = activeWorldEvent;
-  const ratio = Math.max(0, ev.timer / ev.totalDuration);
-  const col = GIMMICK_COLOR_MAP[ev.id] || '#1a1a1a';
-  document.getElementById('gimmick-fill').style.width = (ratio * 100) + '%';
-  document.getElementById('gimmick-fill').style.background = col;
-  document.getElementById('gimmick-label').textContent = GIMMICK_LABEL_MAP[ev.id] || '';
+
+  ctx.restore();
 }
 
 // ── バッテリー残10%以下：画面端の波線演出（描画） ──
@@ -11415,6 +11436,7 @@ canvas.addEventListener('touchstart', e => {
     const t = e.changedTouches[0];
     if (t) {
       if (window.SoundSE) window.SoundSE.playBeaconSet(); // 発動後、実際に画面をタップした瞬間だけ鳴らす
+      triggerSkillActivationFX();
       dragPoint = worldFromScreen(t.clientX, t.clientY);
     }
     return;
@@ -11518,6 +11540,7 @@ let mouseChargeTimer = null;
 canvas.addEventListener('mousedown', e => {
   if (dragFreezeActive) {
     if (window.SoundSE) window.SoundSE.playBeaconSet(); // 発動後、実際に画面をタップした瞬間だけ鳴らす（PC動作確認用）
+    triggerSkillActivationFX();
     dragPoint = worldFromScreen(e.clientX, e.clientY);
     return;
   }
