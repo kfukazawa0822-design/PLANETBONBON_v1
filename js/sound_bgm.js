@@ -29,6 +29,12 @@
     // リザルト画面はBGM無し（キーを渡さない/nullで停止扱い）
   };
 
+  // FB対応：「bgm_enemy.mp3はループせず、1回限りの再生でOK」とのことなので、
+  // enemyキーだけループさせない（他のキーは従来通りループ再生）。
+  // 決戦フェーズがこの曲の長さより長引いても、その後は自然に無音のまま待ち、
+  // リザルト画面遷移時のSoundBGM.stop()で最終的に止まる想定
+  const NO_LOOP_KEYS = new Set(['enemy']);
+
   const audioEl = new Audio();
   audioEl.loop = true;
   audioEl.preload = 'auto';
@@ -70,6 +76,7 @@
       // refresh()が古い曲を再生してしまう（「オフからオンに戻しても音が戻らない」原因）。
       audioEl.src = src;
       audioEl.currentTime = 0;
+      audioEl.loop = !NO_LOOP_KEYS.has(key);
     }catch(err){ return; /* ファイル未配置などはここで無視 */ }
 
     if (!bgmEnabled()){
