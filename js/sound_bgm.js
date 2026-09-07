@@ -18,12 +18,13 @@
 (function(){
   const BGM_FILES = {
     // FB対応：ここみさんのBGM一覧に合わせて更新。
-    // タイトル画面（オプション/アチーブメント/遊び方画面含む）→menu、Play中→stage、
-    // 180秒経過後→stageEnd、決戦フェーズ（エネミー討伐シーン）→enemy、
+    // タイトル画面（オプション/アチーブメント/遊び方画面含む）→menu、Play中→stage（180秒経過後も
+    // 曲を切り替えずstageのままにする。以前あったstageEndへの切り替えは廃止）、
+    // バッテリー切れ〜決戦フェーズ突入までの数秒間→無音（BGM.stop()、下記の呼び出し側を参照）、
+    // 決戦フェーズ（エネミー討伐シーン）→enemy、
     // リザルト画面→BGMなし（キーを渡さずnullで停止扱い。旧resultは廃止）
     menu:      'assets/sound/bgm/bgm_menu.mp3',      // タイトル画面（オプション/アチーブメント/遊び方画面含む）/スキル選択
-    stage:     'assets/sound/bgm/bgm_stage.mp3',     // Play中
-    stageEnd:  'assets/sound/bgm/bgm_stage_end.mp3', // Play中・180秒経過後
+    stage:     'assets/sound/bgm/bgm_stage.mp3',     // Play中（時間経過に関わらずずっとこのまま）
     enemy:     'assets/sound/bgm/bgm_enemy.mp3',     // エネミー討伐シーン（決戦フェーズ：バッテリー切れ〜敵撃破演出の間）
     // リザルト画面はBGM無し（キーを渡さない/nullで停止扱い）
   };
@@ -51,7 +52,7 @@
     return !(typeof settings !== 'undefined' && settings && settings.bgmEnabled === false);
   }
 
-  // key: 'menu' | 'stage' | 'stageEnd' | 'result' | null（nullは停止＝タイトル画面用）
+  // key: 'menu' | 'stage' | 'enemy' | null（nullは停止＝無音にしたい場面用）
   function play(key){
     if (key === currentKey) return; // 既に同じ曲が流れている場合は何もしない（再スタートによるブツ切れ防止）
     currentKey = key;

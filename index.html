@@ -6979,7 +6979,9 @@ function update(dt){
   if(playTime >= BATTERY_DRAIN_BOOST_TIME && !batteryDrainBoostAnnounced){
     batteryDrainBoostAnnounced = true;
     showTopNotification('⚠ バッテリー出力不安定 ⚠');
-    if (window.SoundBGM) window.SoundBGM.play('stageEnd');
+    // FB対応：「180秒経過後にBGMをbgm_stage_end.mp3へ切り替えるのをやめて、時間に
+    // かかわらずずっとbgm_stage.mp3を流し続けたい」との指定で、ここでのBGM切り替えは廃止。
+    // 消費速度アップ・警告表示（上の2行）自体はゲームプレイの仕様なのでそのまま残す
   }
   const batteryDrainMult = (playTime >= BATTERY_DRAIN_BOOST_TIME ? BATTERY_DRAIN_BOOST_MULT : 1)
     * (gameMode === 'quick' ? QUICK_BATTERY_DRAIN_MULT : 1);
@@ -6992,6 +6994,9 @@ function update(dt){
     fill.style.width = '0%';
     document.getElementById('battery-row').classList.remove('low-battery');
     gameRunning=false;
+    // FB対応：「バッテリー切れで画面が赤く止まっている数秒間は無音にしたい。エネミーの
+    // シーンに移ったらbgm_enemyを流し始めてほしい」との指定で、赤点滅の間はBGMを止める
+    if (window.SoundBGM) window.SoundBGM.stop();
     // FB対応：決戦フェーズ（暗転〜一撃貫通演出）に移る前に、画面をその場で静止させたまま
     // 2秒間、赤みを点滅させて「バッテリー切れ」をしっかり見せる「間」を挟む
     // （以前は200msとほぼ即座に決戦フェーズへ切り替わっており、ゆとりが無いとの指摘。
