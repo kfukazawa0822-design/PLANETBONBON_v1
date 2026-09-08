@@ -2146,6 +2146,10 @@ canvas { display:block; width:100%; height:100%; }
 #chaos-overlay {
   position:fixed; inset:0; pointer-events:none; z-index:10;
   opacity:0; transition:opacity 0.5s;
+  /* FB対応（実機バグ）：「画面上部の赤みが残ったままになる」対策の一つ。GPU合成レイヤーへ
+     明示的に昇格させることで、一部モバイル端末で起きる「不透明度の描画が更新されず
+     古い見た目のまま固まる」類の再描画バグを避ける */
+  will-change: opacity; transform: translateZ(0);
 }
 
 /* ── レスポンシブ：画面高さ700px未満（小型スマホ） ── */
@@ -12339,6 +12343,27 @@ function forceReleaseHolds(){
   releaseSkillHold();
   if(cannonCharge) cannonCharge.holding = false;
   skillTouchId = null;
+  // FB対応（実機バグ）：「仮想スティックは動くのに追従スティックが出なくなって使えなくなる」。
+  // バックグラウンド遷移・通知センターの引き下げ等でcanvas側のtouchend/touchcancelが
+  // 届かないと、chargeTouchId／joyTouchIdが「掴んだまま」残ってしまい、以降ずっと
+  // 新しいタッチが「2本目＝方向転換専用」の分岐に落ちて、フローティングスティック
+  // (floatStickShow)が二度と出せなくなる。スキルボタン用の保険（上のskillTouchIdクリア）
+  // と全く同じ理由・全く同じタイミングで発生するので、同じ保険にまとめて含める
+  clearTimeout(chargeTimer); chargeTimer = null;
+  chargeTouchId = null;
+  joyTouchId = null;
+  player.isCharging = false;
+  player.charge = 0;
+  touch.active = false; touch.targetAngle = null;
+  floatStickHide();
+  joyReset();
+  // FB対応（実機バグ）：「画面上部の赤みが残ったままになる」。#chaos-overlayは
+  // update(dt)ループの中でしか値が更新されないため、バックグラウンド遷移等でループが
+  // 一瞬止まる・再開が乱れるようなタイミングだと、古い不透明度のまま描画が固まって
+  // 見えることがある。ここで現在のバッテリー値から強制的に再計算させ、常に実際の状態と
+  // 一致させる（updateChaosOverlay自体は毎回バッテリー値から計算し直すだけなので、
+  // 何度呼んでも安全）
+  if (typeof updateChaosOverlay === 'function') updateChaosOverlay();
 }
 document.addEventListener('visibilitychange', ()=>{ if(document.hidden) forceReleaseHolds(); });
 window.addEventListener('blur', forceReleaseHolds);

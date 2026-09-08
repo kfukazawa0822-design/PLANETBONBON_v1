@@ -283,12 +283,19 @@
   function playMegaChainSurge(){ play('megaChainSurge'); } // MEGA CHAIN突入の瞬間
   function playBigChainSurge(){ play('bigChainSurge'); } // BIG CHAIN突入の瞬間
 
+  // FB対応（実機バグ）：「SEがたまに全く鳴らなくなる」の原因。ここで存在しない関数名
+  // playBeaconSet を参照していたため、このオブジェクトリテラルの評価時点で
+  // ReferenceErrorが発生し、このIIFE全体（window.SoundSEの公開・preloadAll()による
+  // 音声プリロード・ボタンSEの自動デリゲーション設定を含む）が丸ごと止まっていた
+  // （console上は「Uncaught ReferenceError: playBeaconSet is not defined」として現れる）。
+  // フリーズハンドの発動音は既にplayBeaconHold()に統合済みで、playBeaconSetはどこからも
+  // 呼ばれていない未使用の古い参照だったため削除
   window.SoundSE = {
     playButton, playButtonHold, stopButtonHold, playPage, playPopup, playTutorial, playDoctor,
     playExplosionSE,
     playItemGet, playBatteryHit, playBatteryMiss, playGimmick,
     playEpGet, playAchievementGet, playAchievementUnlock, playEpUse,
-    playSkill, playBeaconSet, playBeaconHold, stopBeaconHold, playBeaconWarp,
+    playSkill, playBeaconHold, stopBeaconHold, playBeaconWarp,
     playGameStart, playBlackholeCollapse, playBlackholeDamage, stopBlackholeDamage,
     playDelayOrbDamage, playEnergyCannonCharge, playEnemyDefeat, playEnergyCannonDespawn,
     playResultTenMillion, playSkillUnlock, playMegaChainSurge, playBigChainSurge,
