@@ -2944,6 +2944,10 @@ let skillSP         = 0;    // 現在のSP
 let skillStock      = 0;    // 現在のストック数
 let skillActive     = false;// スキル効果発動中
 let skillTimer      = 0;    // 効果残り時間（秒）
+// FB対応：フリーズハンド解除直後、溜まった玉が一気に弾けてSPが即満タンになり
+// 無限に連射できてしまう問題への対策。解除からこの時刻(playTime基準)までの間は
+// SPゲージの上限を半分に制限する（詳細はgainSP()内）
+let spCapEndAt      = 0;
 let bubbleAiming      = false; // シャボン玉：狙い中フラグ（true の間は時間停止＋旋回のみ許可）
 let bubbleAimElapsed  = 0;    // シャボン玉：狙い開始からの経過秒数（発射ボタンの表示タイミング用）
 let bubbleFiring      = false; // シャボン玉：狙い確定後、輪へ収束→連射している間のフラグ（この間も時間停止を継続）
@@ -2970,6 +2974,7 @@ const DRAG_PULL_SOFT_R = 150;
 // 中心へ一直線に吸い込むのではなく、渦を巻きながら寄っていく接線方向の力の強さ
 const DRAG_SPIN_RATE = 0.035;
 let sweepEffects      = []; // マグネットスイープ：手描きの弧エフェクト {cx,cy,startAngle,endAngle,range,color,born,dur}
+let sweepStarBits     = []; // スターウェーブ：発動時にまとめて撒く星屑バースト {x,y,size,color,born,dur,phase}
 
 let upgrades = { sBoost:1, nBoost:1, rangeUp:1, chainMulti:1, explodeUp:1, rareBoost:0, skillCharge:100 };
 
@@ -3450,6 +3455,7 @@ function initGame(mode) {
   player.blinking = false; player.blinkTimer = 0; blinkGhosts = [];
   _dashLines = null; _dashRushBlend = 0; _dashLineTimer = 0;
   sweepEffects = [];
+  sweepStarBits = [];
   cannonCharge = null;
   document.getElementById('chaos-overlay').style.opacity = '0';
   upgrades = { sBoost:1, nBoost:1, rangeUp:1, chainMulti:1, explodeUp:1, rareBoost:0, skillCharge:100 };
@@ -3467,7 +3473,7 @@ function initGame(mode) {
   pulseFrame={ amp:0, jitter:0, time:0, visibility:0 };
   rockHitCooldown=0;
   playTime=0; batteryDrainBoostAnnounced=false; currentChainDepth=0; screenShake={x:0,y:0,power:0}; releaseGraceTimer=0;
-  skillSP=0; skillStock=0; skillActive=false; skillTimer=0;
+  skillSP=0; skillStock=0; skillActive=false; skillTimer=0; spCapEndAt=0;
   bubbleAiming=false; bubbleAimElapsed=0; bubbleFiring=false; bubbleFireQueue=[]; bubbleFireElapsed=0; dragFreezeActive=false; dragPoint=null; dragFreezeElapsed=0;
   if (bhDangerSEPlaying && window.SoundSE) { window.SoundSE.stopBlackholeDamage(); bhDangerSEPlaying = false; } // 新しいランの開始時に前回分のループ音が残らないようにする
   { const b1=document.getElementById('bubble-aim-banner'), b2=document.getElementById('bubble-fire-btn'), b3=document.getElementById('beacon-ok-btn');
@@ -4555,6 +4561,12 @@ function updateChainDisplay(n, depth, wx, wy, playerCaused=false) {
   if (lastChainTier > chainTierBannerFired) {
     chainTierBannerFired = lastChainTier;
     updateChainBannerText(lastChainTier);
+    // FB対応：「BIG CHAIN・MEGA CHAINの両方にそれぞれSEを追加してほしい」。
+    // 各段階に初めて突入した、まさにこの瞬間だけ1回鳴らす
+    if (window.SoundSE) {
+      if (lastChainTier === 2) window.SoundSE.playMegaChainSurge();
+      else if (lastChainTier === 1) window.SoundSE.playBigChainSurge();
+    }
   }
   // 色・サイズはn基準
   if      (n <= 10)  { size=15; bold=false; color='#c9ccd6'; }
@@ -4582,6 +4594,16 @@ function gainSP(amount){
   const def = SKILL_DEFS.find(s=>s.id===selectedSkillId);
   if(!def) return;
   if(skillStock >= def.maxStock) return; // 最大ストック時はSP不加算
+  // FB対応：「フリーズハンド解除直後、溜まった玉が一気に弾けてSPが即満タンになり、
+  // 無限に連射できてしまう」。フリーズハンド解除から2秒間だけ、SPゲージの上限を
+  // 全体の半分（maxStock×spCostの半分）に制限する。半分までは今まで通り一気に
+  // 貯まってよいが、そこから先はこの猶予が終わってから自力で貯めてもらう
+  if(selectedSkillId === 'beacon' && playTime < spCapEndAt){
+    const capTotal = (def.maxStock * def.spCost) / 2;
+    const curTotal = skillStock * def.spCost + skillSP;
+    if(curTotal >= capTotal) return; // すでに半分に達しているのでこれ以上は貯めない
+    amount = Math.min(amount, capTotal - curTotal);
+  }
   skillSP += amount;
   while(skillSP >= def.spCost && skillStock < def.maxStock){
     skillSP -= def.spCost;
@@ -4878,12 +4900,27 @@ function activateSweep(){
     m.spawnShield = Math.max(m.spawnShield, SWEEP_INVULN);
     m.speedCapBoostTimer = SWEEP_BOOST_DUR; // この間だけ速度上限を緩めて、実際に遠くへ飛ばす
 
-    // 着弾の瞬間、弾かれた玉自身にも小さな衝撃パーティクル
-    for(let i=0;i<3;i++){
-      const a2=Math.random()*Math.PI*2, s2=1+Math.random()*2;
+    // FB対応：「スターウェーブという名前なのに星要素が無いので、お手軽な星化から」
+    // →「全然変化がわからなかった」とのことで、星のサイズ・数・輝度を大幅に強化。
+    // ②着弾パーティクルを星型にする。丸い破片の代わりに、レア玉と同じきらめき星
+    // （drawRareSparkle）を、極性の色（sweepEffectsの色分けと同じ、N極=青／S極=ピンク）で弾けさせる。
+    // 物理(位置更新・寿命減衰)は既存のparticles配列にそのまま任せ、drawParticles側の
+    // shape==='star'分岐だけ追加して描画方法だけ変える（他のパーティクルには一切影響しない）。
+    // 個数を3→7、サイズを約2倍に増量し、さらに加算合成(lighter)で発光っぽく光らせる
+    const starColorRGB = isNPole ? {r:80,g:160,b:255} : {r:255,g:80,b:120};
+    for(let i=0;i<7;i++){
+      const a2=Math.random()*Math.PI*2, s2=1.5+Math.random()*3;
       particles.push({x:m.x,y:m.y,vx:Math.cos(a2)*s2,vy:Math.sin(a2)*s2,
-        hue:0,r:1+Math.random()*1.5,life:1,maxLife:0.2+Math.random()*0.15});
+        hue:0,r:3.5+Math.random()*4,life:1,maxLife:0.3+Math.random()*0.2,
+        shape:'star', starColor:starColorRGB});
     }
+    // FB対応：「②をもっと目立たせたい」。①（発動時に扇形範囲へ撒かれる色付きの星屑）と
+    // 同じ場所・同じタイミングで色付きの小さい星が散っても埋もれてしまうため、当たった瞬間だけ
+    // その場に動かず・真っ白で・大きく・一瞬だけ光る「ヒットフラッシュ」を1個追加する。
+    // 「白・大きい・一瞬でパッと消える」という①とは違う質感にすることで、はっきり見分けられるようにする
+    particles.push({x:m.x,y:m.y,vx:0,vy:0,
+      hue:0,r:9+Math.random()*3,life:1,maxLife:0.12+Math.random()*0.05,
+      shape:'star', starColor:{r:255,g:255,b:255}});
   }
 
   // 追加効果：薙ぎ払ったエリア内にドロップアイテムがあれば、通常の磁力吸着と同じ
@@ -4913,6 +4950,28 @@ function activateSweep(){
     born: Date.now(),
     dur: 380 / 1.5, // 薙ぎ払う速度を1.5倍に強化した分、演出の振り抜きも同じ比率で速くする
   });
+
+  // FB対応：「スターウェーブという名前なのに星要素が無いので、お手軽な星化から」
+  // ①発動と同時に、薙ぎ払う扇形範囲全体へ星屑をまとめて撒く「星屑バースト」。
+  // 弧本体の演出は約0.25秒で消えてしまい短すぎて目立たなかったため、こちらは独立した
+  // 寿命(sweepStarBits、Date.now()ベース)を持たせて弧より長く（0.6〜0.9秒）光らせながら
+  // ゆっくり消えていくようにする。描画はdrawSweepStarBits()側、加算合成(lighter)で発光させる
+  const STAR_BURST_COUNT = 22;
+  const starBurstColor = isNPole ? '80,160,255' : '255,80,120';
+  for(let i=0;i<STAR_BURST_COUNT;i++){
+    const sa = player.angle - halfArc + Math.random()*halfArc*2;
+    const sr = range*0.15 + Math.random()*range*0.85;
+    const bx = (((player.wx + Math.cos(sa)*sr) % WORLD_W) + WORLD_W) % WORLD_W;
+    const by = (((player.wy + Math.sin(sa)*sr) % WORLD_H) + WORLD_H) % WORLD_H;
+    sweepStarBits.push({
+      x: bx, y: by,
+      size: 8 + Math.random()*10, // 最初の案(2.5〜6.5)よりだいぶ大きく
+      color: starBurstColor,
+      born: Date.now(),
+      dur: 600 + Math.random()*300,
+      phase: Math.random()*Math.PI*2,
+    });
+  }
 
   // 発動の瞬間に軽くカメラを揺らして、一撃のインパクトを強める
   cam.shakeX=(Math.random()-0.5)*6;
@@ -4957,8 +5016,13 @@ function finishBeaconFreeze(){
   dragPoint = null;
   skillActive = false;
   skillTimer = 0;
+  // FB対応：解除直後2秒間はSPゲージの上限を半分に制限する（詳細はgainSP()内）
+  spCapEndAt = playTime + 2;
   const okBtn = document.getElementById('beacon-ok-btn');
   if (okBtn) okBtn.classList.add('hide');
+  // 保険：時間切れ／OKボタンで強制終了した瞬間、まだ画面に触れたままだった場合に
+  // ループSEが鳴りっぱなしにならないよう、ここでも念のため止めておく
+  if (window.SoundSE) window.SoundSE.stopBeaconHold();
 }
 
 // ── SP獲得：赤玉・金玉破壊時 ────────────────────
@@ -5333,6 +5397,50 @@ const playShowdownPhase = (() => {
   // 尾は常に頭の位置から+Y側（下＝後方）へ伸ばす。tailLenが十分小さい間（＝チャージ中）は
   // 尾を出さず、ただ光る球（芯）が育っていくだけの見た目にする
   // （「ためてる間は尾を引かない。発射時に尾を出す」ため）。
+  // FB対応：「エネルギー砲の黒い極太リングがダサい」。芯を囲んでいた黒縁
+  // （rgba(0,0,0,0.55)・太さr×0.1）を廃止し、proposals/energy_cannon_design_proposals.html
+  // で見せた4案のうち②オービット・スパーク（光の粒が周回）＋③モニョモニョ波紋リング
+  // （輪郭が常に揺らぐ細いリング）を組み合わせた見た目に差し替える
+  function drawBeamRingDecor(x, y, r) {
+    const t = Date.now() * 0.001;
+    const gold = '255,205,110';
+    const pulse = Math.abs(Math.sin(t*1.8));
+
+    // ③モニョモニョ波紋リング：内側の静かな細リング＋外側の常に揺らぐリング
+    sctx.beginPath(); sctx.arc(x, y, r + 6*S, 0, Math.PI*2);
+    sctx.strokeStyle = `rgba(${gold},0.35)`;
+    sctx.lineWidth = Math.max(0.8, 1*S); sctx.stroke();
+
+    const wobbleSteps = 48;
+    sctx.beginPath();
+    for (let i = 0; i <= wobbleSteps; i++) {
+      const a = (i/wobbleSteps) * Math.PI*2;
+      const rr = r + 15*S + Math.sin(a*5 + t*2.0) * 3.2*S;
+      const px = x + Math.cos(a)*rr, py = y + Math.sin(a)*rr;
+      if (i === 0) sctx.moveTo(px, py); else sctx.lineTo(px, py);
+    }
+    sctx.closePath();
+    sctx.strokeStyle = `rgba(${gold},${0.6 + pulse*0.25})`;
+    sctx.lineWidth = Math.max(1, 1.5*S);
+    sctx.stroke();
+
+    // ②オービット・スパーク：芯の周りを光の粒が周回する
+    const N = 6;
+    for (let k = 0; k < N; k++) {
+      const ang = t*1.1 + (k/N)*Math.PI*2;
+      const dist = r + 11*S;
+      const px = x + Math.cos(ang)*dist, py = y + Math.sin(ang)*dist;
+      const twinkle = 0.55 + 0.45*Math.sin(t*4 + k*2);
+      const pr = Math.max(0.8, 2.6*S*twinkle);
+      const g = sctx.createRadialGradient(px, py, 0, px, py, pr*2.2);
+      g.addColorStop(0, `rgba(255,235,190,${0.95*twinkle})`);
+      g.addColorStop(1, 'rgba(255,180,80,0)');
+      sctx.beginPath(); sctx.arc(px, py, pr*2.2, 0, Math.PI*2); sctx.fillStyle = g; sctx.fill();
+      sctx.beginPath(); sctx.arc(px, py, pr, 0, Math.PI*2);
+      sctx.fillStyle = `rgba(255,255,255,${0.9*twinkle})`; sctx.fill();
+    }
+  }
+
   function drawBeam(x, y, r, tailLen, glowBoost) {
     if (r <= 0.4) return;
     const hasTail = tailLen > 0.5*S;
@@ -5352,9 +5460,7 @@ const playShowdownPhase = (() => {
       sctx.fillStyle = coreGrad;
       sctx.beginPath(); sctx.arc(x,y,r,0,Math.PI*2); sctx.fill();
 
-      sctx.strokeStyle = 'rgba(0,0,0,0.55)';
-      sctx.lineWidth = Math.max(1.2, r*0.1);
-      sctx.beginPath(); sctx.arc(x, y, r, 0, Math.PI*2); sctx.stroke();
+      drawBeamRingDecor(x, y, r);
       sctx.restore();
       return;
     }
@@ -5372,9 +5478,7 @@ const playShowdownPhase = (() => {
     sctx.fillStyle = coreGrad;
     beamCapsule(r);
     sctx.fill();
-    sctx.strokeStyle = 'rgba(0,0,0,0.55)';
-    sctx.lineWidth = Math.max(1.2, r*0.1);
-    sctx.beginPath(); sctx.arc(x, y, r, 0, Math.PI*2); sctx.stroke();
+    drawBeamRingDecor(x, y, r);
     sctx.restore();
 
     function beamCapsule(rad) {
@@ -6846,8 +6950,23 @@ function update(dt){
       if (okBtn) okBtn.classList.remove('hide');
     }
     if(dragPoint){
-      const DRAG_PULL_RATE = 0.06;  // 1フレームで距離をどれだけ詰めるか（小さいほど粘り気のある動きになる）
+      // FB対応：「ゆっくり動かさないとついてこないのが億劫」の原因調査。
+      // 旧実装は「現在の距離のDRAG_PULL_RATE(6%)ぶんだけ詰める」という“割合”ベースだった。
+      // これは指を素早く動かして引き寄せ先(dragPoint)が大きく移動すると、玉が1フレームで
+      // 詰められる距離（=残り距離×6%）よりドラッグ先の移動量の方が大きくなってしまい、
+      // 玉が永遠に追いつけず置いていかれる（さらに離れるとDRAG_TOTAL_Rの外に出て追跡自体が
+      // 打ち切られる）という構造的な欠陥だった。プレイヤー本体のS極磁力は「速度に力を
+      // 加え続ける」方式なので指の動きにちゃんと追従するのに対し、こちらは割合ベースの
+      // 位置ワープだったため挙動が根本的に違っていた。
+      // 対策：割合ではなく「1フレームに詰められる距離の上限」を固定値(DRAG_CHASE_SPEED)にする。
+      // これなら指をどれだけ素早く動かしても、その速さがDRAG_CHASE_SPEEDを大きく超えない限り
+      // ちゃんと追いつける（＝プレイヤーの磁力に近い、扱いやすい感触になる）
+      const DRAG_CHASE_SPEED = 26; // 1フレーム(60fps基準)あたり最大で詰められる距離
+      const DRAG_CAPTURE_R = 26;   // ここまで寄せ切ったら「掴んだ」とみなす
       const DRAG_TOTAL_R = DRAG_PULL_R + DRAG_PULL_SOFT_R; // ここまでは弱まりつつ効果が及ぶ
+      // FB対応：「玉が１点に重なりすぎて挙動がおかしいし、増殖しているのもわからない」。
+      // 引き寄せ中の玉を後で分離処理にかけられるよう、対象になった玉だけここに集めておく
+      const dragActiveMarbles = [];
       for(const m of marbles){
         if(!m.alive) continue;
         let dx = dragPoint.x - m.x, dy = dragPoint.y - m.y;
@@ -6858,17 +6977,72 @@ function update(dt){
         // FB対応：「効く/効かないの境界を曖昧に、広げる方向で」。DRAG_PULL_Rまでは
         // 今まで通り100%の効き目、そこから外側はDRAG_TOTAL_Rに向けてなだらかに0まで弱まる
         const falloff = dist <= DRAG_PULL_R ? 1 : 1 - (dist - DRAG_PULL_R) / DRAG_PULL_SOFT_R;
+        const nx = dx/dist, ny = dy/dist;
         // 座標を直接動かす（時間停止中は通常の物理・速度を通さないため）。
-        // 距離に比例して詰めるので、中心に近いほど動きがゆっくりになり吸い込まれるのではなく寄ってくる感触になる
-        const pull = Math.min(1, DRAG_PULL_RATE * dt) * falloff;
+        // 割合ではなく固定速度で詰めるので、指を動かす速さに負けず追従できる
+        // （行き過ぎないようdistでクランプ）
+        const moveDist = Math.min(dist, DRAG_CHASE_SPEED * dt * falloff);
         // FB対応：「プレイヤーのSやブラックホールみたいに回転をかけたい」。中心から見て
         // 時計回りの接線方向（既存の渦・ブラックホールの吸引と同じ考え方）に、距離に比例した
         // 移動量を加えることで、一直線ではなく渦を巻きながら寄っていく見た目にする
-        const tanX = -dy/dist, tanY = dx/dist;
+        const tanX = -ny, tanY = nx;
         const spin = Math.min(1, DRAG_SPIN_RATE * dt) * dist * falloff;
-        m.x = (((m.x + dx*pull + tanX*spin) % WORLD_W) + WORLD_W) % WORLD_W;
-        m.y = (((m.y + dy*pull + tanY*spin) % WORLD_H) + WORLD_H) % WORLD_H;
+        m.x = (((m.x + nx*moveDist + tanX*spin) % WORLD_W) + WORLD_W) % WORLD_W;
+        m.y = (((m.y + ny*moveDist + tanY*spin) % WORLD_H) + WORLD_H) % WORLD_H;
         m.vx *= 0.8; m.vy *= 0.8; // 解除後に元の勢いのまま暴れて飛んでいかないよう、引き寄せ中に少しずつ勢いを殺す
+
+        // FB対応：「フリーズショットは命中した玉が2倍に増えるのに対し、フリーズハンドは
+        // 何も増えないので明らかに弱く感じる」。フリーズショットの命中弾分裂
+        // （releaseBubbleShot内、輪をくぐった瞬間に同じ種類の玉をもう1個makeMarbleする処理）
+        // と同じ考え方で、ここでは実際に寄せ切って「掴んだ」瞬間、その場で同じ種類の玉を
+        // もう1個複製する。1個の玉につき1回だけ（freezeHandDoubledフラグで連鎖複製を防止。
+        // 複製された側にも同じフラグを立てるので、複製後の玉がさらに複製を生むことはない）
+        if(!m.freezeHandDoubled && dist <= DRAG_CAPTURE_R){
+          m.freezeHandDoubled = true;
+          const spreadAng = Math.random() * Math.PI * 2;
+          const spreadDist = (m.baseR || MARBLE_R) * 1.6;
+          const newM = makeMarble(
+            (((m.x + Math.cos(spreadAng)*spreadDist) % WORLD_W) + WORLD_W) % WORLD_W,
+            (((m.y + Math.sin(spreadAng)*spreadDist) % WORLD_H) + WORLD_H) % WORLD_H,
+            0, 0, 1, m.marbleType
+          );
+          newM.freezeHandDoubled = true;
+          marbles.push(newM);
+          dragActiveMarbles.push(newM);
+        }
+        dragActiveMarbles.push(m);
+      }
+
+      // FB対応：「玉が１点に重なりすぎていて挙動がおかしいし、増殖しているのもわからない」。
+      // 上のループは各玉をdragPointへ寄せるだけで玉同士の反発は一切かけていないため、
+      // 全員が同じ1点に完全に重なってしまっていた。プレイヤー本体の吸引モード同様、
+      // 引き寄せ対象の玉どうしだけを対象に、重なった分だけ押し離す簡易的な分離処理を追加する
+      // （通常の物理・当たり判定は時間停止中は使わないため、ここだけの専用処理）
+      const DRAG_SEPARATE_FACTOR = 0.82; // 半径の合計×この係数より近づいたら押し離す（1だと隙間なく整列、少し余裕を持たせる）
+      for(let i=0;i<dragActiveMarbles.length;i++){
+        const a = dragActiveMarbles[i];
+        if(!a.alive) continue;
+        for(let j=i+1;j<dragActiveMarbles.length;j++){
+          const b = dragActiveMarbles[j];
+          if(!b.alive) continue;
+          let dx = b.x - a.x, dy = b.y - a.y;
+          if(dx>WORLD_W/2) dx-=WORLD_W; else if(dx<-WORLD_W/2) dx+=WORLD_W;
+          if(dy>WORLD_H/2) dy-=WORLD_H; else if(dy<-WORLD_H/2) dy+=WORLD_H;
+          let dist = Math.hypot(dx,dy);
+          const minDist = ((a.baseR||MARBLE_R) + (b.baseR||MARBLE_R)) * DRAG_SEPARATE_FACTOR;
+          if(dist >= minDist) continue;
+          if(dist < 0.001){
+            // 完全に同座標（複製直後など）の場合はランダムな向きに逃がす
+            const ang = Math.random()*Math.PI*2;
+            dx = Math.cos(ang); dy = Math.sin(ang); dist = 1;
+          }
+          const nx = dx/dist, ny = dy/dist;
+          const push = (minDist - dist) * 0.5;
+          a.x = (((a.x - nx*push) % WORLD_W) + WORLD_W) % WORLD_W;
+          a.y = (((a.y - ny*push) % WORLD_H) + WORLD_H) % WORLD_H;
+          b.x = (((b.x + nx*push) % WORLD_W) + WORLD_W) % WORLD_W;
+          b.y = (((b.y + ny*push) % WORLD_H) + WORLD_H) % WORLD_H;
+        }
       }
     }
     return;
@@ -6922,6 +7096,11 @@ function update(dt){
   if(sweepEffects.length){
     const now = Date.now();
     sweepEffects = sweepEffects.filter(e => now - e.born < e.dur + 60);
+  }
+  // スターウェーブ：星屑バーストも同様に、寿命が切れたものを間引く
+  if(sweepStarBits.length){
+    const now2 = Date.now();
+    sweepStarBits = sweepStarBits.filter(s => now2 - s.born < s.dur);
   }
 
   // ── 大砲：チャージ中の更新（出現アニメーション→ホールド解除で発射） ──
@@ -8884,6 +9063,38 @@ const GENERATOR_ICON_SCALE = 1.5;
 // （赤玉・金玉・発電装置はもともと同時に存在する数が少ない特別な存在なので、
 // 引き続き全て表示する）。
 const OFFSCREEN_ITEM_MAX = 3;
+// FB対応：「ブラックホール（起動まで1秒）に紫の三角矢印、玉が40個くらい固まってる場所に
+// 白の三角矢印を出したい」。①は既にある「予兆(omen)の残り1秒で足止め＝発見待ち」の状態を
+// そのまま流用できる。②は玉の密集を検出する仕組みが無かったので新設する。
+// 密集検出：毎フレームやると重いので0.5秒に1回だけ、ワールドをCLUSTER_CELL四方のマスに
+// 分けて玉を数え、しきい値(CLUSTER_MIN_COUNT)を超えたマスがあれば、その重心を「密集地帯」とする
+// FB対応：「玉の密集矢印が全然出ない」の原因を確認したところ、CLUSTER_CELL=180（180×180px）の
+// マス目は、玉1個の直径(MARBLE_R=21→約42px)を踏まえると、隙間なく詰めても最大18〜20個ほどしか
+// 物理的に収まらないマスだった。しきい値の32個は同じマスの中では原理的に到達不可能な数字になっており、
+// 密集矢印が絶対に出ない実装ミスだった。マスを300×300pxまで広げ、32個が余裕をもって収まるようにする
+const CLUSTER_CELL = 300;       // グリッド1マスの大きさ(px)
+const CLUSTER_MIN_COUNT = 32;   // 「40個くらい」に対して少し手前から反応するよう余裕を持たせたしきい値
+let denseClusterTarget = null;
+let denseClusterCheckAt = 0;
+
+function findDenseMarbleCluster(){
+  const buckets = new Map(); // "gx,gy" -> {count, sx, sy}
+  for(const m of marbles){
+    if(!m.alive) continue;
+    const gx = Math.floor(m.x / CLUSTER_CELL), gy = Math.floor(m.y / CLUSTER_CELL);
+    const key = gx + ',' + gy;
+    let b = buckets.get(key);
+    if(!b){ b = {count:0, sx:0, sy:0}; buckets.set(key, b); }
+    b.count++; b.sx += m.x; b.sy += m.y;
+  }
+  let best = null;
+  for(const b of buckets.values()){
+    if(b.count >= CLUSTER_MIN_COUNT && (!best || b.count > best.count)) best = b;
+  }
+  if(!best) return null;
+  return { x: best.sx/best.count, y: best.sy/best.count };
+}
+
 function offscreenNavTargets(){
   const list = [];
   for (const h of holes) {
@@ -8904,7 +9115,77 @@ function offscreenNavTargets(){
     const nearestItems = [...items].sort((a,b)=>itemDist(a)-itemDist(b)).slice(0, OFFSCREEN_ITEM_MAX);
     for (const it of nearestItems) list.push({ x:it.x, y:it.y, kind:'item', itemDef:it.def });
   }
+  // FB対応：ブラックホール・密集地帯の矢印は「画面端のアイコン」から「プレイヤー周辺の3連チェブロン」
+  // 表示に変更したため、ここ（画面端ナビ）の対象リストからは外した。実際の対象探しは
+  // playerDirectionalTargets()側（下のdrawPlayerDirectionalHints()のすぐ上）を参照
   return list;
+}
+
+// FB対応：「ブラックホールや密集地帯の三角は、画面端ではなくプレイヤー周辺に表示してほしい。
+// ３連に、１個ずつ点滅（他２個は不透明度を下げる）ような感じにしてほしい」。
+// 画面端ナビ(offscreenNavTargets/drawOffscreenNav、アイテムや赤玉・金玉が対象)とは完全に別の
+// 仕組みとして新設する。対象の探索ロジック自体は元のまま（ブラックホールは予兆残り1秒で
+// 足止め中、密集地帯は0.5秒に1回再計算してキャッシュ）流用する。
+function playerDirectionalTargets(){
+  const list = [];
+  for (const rk of rocks) {
+    if (rk.alive && rk.ability === 'blackhole' && rk.state === 'omen' && rk.stateTimer <= 1.001) {
+      list.push({ x:rk.x, y:rk.y, kind:'blackhole-ready' });
+    }
+  }
+  const nowCluster = Date.now();
+  if (nowCluster - denseClusterCheckAt > 500) {
+    denseClusterCheckAt = nowCluster;
+    denseClusterTarget = findDenseMarbleCluster();
+  }
+  if (denseClusterTarget) list.push({ x:denseClusterTarget.x, y:denseClusterTarget.y, kind:'cluster' });
+  return list;
+}
+
+// プレイヤーは常に画面中心(cx,cy)に描画されるので、そこを起点に対象のいる方向(angle)へ向けて
+// 小さな三角形(チェブロン)を3個、外側に向かって並べる。0.3秒ごとに「今光っている1個」を
+// 内側→外側→（また内側から）と巡回させ、光っていない2個は不透明度を下げることで、
+// 「この先にあるよ」と流れるように示す（エレベーターの階数表示や、カーナビの矢印と同じ考え方）
+function drawPlayerDirectionalHints(){
+  if (!gameRunning) return;
+  const targets = playerDirectionalTargets();
+  if (targets.length === 0) return;
+  const cx = W/2 + cam.shakeX, cy = H/2 + cam.shakeY;
+  const now = Date.now();
+  const activeIdx = Math.floor((now % 900) / 300); // 0→1→2→0…と0.3秒ごとに切り替わる周期
+
+  ctx.save();
+  for (const tgt of targets) {
+    let dx = tgt.x - player.wx, dy = tgt.y - player.wy;
+    if (dx >  WORLD_W/2) dx -= WORLD_W; else if (dx < -WORLD_W/2) dx += WORLD_W;
+    if (dy >  WORLD_H/2) dy -= WORLD_H; else if (dy < -WORLD_H/2) dy += WORLD_H;
+    const angle = Math.atan2(dy, dx);
+    // ブラックホール＝紫、密集地帯＝白（今までの矢印の色分けをそのまま踏襲）
+    const [cr, cg, cb] = tgt.kind === 'blackhole-ready' ? [190,120,255] : [240,244,255];
+
+    for (let i = 0; i < 3; i++) {
+      const dist = 100 + i * 20; // プレイヤーから少しずつ外側へ、内→外の順に並べる（FB対応：中心に近すぎたので半径を拡大）
+      const px = cx + Math.cos(angle) * dist;
+      const py = cy + Math.sin(angle) * dist;
+      const isActive = i === activeIdx;
+      const a = isActive ? 0.95 : 0.28; // 光っている1個以外は不透明度を下げる
+
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(angle + Math.PI/2); // 先端が対象の方向を向くよう回転
+      ctx.beginPath();
+      ctx.moveTo(0,-7); ctx.lineTo(5,5); ctx.lineTo(-5,5); ctx.closePath();
+      ctx.fillStyle = `rgba(${cr},${cg},${cb},${a})`;
+      ctx.fill();
+      if (isActive) {
+        ctx.strokeStyle = `rgba(${cr},${cg},${cb},0.9)`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+  ctx.restore();
 }
 
 // 中心(cx,cy)からangle方向に伸ばしたレイと、内側マージン楕円の縁との交点を返す
@@ -8951,7 +9232,7 @@ function drawGimmickGuideLine(){
   ctx.restore();
 }
 
-function drawOffscreenNavIcon(kind, x, y, scale, extra){
+function drawOffscreenNavIcon(kind, x, y, scale, extra, angle){
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale);
@@ -9124,7 +9405,7 @@ function drawOffscreenNav(){
     const tt = Math.max(0, Math.min(1, (dist - NEAR) / (FAR - NEAR)));
     const scale = 1.6 - tt * 0.7;
 
-    drawOffscreenNavIcon(t.kind, ix, iy, scale, t.itemDef);
+    drawOffscreenNavIcon(t.kind, ix, iy, scale, t.itemDef, angle);
   }
   ctx.restore();
 }
@@ -9177,12 +9458,15 @@ function draw(){
   drawShieldBarrier();
   drawCannonCharge();
   drawSweepEffects();
+  drawSweepStarBits();
 
   ctx.restore();
 
   drawOffscreenNav();
+  drawPlayerDirectionalHints();
   drawResonanceEdgeFX();
   drawWorldEventOverlay();
+  drawChainTierGlow();
   drawPulseFrame();
   drawDashVfx();
 }
@@ -9286,6 +9570,54 @@ const GIMMICK_LABEL_MAP = {
   marble_fever:  '玉数UP',
   resonance_run: '爆発力UP',
 };
+// FB対応：「BIG CHAIN（ティール）・MEGA CHAIN（ゴールド）の両方にそれぞれエフェクトを
+// 追加したい（バッテリー切れの赤と混同しないように）」。段階(chainTierBannerFired)に応じて
+// 色だけ切り替え、1つの関数で両方をまかなう（BIG CHAINバナーと同じティール／MEGA CHAINバナーと
+// 同じゴールド＝FEAT_BANNER_COLORSと同じ色）。
+// FB対応：「モヤモヤ演出わかりにくすぎる」「ゲームの滑らかさに支障をかけていないか」の2点を受けて
+// 全面的に作り直した。旧実装は画面全体を覆う1枚の巨大な放射状グラデーション（中心は透明、外側だけ
+// うっすら色付き・ピーク不透明度0.32）だったため、①肝心の縁の主張が弱すぎて気づきにくく、
+// ②MEGA CHAIN中＝画面上で爆発やパーティクルが最も多い瞬間に、画面全体を覆う重いグラデーション
+// フィルを毎フレーム描く実装になっており、負荷面でも良くなかった。
+// 新実装：四辺それぞれに小さい帯（最大140px）だけ線形グラデーションで塗る方式に変更。
+// 塗る面積が画面全体よりずっと小さくなり負荷が下がる一方、ピーク不透明度も0.55まで上げたことで
+// 「画面のふちがはっきり光っている」と一目でわかるようにしている。
+// バッテリー切れの赤い波線演出(drawPulseFrame、画面端に沿った鋭い波線)とは色も質感（線ではなく
+// 塗りの帯）も違うので混同しない。明るさはBIG/MEGA CHAINバナー(#feat-banner)と全く同じ
+// chainTierBannerFired / chainTimer に連動させ、バナーが消えるタイミングでこちらも同時に消える
+function drawChainTierGlow(){
+  if (chainTierBannerFired <= 0) return;
+  const alpha = Math.max(0, Math.min(1, chainTimer / 72));
+  if (alpha <= 0.01) return;
+  const haze = 0.75 + Math.sin(Date.now()*0.004)*0.25; // モヤモヤと揺らぐ呼吸
+  // MEGA CHAIN(tier2)=ゴールド(255,215,0)／BIG CHAIN(tier1)=ティール(0,165,173)。FEAT_BANNER_COLORSと同じ色
+  const [gr, gg, gb] = chainTierBannerFired === 2 ? [255,215,0] : [0,165,173];
+  const peak = 0.55 * alpha * haze; // 旧実装(0.32)よりだいぶ強めにして、はっきり見えるようにする
+  const bandW = Math.min(140, W * 0.22);
+  const bandH = Math.min(140, H * 0.22);
+  const colorAt = (a) => `rgba(${gr},${gg},${gb},${a})`;
+
+  ctx.save();
+  let g;
+  // 上端
+  g = ctx.createLinearGradient(0, 0, 0, bandH);
+  g.addColorStop(0, colorAt(peak)); g.addColorStop(1, colorAt(0));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, bandH);
+  // 下端
+  g = ctx.createLinearGradient(0, H, 0, H - bandH);
+  g.addColorStop(0, colorAt(peak)); g.addColorStop(1, colorAt(0));
+  ctx.fillStyle = g; ctx.fillRect(0, H - bandH, W, bandH);
+  // 左端
+  g = ctx.createLinearGradient(0, 0, bandW, 0);
+  g.addColorStop(0, colorAt(peak)); g.addColorStop(1, colorAt(0));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, bandW, H);
+  // 右端
+  g = ctx.createLinearGradient(W, 0, W - bandW, 0);
+  g.addColorStop(0, colorAt(peak)); g.addColorStop(1, colorAt(0));
+  ctx.fillStyle = g; ctx.fillRect(W - bandW, 0, bandW, H);
+  ctx.restore();
+}
+
 function drawWorldEventOverlay() {
   if (!activeWorldEvent) return;
   const ev = activeWorldEvent;
@@ -10769,6 +11101,16 @@ function drawShockwaves(){
 function drawParticles(){
   for(const p of particles){
     const [dx, dy] = wrapToPlayer(p.x, p.y);
+    // FB対応：スターウェーブの着弾パーティクルだけ星型のきらめき(drawRareSparkle)にしたいとのことで、
+    // shape==='star'が付いているものだけ描画方法を分ける（他のパーティクルは今まで通り丸のまま）。
+    // 「全然変化がわからなかった」との指摘を受け、サイズを底上げしたうえで加算合成(lighter)で光らせる
+    if(p.shape === 'star'){
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      drawRareSparkle(dx, dy, p.r*3.2*p.life, p.life*0.95, p.starColor || {r:230,g:234,b:245});
+      ctx.restore();
+      continue;
+    }
     ctx.beginPath();ctx.arc(dx,dy,p.r*p.life,0,Math.PI*2);
     ctx.fillStyle=`rgba(230,234,245,${p.life*0.75})`;ctx.fill();
   }
@@ -10924,7 +11266,32 @@ function drawSweepArc(e, sweepProgress, alpha, isMain){
       ctx.fill();
     }
     ctx.restore();
+    // FB対応：ここに毎フレームランダムで星を足す案を最初に試したが、「全然変化がわからなかった」との
+    // ことで撤去。弧の演出自体が約0.25秒と非常に短く、その場限りで消えてしまう星では目立たないと判断。
+    // 代わりに、発動の瞬間にまとめて撒いて弧より長く残る「星屑バースト」(sweepStarBits)に置き換えた
+    // → 実際のバースト生成はactivateSweep()側、描画はdrawSweepStarBits()を参照
   }
+}
+
+// スターウェーブ：発動時にまとめて撒いた星屑バースト(sweepStarBits)を描画する。
+// 弧本体(drawSweepEffects)より長く残り、加算合成(lighter)で発光っぽく光らせることで、
+// 「全然変化がわからなかった」という指摘に対して、はっきり目に留まる強さにしている
+function drawSweepStarBits(){
+  if(!sweepStarBits.length) return;
+  const now = Date.now();
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for(const s of sweepStarBits){
+    const age = now - s.born;
+    const t = age / s.dur;
+    if(t >= 1) continue;
+    // 序盤(15%)でパッと最大輝度まで出て、残り85%かけてゆっくり消えるイーズアウト
+    const fade = t < 0.15 ? (t/0.15) : 1 - (t-0.15)/0.85;
+    const twinkle = 0.8 + Math.sin(now*0.02 + s.phase)*0.2; // ごく軽い明滅
+    const [cr,cg,cb] = s.color.split(',').map(Number);
+    drawRareSparkle(s.x, s.y, s.size*twinkle, Math.max(0,fade), {r:cr,g:cg,b:cb});
+  }
+  ctx.restore();
 }
 
 function drawShieldBarrier(){
@@ -11440,7 +11807,9 @@ canvas.addEventListener('touchstart', e => {
     e.preventDefault();
     const t = e.changedTouches[0];
     if (t) {
-      if (window.SoundSE) window.SoundSE.playBeaconSet(); // 発動後、実際に画面をタップした瞬間だけ鳴らす
+      // FB対応：「画面タップしてる時はずっとSEループさせてほしい」。単発再生から、
+      // 触れている間ずっと鳴り続けるループ再生(playBeaconHold)に変更
+      if (window.SoundSE) window.SoundSE.playBeaconHold();
       triggerSkillActivationFX();
       dragPoint = worldFromScreen(t.clientX, t.clientY);
     }
@@ -11507,7 +11876,11 @@ canvas.addEventListener('touchmove', e => {
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
-  if (dragFreezeActive) return;
+  if (dragFreezeActive) {
+    // FB対応：指を離した瞬間にループSEを止める（画面に触れている間だけ鳴らす、の「離した」側）
+    if (window.SoundSE) window.SoundSE.stopBeaconHold();
+    return;
+  }
   for(const t of e.changedTouches){
     if(t.identifier === chargeTouchId){
       clearTimeout(chargeTimer); chargeTimer = null;
@@ -11527,7 +11900,10 @@ canvas.addEventListener('touchend', e => {
 }, { passive: true });
 
 canvas.addEventListener('touchcancel', e => {
-  if (dragFreezeActive) return;
+  if (dragFreezeActive) {
+    if (window.SoundSE) window.SoundSE.stopBeaconHold();
+    return;
+  }
   for(const t of e.changedTouches){
     if(t.identifier === chargeTouchId){
       clearTimeout(chargeTimer); chargeTimer = null;
@@ -11544,7 +11920,7 @@ canvas.addEventListener('touchcancel', e => {
 let mouseChargeTimer = null;
 canvas.addEventListener('mousedown', e => {
   if (dragFreezeActive) {
-    if (window.SoundSE) window.SoundSE.playBeaconSet(); // 発動後、実際に画面をタップした瞬間だけ鳴らす（PC動作確認用）
+    if (window.SoundSE) window.SoundSE.playBeaconHold(); // 発動後、実際に画面をタップしている間ずっと鳴らす（PC動作確認用）
     triggerSkillActivationFX();
     dragPoint = worldFromScreen(e.clientX, e.clientY);
     return;
@@ -11581,7 +11957,10 @@ canvas.addEventListener('mousemove', e => {
   }
 });
 canvas.addEventListener('mouseup', () => {
-  if (dragFreezeActive) return;
+  if (dragFreezeActive) {
+    if (window.SoundSE) window.SoundSE.stopBeaconHold();
+    return;
+  }
   clearTimeout(mouseChargeTimer); mouseChargeTimer = null;
   if(player.isCharging){
     player.isCharging = false;
@@ -11591,7 +11970,10 @@ canvas.addEventListener('mouseup', () => {
   floatStickHide();
 });
 canvas.addEventListener('mouseleave', () => {
-  if (dragFreezeActive) return;
+  if (dragFreezeActive) {
+    if (window.SoundSE) window.SoundSE.stopBeaconHold();
+    return;
+  }
   clearTimeout(mouseChargeTimer); mouseChargeTimer = null;
   player.isCharging = false; player.charge = 0;
   touch.active = false; touch.targetAngle = null;

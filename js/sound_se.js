@@ -50,6 +50,12 @@
     energyCannonDespawn:  'assets/sound/se/se_energy_cannon_despawn.mp3',  // エネルギー砲が消える時（決戦フェーズ、弾がはじけて消える瞬間）
     resultTenMillion:     'assets/sound/se/se_result_10million.mp3',      // リザルト：1000万スコア超え時（めっちゃおめでたい感じ）
     skillUnlock:          'assets/sound/se/se_skill_unlock.mp3',          // レベルアップ：スキル獲得時（NEW SKILLポップアップ表示時、おめでたくチャキーンって感じ）
+    // FB対応：「メガチェイン発動した瞬間に脳汁あふれるSEを追加してほしい」。MEGA CHAIN（連鎖の最高段階、
+    // tier2）に初めて突入した、まさにその瞬間だけ1回鳴らす（index.html側のchainTierBannerFired関連を参照）
+    megaChainSurge:       'assets/sound/se/se_mega_chain_surge.mp3',      // MEGA CHAIN突入の瞬間（脳汁系、一度きり）
+    // FB対応：「BIG CHAIN・MEGA CHAINの両方にそれぞれSEとエフェクトを追加したい」。BIG CHAIN（tier1、
+    // MEGA CHAINより1段階手前）に初めて突入した瞬間用。MEGAより落ち着いた「お、来た」くらいの一撃にする想定
+    bigChainSurge:        'assets/sound/se/se_big_chain_surge.mp3',       // BIG CHAIN突入の瞬間（一度きり）
   };
 
   // 爆発エフェクトスキンID → SEキー（js/explosionSkins.jsのEXPLOSION_SKIN_DEFSに対応）
@@ -79,6 +85,7 @@
   const lastPlayedAt = {};
   let buttonHoldSource = null; // ホバー/長押し中のSE（押している間だけループ再生する専用の1本）
   let blackholeDamageSource = null; // ブラックホールの危険半径内にいる間だけループ再生する専用の1本
+  let beaconHoldSource = null; // フリーズハンド：画面を実際にタップしている間だけループ再生する専用の1本
 
   function getCtx(){
     if (!audioCtx){
@@ -211,7 +218,33 @@
   function playAchievementUnlock(){ play('achievementUnlock'); }
   function playEpUse(){ play('epUse'); }
   function playSkill(skillId){ play(SKILL_ID_SE[skillId]); }
-  function playBeaconSet(){ play('skillBeacon'); }
+  // FB対応：「画面タップしてる時はずっとSEループさせてほしい。現在触っても最初の1秒しか
+  // 再生されていない」。旧実装は単発再生(play('skillBeacon'))だったため、SEファイル自体の
+  // 長さ分（約1秒）で終わってしまい、指を長く触れ続けても鳴り止んでいた。
+  // playButtonHold/playBlackholeDamageと同じ「専用の1本をloop=trueで鳴らし、
+  // 明示的にstopするまで止めない」方式に変更し、実際に触れている間はずっと鳴り続けるようにする
+  function playBeaconHold(){
+    if (!seEnabled()) return;
+    const ac = getCtx();
+    if (!ac) return;
+    const buf = buffers['skillBeacon'];
+    if (!buf) return;
+    if (beaconHoldSource) return; // 既に鳴っている場合は多重再生しない（タッチ中の連続イベントで何度呼ばれても平気なようにする）
+    try{
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.connect(ac.destination);
+      src.start(0);
+      beaconHoldSource = src;
+    }catch(err){ /* 再生失敗はゲームを止めずに無視する */ }
+  }
+  function stopBeaconHold(){
+    if (beaconHoldSource){
+      try{ beaconHoldSource.stop(); }catch(err){}
+      beaconHoldSource = null;
+    }
+  }
   function playBeaconWarp(){ play('skillWarp'); }
 
   // ── ここから、ここみさんの新SEリスト（プラネットボンボン版）で追加された分 ──
@@ -247,16 +280,18 @@
   function playEnergyCannonDespawn(){ play('energyCannonDespawn'); } // エネルギー砲が消える時（決戦フェーズ）
   function playResultTenMillion(){ play('resultTenMillion'); } // リザルト：1000万スコア超え時
   function playSkillUnlock(){ play('skillUnlock'); } // レベルアップ：スキル獲得時
+  function playMegaChainSurge(){ play('megaChainSurge'); } // MEGA CHAIN突入の瞬間
+  function playBigChainSurge(){ play('bigChainSurge'); } // BIG CHAIN突入の瞬間
 
   window.SoundSE = {
     playButton, playButtonHold, stopButtonHold, playPage, playPopup, playTutorial, playDoctor,
     playExplosionSE,
     playItemGet, playBatteryHit, playBatteryMiss, playGimmick,
     playEpGet, playAchievementGet, playAchievementUnlock, playEpUse,
-    playSkill, playBeaconSet, playBeaconWarp,
+    playSkill, playBeaconSet, playBeaconHold, stopBeaconHold, playBeaconWarp,
     playGameStart, playBlackholeCollapse, playBlackholeDamage, stopBlackholeDamage,
     playDelayOrbDamage, playEnergyCannonCharge, playEnemyDefeat, playEnergyCannonDespawn,
-    playResultTenMillion, playSkillUnlock,
+    playResultTenMillion, playSkillUnlock, playMegaChainSurge, playBigChainSurge,
     resume: resumeCtx, // オプション画面のSEトグルなど、外から明示的に再開を試みたい時用
   };
   // 既存のtriggerExplosion()は `typeof playExplosionSE === 'function'` というグローバル関数名を
