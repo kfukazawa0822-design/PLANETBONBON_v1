@@ -35,11 +35,29 @@
   // リザルト画面遷移時のSoundBGM.stop()で最終的に止まる想定
   const NO_LOOP_KEYS = new Set(['enemy']);
 
+  // FB対応：「bgm_stage.mp3とbgm_menu.mp3は音量が大きいまま格納してしまったので-8dBしてほしい」。
+  // 音源ファイル側の音量調整はここみさんの手元（マスター音源側）で対応済みとのことなので、
+  // ここでの追加調整は行わない（キーを指定しなければ1.0＝無調整のまま）。二重に-8dBを
+  // かけてしまうと音量が下がりすぎるため、コード側では今は何もしない。将来的にコード側の
+  // 音量調整が必要になった場合は、ここにキーを追加すればよい（dbToVolumeはそのための土台）
+  function dbToVolume(db){ return Math.pow(10, db / 20); }
+  const VOLUME_BY_KEY = {
+    // 例）menu: dbToVolume(-8), のように必要な時だけ追加する
+  };
+
+  // FB対応：「bgm_enemy.mp3の再生タイミングをワンテンポ（0.4秒くらい）ずらしてほしい」。
+  // 決戦フェーズの演出開始と同時に鳴らすのではなく、指定した分だけ無音を挟んでから
+  // 再生を始める。キーを指定しなければ0（今まで通り即座に再生）のまま
+  const DELAY_BY_KEY = {
+    enemy: 400,
+  };
+
   const audioEl = new Audio();
   audioEl.loop = true;
   audioEl.preload = 'auto';
   let currentKey = null;
   let unlocked = false;
+  let playToken = 0; // 遅延待ちの間に別の曲へ切り替わった場合、古い再生要求を無効化するための世代カウンタ
 
   // 初回のユーザー操作で再生を解禁する（iOS/Safari等の自動再生制限対策）。
   // 解禁前にplay()が呼ばれていた場合は、解禁できたタイミングで改めて再生を試みる。
@@ -62,6 +80,8 @@
   function play(key){
     if (key === currentKey) return; // 既に同じ曲が流れている場合は何もしない（再スタートによるブツ切れ防止）
     currentKey = key;
+    playToken++;
+    const myToken = playToken;
 
     if (!key){
       audioEl.pause();
@@ -69,24 +89,39 @@
     }
     const src = BGM_FILES[key];
     if (!src) return;
-    try{
-      // OFF中でも「今流れているべき曲」としてsrcは必ず更新しておく。
-      // ここをbgmEnabled()で早期returnしてしまうと、OFF中にシーン遷移が起きた場合、
-      // audioEl.srcが古い曲のまま更新されず止まってしまい、後でONに戻した瞬間に
-      // refresh()が古い曲を再生してしまう（「オフからオンに戻しても音が戻らない」原因）。
-      audioEl.src = src;
-      audioEl.currentTime = 0;
-      audioEl.loop = !NO_LOOP_KEYS.has(key);
-    }catch(err){ return; /* ファイル未配置などはここで無視 */ }
 
-    if (!bgmEnabled()){
-      audioEl.pause(); // OFF中は読み込むだけで再生はしない
-      return;
+    // 実際に読み込み・再生する処理本体。DELAY_BY_KEYで指定した分だけ遅らせて呼ぶ
+    const startPlayback = () => {
+      // 遅延待ちの間にさらに別の曲へ切り替わっていたら、この古い再生要求は無視する
+      if (myToken !== playToken) return;
+      try{
+        // OFF中でも「今流れているべき曲」としてsrcは必ず更新しておく。
+        // ここをbgmEnabled()で早期returnしてしまうと、OFF中にシーン遷移が起きた場合、
+        // audioEl.srcが古い曲のまま更新されず止まってしまい、後でONに戻した瞬間に
+        // refresh()が古い曲を再生してしまう（「オフからオンに戻しても音が戻らない」原因）。
+        audioEl.src = src;
+        audioEl.currentTime = 0;
+        audioEl.loop = !NO_LOOP_KEYS.has(key);
+        audioEl.volume = VOLUME_BY_KEY[key] !== undefined ? VOLUME_BY_KEY[key] : 1;
+      }catch(err){ return; /* ファイル未配置などはここで無視 */ }
+
+      if (!bgmEnabled()){
+        audioEl.pause(); // OFF中は読み込むだけで再生はしない
+        return;
+      }
+      try{
+        const p = audioEl.play();
+        if (p && typeof p.catch === 'function') p.catch(()=>{}); // 解禁前の自動再生ブロックは無視（unlock後に再試行される設計）
+      }catch(err){ /* 再生失敗はゲームを止めずに無視する */ }
+    };
+
+    const delayMs = DELAY_BY_KEY[key] || 0;
+    if (delayMs > 0){
+      audioEl.pause(); // 前の曲は即座に止め、ズラす分は無音にする
+      setTimeout(startPlayback, delayMs);
+    } else {
+      startPlayback();
     }
-    try{
-      const p = audioEl.play();
-      if (p && typeof p.catch === 'function') p.catch(()=>{}); // 解禁前の自動再生ブロックは無視（unlock後に再試行される設計）
-    }catch(err){ /* 再生失敗はゲームを止めずに無視する */ }
   }
 
   function stop(){
