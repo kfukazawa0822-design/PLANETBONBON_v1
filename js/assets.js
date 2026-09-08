@@ -79,6 +79,19 @@ const IMAGE_ASSET_PATHS = {
     midboss: 'assets/enemies/enemy_midboss.webp', // 中ボス
     boss:    'assets/enemies/enemy_boss.webp',    // BOSS
   },
+  // FB対応：「遊び方(HOWTOPLAY_PAGES)の画像の読み込みが遅い」。原因はファイルサイズでは
+  // なく、このカテゴリ一覧に載っておらずpreloadAll()の対象外だったため、各ページの
+  // <img>のsrcを実際にセットするその瞬間まで一切リクエストすら始まっていなかったこと
+  // （初回は初回起動の自動表示と完全に同じタイミングで、他の初期化処理と競合しながら
+  // 今から読み込み始める形になっていた）。ここに登録することで他アセットと同じく
+  // ゲーム起動直後から先読みが始まり、実際に開く頃にはブラウザキャッシュ済みになる
+  tutorial: {
+    page1: 'assets/tutorial/page1.webp',
+    page2: 'assets/tutorial/page2.webp',
+    page3: 'assets/tutorial/page3.webp',
+    page4: 'assets/tutorial/page4.webp',
+    page5: 'assets/tutorial/page5.webp',
+  },
   // 今後の追加予定（フォルダを作ってからここにカテゴリを追加）：
   // ui:          { ... },
   // backgrounds: { ... },

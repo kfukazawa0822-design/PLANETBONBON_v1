@@ -592,9 +592,15 @@ canvas { display:block; width:100%; height:100%; }
   width:100%; aspect-ratio:5/4; border-radius:10px;
   border:1.5px solid rgba(255,255,255,0.2); background:#151b2c;
   display:flex; align-items:center; justify-content:center;
-  overflow:hidden;
+  overflow:hidden; position:relative;
 }
-#howtoplay-image { width:100%; height:100%; object-fit:contain; display:block; }
+/* FB対応：画像の読み込み待ちの保険。画像レイヤー(#howtoplay-image)より先にDOM上へ
+   置いてあるだけで、画像が枠いっぱいに描画された瞬間に自然に隠れる */
+#howtoplay-image-loading {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  font-size:12px; color:rgba(255,255,255,0.35); letter-spacing:1px; pointer-events:none;
+}
+#howtoplay-image { width:100%; height:100%; object-fit:contain; display:block; position:relative; }
 /* FB対応：チュートリアル文言を実際に組み込むにあたり追加。「パッと分かる」ための
    一言キャッチを画像の上に大きく見せ、詳しい説明は下のcaptionに小さく添える2段構成にする。
    FB対応②：文字は中央揃えではなく左揃えに統一（キャッチ・見出し・本文とも）。 */
@@ -1569,7 +1575,11 @@ canvas { display:block; width:100%; height:100%; }
 #skill-select {
   position:fixed; inset:0; display:flex; flex-direction:column;
   align-items:center; justify-content:center; gap:12px;
-  background:rgba(0,0,0,0.92); z-index:200; padding:20px;
+  /* FB対応：「SKILLSELECT時に背後の前回のプレイ画面がうっすら見える」。0.92と完全な
+     不透明の間にわずかな透け(8%)があり、リトライ直後は背後に直前のゲーム画面（本編の
+     キャンバス）が固まったまま残っているため、それがうっすら透けて見えてしまっていた。
+     この透けに意図した演出（ぼかし等）は特に無いため、完全な黒(1.0)に変更 */
+  background:rgba(0,0,0,1); z-index:200; padding:20px;
 }
 #skill-select.hide { display:none; }
 #skill-select-title { font-size:22px; font-weight:bold; color:#fff; letter-spacing:4px; }
@@ -2443,6 +2453,11 @@ canvas { display:block; width:100%; height:100%; }
     <div id="howtoplay-title"></div>
     <div id="howtoplay-heading"></div>
     <div id="howtoplay-image-box">
+      <!-- FB対応：画像の読み込みがどうしても間に合わない場合の保険として、枠の中央に
+           小さく「Loading...」を画像レイヤーの下に敷いておく。画像がDOM上で後・かつ
+           枠いっぱい(object-fit:contain＋枠の比率=実画像の比率)に描画されるため、
+           読み込みが終わった瞬間に自然に隠れる（読み込み中だけ透けて見える） -->
+      <div id="howtoplay-image-loading">Loading...</div>
       <img id="howtoplay-image" src="" alt="">
     </div>
     <div id="howtoplay-caption"></div>
@@ -2743,6 +2758,20 @@ canvas { display:block; width:100%; height:100%; }
 const canvas = document.getElementById('c');
 let ctx    = canvas.getContext('2d');
 
+// FB対応：「リトライ直後、SKILLSELECT画面の背後に直前のプレイ画面が固まって見える」。
+// 本編キャンバス(#c)はdraw()がgameRunning中しか呼ばれない作りのため、ゲームが
+// 終わった瞬間の絵がそのままピクセルとして残り続けていた（#skill-selectの背景を
+// 完全不透明(rgba(0,0,0,1))にしたことで見た目上は隠れるが、根本的にはキャンバス自体を
+// 明示的にクリアしておく方がより確実なので、リザルト画面を閉じる経路（doGoRetry／
+// doGoMenu）の両方でこれを呼ぶ）
+function clearMainCanvas(){
+  ctx.save();
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle = '#0a0e1a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
+}
+
 // ── 定数 ─────────────────────────────────────────
 const WORLD_W = 3600, WORLD_H = 3600;
 const MARBLE_R = 21;
@@ -2952,6 +2981,9 @@ let skillTimer      = 0;    // 効果残り時間（秒）
 // 無限に連射できてしまう問題への対策。解除からこの時刻(playTime基準)までの間は
 // SPゲージの上限を半分に制限する（詳細はgainSP()内）
 let spCapEndAt      = 0;
+// FB対応：解除からこの時刻(playTime基準)までの間は、SP獲得量そのものを1/10に絞る
+// （spCapEndAtより長い6秒間。詳細はgainSP()内）
+let spThrottleEndAt = 0;
 let bubbleAiming      = false; // シャボン玉：狙い中フラグ（true の間は時間停止＋旋回のみ許可）
 let bubbleAimElapsed  = 0;    // シャボン玉：狙い開始からの経過秒数（発射ボタンの表示タイミング用）
 let bubbleFiring      = false; // シャボン玉：狙い確定後、輪へ収束→連射している間のフラグ（この間も時間停止を継続）
@@ -3477,7 +3509,7 @@ function initGame(mode) {
   pulseFrame={ amp:0, jitter:0, time:0, visibility:0 };
   rockHitCooldown=0;
   playTime=0; batteryDrainBoostAnnounced=false; currentChainDepth=0; screenShake={x:0,y:0,power:0}; releaseGraceTimer=0;
-  skillSP=0; skillStock=0; skillActive=false; skillTimer=0; spCapEndAt=0;
+  skillSP=0; skillStock=0; skillActive=false; skillTimer=0; spCapEndAt=0; spThrottleEndAt=0;
   bubbleAiming=false; bubbleAimElapsed=0; bubbleFiring=false; bubbleFireQueue=[]; bubbleFireElapsed=0; dragFreezeActive=false; dragPoint=null; dragFreezeElapsed=0;
   if (bhDangerSEPlaying && window.SoundSE) { window.SoundSE.stopBlackholeDamage(); bhDangerSEPlaying = false; } // 新しいランの開始時に前回分のループ音が残らないようにする
   { const b1=document.getElementById('bubble-aim-banner'), b2=document.getElementById('bubble-fire-btn'), b3=document.getElementById('beacon-ok-btn');
@@ -4598,6 +4630,13 @@ function gainSP(amount){
   const def = SKILL_DEFS.find(s=>s.id===selectedSkillId);
   if(!def) return;
   if(skillStock >= def.maxStock) return; // 最大ストック時はSP不加算
+  // FB対応：「SPゲージの溜まりがやっぱり遅すぎる（＝解除直後にまだ簡単に溜まりすぎる）」。
+  // 従来の「2秒間だけ半分で頭打ち」に加えて、発動終了から6秒間はSP獲得量そのものを
+  // 1/10に絞る（両方とも同じselectedSkillId==='beacon'判定で、それぞれ独立した時間窓を持つ。
+  // 最初の2秒は「1/10に絞られた上でさらに半分で頭打ち」、2〜6秒目は「1/10のまま」が効く）
+  if(selectedSkillId === 'beacon' && playTime < spThrottleEndAt){
+    amount *= 0.1;
+  }
   // FB対応：「フリーズハンド解除直後、溜まった玉が一気に弾けてSPが即満タンになり、
   // 無限に連射できてしまう」。フリーズハンド解除から2秒間だけ、SPゲージの上限を
   // 全体の半分（maxStock×spCostの半分）に制限する。半分までは今まで通り一気に
@@ -5022,6 +5061,9 @@ function finishBeaconFreeze(){
   skillTimer = 0;
   // FB対応：解除直後2秒間はSPゲージの上限を半分に制限する（詳細はgainSP()内）
   spCapEndAt = playTime + 2;
+  // FB対応：「SPゲージの溜まりがやっぱり遅すぎる」。解除直後6秒間はSP獲得量そのものを
+  // 1/10に絞る（詳細はgainSP()内）
+  spThrottleEndAt = playTime + 6;
   const okBtn = document.getElementById('beacon-ok-btn');
   if (okBtn) okBtn.classList.add('hide');
   // 保険：時間切れ／OKボタンで強制終了した瞬間、まだ画面に触れたままだった場合に
@@ -12708,6 +12750,7 @@ function doGoRetry(){
   document.getElementById('gameover').classList.remove('show', 'showdown-reveal');
   { const sdc = document.getElementById('showdown-canvas'); sdc.style.display = 'none'; sdc.classList.remove('dimmed'); }
   document.getElementById('battery-empty-flash').classList.remove('show');
+  clearMainCanvas();
   if(gameMode === 'endless'){
     showSkillSelect();
   } else {
@@ -12720,6 +12763,7 @@ function doGoMenu(){
   document.getElementById('gameover').classList.remove('show', 'showdown-reveal');
   { const sdc = document.getElementById('showdown-canvas'); sdc.style.display = 'none'; sdc.classList.remove('dimmed'); }
   document.getElementById('battery-empty-flash').classList.remove('show');
+  clearMainCanvas();
   showTitleScreen();
   if (window.SoundBGM) window.SoundBGM.play('menu');
   updatePlayerStatusBar();

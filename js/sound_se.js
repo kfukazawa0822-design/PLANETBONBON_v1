@@ -95,26 +95,37 @@
     return audioCtx;
   }
 
-  // ── AudioContextの再開 ──────────────────────────────
-  // 【FB対応：画面消灯からの復帰でSEが永久に無音になる問題】
-  // 以前はここが「初回のユーザー操作で1回だけresume()する」処理になっていた
-  // （{once:true}でイベントを1回受け取ったらリスナー自体が外れる実装）。
-  // ところが画面消灯やアプリのバックグラウンド化で、ブラウザ側がAudioContextを
-  // 'suspended'（まれに'closed'）にしてしまうことがあり、その後は「初回操作」が
-  // もう来ない（＝二度とresume()が呼ばれない）ため、SEだけ復帰後ずっと無音になり、
-  // ページの再読込（AudioContextを新規に作り直す）まで直らなかった。
-  // → 「初回だけ」ではなく、操作や画面復帰のたびに毎回呼べるようにする
-  //   （既にrunning中なら何もしない軽い処理なので、頻繁に呼んでも問題ない）。
-  // 'closed'まで行ってしまった場合はresume()自体が効かないため、新しい
-  // AudioContextを作り直し、SEも新contextで再デコードする（AudioBufferは
-  // 生成元のcontextに紐付くため、古いバッファを新contextへそのまま使い回せない）。
+  // ── AudioContextの再開／作り直し ──────────────────────────────
+  // 【FB対応：画面消灯からの復帰でSEが消える問題（再度報告あり）】
+  // 以前はここが「stateが'suspended'ならresume()、'closed'ならcontextを作り直す」
+  // という判定だった。ところが実機のスリープ復帰では、AudioContextの.stateが
+  // 'suspended'にすらならず'running'のまま（＝resume()の対象と判定されず何もしない）
+  // なのに、実際には音が一切出ない「ゾンビ状態」になることがあるとわかった。
+  // 「ゲームを再起動（＝ページ再読み込みでAudioContextを新規に作り直す）すれば直る」
+  // という報告と一致するため、.stateの値そのものはもう信用せず、画面が実際に
+  // バックグラウンド／スリープから復帰した瞬間（visibilitychange・pageshow）は
+  // resume()を試すのではなく、常にAudioContext自体を作り直し、SEも再デコードする
+  // （＝ページ再読み込みと同じ状態をその場で再現する）。SEファイル自体はブラウザに
+  // キャッシュ済みのため、作り直しの負荷は軽い。
+  // 一方、頻繁に呼ばれるタッチ操作側（resumeCtx、初回の自動再生解禁が主目的）は
+  // 今まで通り軽量なresume()のみとし、毎タップ作り直すような無駄はしない。
+  function hardReloadAudioContext(){
+    if (audioCtx){
+      try{ audioCtx.close(); }catch(err){}
+    }
+    audioCtx = null;
+    // 作り直すので、古いcontextに紐付いていたループ再生の参照はもう無効
+    buttonHoldSource = null;
+    blackholeDamageSource = null;
+    beaconHoldSource = null;
+    const fresh = getCtx();
+    if (fresh) preloadAll();
+  }
   function resumeCtx(){
     const ac = getCtx();
     if (!ac) return;
     if (ac.state === 'closed'){
-      audioCtx = null;
-      const fresh = getCtx();
-      if (fresh) preloadAll();
+      hardReloadAudioContext();
       return;
     }
     if (ac.state === 'suspended') ac.resume().catch(()=>{});
@@ -122,10 +133,11 @@
   ['pointerdown', 'touchstart', 'keydown'].forEach(evName => {
     document.addEventListener(evName, resumeCtx, { passive: true }); // {once:true}にしない：毎回チェックする
   });
-  // 画面消灯からの復帰・タブ/アプリのバックグラウンド⇄フォアグラウンド切り替え時にも再開を試みる
-  // （オプションのBGM/SEトグルを手動で触らなくても、画面が戻ってきた時点で自動的に直る）
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) resumeCtx(); });
-  window.addEventListener('pageshow', resumeCtx);
+  // 画面消灯からの復帰・タブ/アプリのバックグラウンド⇄フォアグラウンド切り替え時は、
+  // resume()に頼らず常に作り直す（上記の「ゾンビ状態」対策。オプションのBGM/SEトグルを
+  // 手動で触らなくても、画面が戻ってきた時点で自動的に直る）
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) hardReloadAudioContext(); });
+  window.addEventListener('pageshow', hardReloadAudioContext);
 
   // 起動時、およびAudioContextを作り直した時に、全SEをデコードしてメモリに載せておく。
   // ファイルがまだ無い（404）/デコード失敗の場合はnullにして、以後の再生要求を静かに無視する。
@@ -145,7 +157,12 @@
     return !(typeof settings !== 'undefined' && settings && settings.seEnabled === false);
   }
 
-  function play(key){
+  // dB→ゲイン係数（電圧比）への変換。-10dBならおよそ0.316倍の音量になる
+  function dbToGain(db){ return Math.pow(10, db / 20); }
+
+  // gainDb（省略時0＝そのままの音量）を指定すると、そのSEだけGainNodeを挟んで
+  // 音量を下げる（他のSEには一切影響しない、呼び出し側でdBを指定した時だけの処理）
+  function play(key, gainDb){
     if (!key || !seEnabled()) return;
     const ac = getCtx();
     if (!ac) return;
@@ -164,7 +181,14 @@
       }
       const src = ac.createBufferSource();
       src.buffer = buf;
-      src.connect(ac.destination);
+      if (gainDb){
+        const gainNode = ac.createGain();
+        gainNode.gain.value = dbToGain(gainDb);
+        src.connect(gainNode);
+        gainNode.connect(ac.destination);
+      } else {
+        src.connect(ac.destination);
+      }
       src.onended = () => {
         const idx = voices.indexOf(src);
         if (idx !== -1) voices.splice(idx, 1);
@@ -280,8 +304,9 @@
   function playEnergyCannonDespawn(){ play('energyCannonDespawn'); } // エネルギー砲が消える時（決戦フェーズ）
   function playResultTenMillion(){ play('resultTenMillion'); } // リザルト：1000万スコア超え時
   function playSkillUnlock(){ play('skillUnlock'); } // レベルアップ：スキル獲得時
-  function playMegaChainSurge(){ play('megaChainSurge'); } // MEGA CHAIN突入の瞬間
-  function playBigChainSurge(){ play('bigChainSurge'); } // BIG CHAIN突入の瞬間
+  // FB対応：「BIG CHAIN・MEGA CHAINのSEがうるさすぎて耳が痛い」。それぞれ-10dBずつ下げる
+  function playMegaChainSurge(){ play('megaChainSurge', -10); } // MEGA CHAIN突入の瞬間
+  function playBigChainSurge(){ play('bigChainSurge', -10); } // BIG CHAIN突入の瞬間
 
   // FB対応（実機バグ）：「SEがたまに全く鳴らなくなる」の原因。ここで存在しない関数名
   // playBeaconSet を参照していたため、このオブジェクトリテラルの評価時点で
