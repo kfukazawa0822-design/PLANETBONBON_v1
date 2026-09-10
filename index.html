@@ -2750,13 +2750,20 @@ canvas { display:block; width:100%; height:100%; }
 <script src="js/assets.js"></script>
 <script src="js/sound_se.js"></script>
 <script src="js/sound_bgm.js"></script>
+<script src="js/ads.js"></script>
 
 <script>
 // ════════════════════════════════════════════════
 //  DENSITY COLLAPSE  Phase 1+2+3
 // ════════════════════════════════════════════════
 const canvas = document.getElementById('c');
-let ctx    = canvas.getContext('2d');
+// FB対応（実機の重さ調査）：本編キャンバスはdraw()冒頭で必ずfillRect(0,0,W,H)により
+// 画面全体を不透明色(#0a0e1a)で塗り潰してから描画しているため、透明部分は一切存在しない。
+// デフォルトのcanvas 2Dコンテキストはアルファ合成（背後との透過ブレンド）に対応した状態で
+// 作られるが、このゲームでは使っていないため、alpha:falseを指定してブラウザに「このcanvas
+// は常に不透明」と伝える。特に非力なAndroid端末のWebViewで、毎フレームの合成コストを
+// 減らす効果が見込める（見た目には一切影響しない、安全な最適化）。
+let ctx    = canvas.getContext('2d', { alpha: false });
 
 // FB対応：「リトライ直後、SKILLSELECT画面の背後に直前のプレイ画面が固まって見える」。
 // 本編キャンバス(#c)はdraw()がgameRunning中しか呼ばれない作りのため、ゲームが
@@ -3506,6 +3513,15 @@ function initGame(mode) {
   };
   lastChainTier=0; currentChainCause=null; chainSpreadDistance=0; chainLastExplosionX=null; chainLastExplosionY=null;
   chainTierBannerFired=0; lastScoreMilestoneTier=0;
+  // FB対応：「たまにゲームスタート時にMEGA CHAIN継続中と出てしまう」。#feat-banner（BIG/MEGA
+  // CHAINバナー）はchainTierBannerFired/chainTimerに連動してupdateChainBannerFade()が毎フレーム
+  // 明るさを更新しているが、この更新自体はupdate(dt)の中、つまりgameRunning中しか走らない。
+  // 前回のプレイがMEGA CHAIN継続中（バナー表示中）のまま終了すると、#feat-bannerのopacityは
+  // そのまま残り続け、リザルト・SKILLSELECTを経て次のゲームが実際に動き出す（updateChainBannerFade()
+  // が最初に呼ばれる）までの間、古い「MEGA CHAIN継続中！」表示が居座ってしまっていた
+  // （#chaos-overlayで既に対応済みの「画面が固まって残る」系と全く同じ原因）。
+  // 上のchainTierBannerFired=0リセットに合わせて、表示側もこの場で即座に隠す
+  document.getElementById('feat-banner').style.opacity = '0';
   pulseFrame={ amp:0, jitter:0, time:0, visibility:0 };
   rockHitCooldown=0;
   playTime=0; batteryDrainBoostAnnounced=false; currentChainDepth=0; screenShake={x:0,y:0,power:0}; releaseGraceTimer=0;
@@ -5716,15 +5732,41 @@ const playShowdownPhase = (() => {
   function stopAnim(){ if (sdRaf) cancelAnimationFrame(sdRaf); sdRaf = null; }
   function wait(ms){ return new Promise(res => setTimeout(res, ms)); }
 
+  // FB対応：「バッテリー切れ→決戦フェーズ移行時、敵が降ってきてエネルギー砲を貯める
+  // 直前あたりで完全に固まった（1回のみ再現）」との報告。この関数はplayShowdownPhase内の
+  // 各演出ステージ（暗転・編隊登場・チャージ・発射…）すべてがawaitする共通のアニメーション
+  // 基盤で、resolve()はdraw(t)側からの例外・requestAnimationFrame自体が呼ばれなくなる事態の
+  // どちらも一切考慮しておらず、どちらかが起きるとPromiseが永遠に解決されず、以降のawaitで
+  // 待っているplayShowdownPhase全体がそのまま無限に停止する（＝画面が完全に固まる）作りになっていた。
+  // 実機では稀に、d rawImage対象の画像がこのタイミングでまだ読み込み切っていない等の理由で
+  // draw(t)内が例外を投げたり、端末側の一時的な理由でrequestAnimationFrame自体が長時間
+  // 呼ばれなくなったりすることがあり得るため、①draw(t)をtry/catchで囲み、万一例外が
+  // 発生してもそこで演出を打ち切って先に進めるようにし、②想定より大幅に時間がかかった場合の
+  // 保険としてsetTimeoutによる強制解決も追加しておく（通常時はdurationMs以内に必ずrAF側で
+  // resolveするため、このタイムアウトが実際に発火することはない＝見た目・タイミングに影響なし）。
   function animate(durationMs, draw, token) {
     return new Promise(resolve => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; clearTimeout(safetyTimer); resolve(); };
+      // 保険用の強制解決タイマー（durationMs+3秒。通常フローでは発火しない）
+      const safetyTimer = setTimeout(() => {
+        console.warn('[playShowdownPhase] animate()がタイムアウトしたため強制的に先へ進めます。');
+        finish();
+      }, durationMs + 3000);
       const t0 = performance.now();
       function frame(now){
-        if (token !== undefined && token !== runId) { resolve(); return; }
+        if (done) return;
+        if (token !== undefined && token !== runId) { finish(); return; }
         const t = Math.min(1, (now - t0) / durationMs);
-        draw(t);
+        try {
+          draw(t);
+        } catch (err) {
+          console.warn('[playShowdownPhase] animate()のdraw()で例外が発生したため、この演出を打ち切って先へ進めます:', err);
+          finish();
+          return;
+        }
         if (t < 1) { sdRaf = requestAnimationFrame(frame); }
-        else resolve();
+        else finish();
       }
       sdRaf = requestAnimationFrame(frame);
     });
@@ -7244,7 +7286,15 @@ function update(dt){
     setTimeout(()=>{
       emptyFlash.classList.remove('show');
       if (window.SoundBGM) window.SoundBGM.play('enemy'); // エネミー討伐シーン（決戦フェーズ開始）
-      playShowdownPhase(score).then(triggerGameOver);
+      // FB対応：「決戦フェーズ中に完全に固まった」報告への保険。animate()側の例外・タイムアウト
+      // 対策に加え、それでも拾いきれない例外（stageBarrage/stageStamp内の同期処理など）が
+      // 万一発生した場合でも、.catch()が無いとエラーがここで静かに握りつぶされ、
+      // triggerGameOver()が一生呼ばれない＝リザルト画面に進めず完全に固まったままになる。
+      // 何が起きても最低限リザルト画面までは必ず進めるように、catchでもtriggerGameOverへ逃がす
+      playShowdownPhase(score).then(triggerGameOver).catch(err => {
+        console.warn('[playShowdownPhase] 予期しない例外が発生したため、決戦フェーズを打ち切ってリザルトへ進みます:', err);
+        triggerGameOver();
+      });
     }, 2000);
     return;
   }
@@ -8534,14 +8584,25 @@ function update(dt){
     // 追尾星宙玉：起爆猶予中はS極を無視し（上のS/Nループで対応済み）、
     // 周囲で玉が最も密集している方向へ自ら軌道を曲げていく
     if(m.marbleType === 'homing'){
+      // FB対応（実機の重さ調査／OPPO A5 2020での再現）：起爆中の追尾星宙玉1個につき
+      // 「全玉」を毎フレーム総当りでチェックする処理で、しかも範囲外(700px超)の
+      // 組み合わせに対してもMath.hypot（sqrt）を律儀に計算していた。大きな連鎖では
+      // 起爆状態の玉が同時に100個を超えることがあり（drawの震動リングでも同じ指摘あり）、
+      // 「100個(起爆中homing) × 225個(全玉)」規模でsqrt計算が走ることになる＝
+      // タイトル画面や決戦フェーズでは発生せず、本編の大連鎖時にだけ極端に重くなる
+      // 今回の症状と一致する。上の重力玉ループと同じ対策：範囲外かどうかを
+      // sqrtを使わない平方距離で先に判定し、700px以内の組み合わせだけsqrtを呼ぶ
+      // （結果は完全に同じで、計算量だけを減らす安全な変更）。
       let cx=0, cy=0, wsum=0;
+      const HOMING_STEER_R = 700, HOMING_STEER_R_SQ = HOMING_STEER_R * HOMING_STEER_R;
       for(const other of marbles){
         if(!other.alive || other===m) continue;
         let odx=other.x-m.x, ody=other.y-m.y;
         if(odx>WORLD_W/2) odx-=WORLD_W; else if(odx<-WORLD_W/2) odx+=WORLD_W;
         if(ody>WORLD_H/2) ody-=WORLD_H; else if(ody<-WORLD_H/2) ody+=WORLD_H;
-        const od = Math.hypot(odx,ody);
-        if(od > 1 && od < 700){
+        const odSq = odx*odx + ody*ody;
+        if(odSq > 1 && odSq < HOMING_STEER_R_SQ){
+          const od = Math.sqrt(odSq);
           const w = 1/od;
           cx += odx*w; cy += ody*w; wsum += w;
         }
@@ -10694,6 +10755,35 @@ function drawRareSparkle(cx, cy, size, alpha, colorRGB){
   ctx.restore();
 }
 
+// FB対応（実機の重さ調査／OPPO A5 2020の続報）：drawExplosions()と全く同じ理由で、
+// 大砲玉の発光・紅/金星宙玉の常時発光も「玉1個・1フレームごと」にradial gradientを新規作成していた。
+// 色は玉の種類ごとに固定（変わるのは呼吸で伸び縮みする半径だけ）なので、これも半径1に正規化した
+// グラデーションだけキャッシュしておき、実際の描画はtranslate+scaleで実寸に引き伸ばす。
+// 見た目は元の実装と完全に同一（計算量だけを減らす安全な変更）
+let _cannonGlowGradCache = null;
+function getCannonGlowGrad(){
+  if(!_cannonGlowGradCache){
+    const g = ctx.createRadialGradient(0,0,0,0,0,1);
+    g.addColorStop(0, 'rgba(255,170,60,0.30)');
+    g.addColorStop(1, 'rgba(255,170,60,0)');
+    _cannonGlowGradCache = g;
+  }
+  return _cannonGlowGradCache;
+}
+const _rareGlowGradCache = {};
+function getRareGlowGrad(glow){
+  const key = `${glow.r},${glow.g},${glow.b}`;
+  let g = _rareGlowGradCache[key];
+  if(!g){
+    g = ctx.createRadialGradient(0,0,0,0,0,1);
+    g.addColorStop(0,   `rgba(${glow.r},${glow.g},${glow.b},0.55)`);
+    g.addColorStop(0.5, `rgba(${glow.r},${glow.g},${glow.b},0.25)`);
+    g.addColorStop(1,   `rgba(${glow.r},${glow.g},${glow.b},0)`);
+    _rareGlowGradCache[key] = g;
+  }
+  return g;
+}
+
 function drawMarbles(cullOx, cullOy){
   const t = Date.now() * 0.001;
   for(const m of marbles){
@@ -10719,11 +10809,13 @@ function drawMarbles(cullOx, cullOy){
     if(m.isCannonball){
       // チャージ中と同じ発光を発射後も維持し、着弾まで見た目のサイズ感が変わらないようにする
       const glowR = m.r*1.35;
-      const g = ctx.createRadialGradient(m.x,m.y,0,m.x,m.y,glowR);
-      g.addColorStop(0, 'rgba(255,170,60,0.30)');
-      g.addColorStop(1, 'rgba(255,170,60,0)');
-      ctx.beginPath(); ctx.arc(m.x,m.y,glowR,0,Math.PI*2);
-      ctx.fillStyle = g; ctx.fill();
+      ctx.save();
+      ctx.translate(m.x, m.y);
+      ctx.scale(glowR, glowR);
+      ctx.beginPath(); ctx.arc(0,0,1,0,Math.PI*2);
+      ctx.fillStyle = getCannonGlowGrad();
+      ctx.fill();
+      ctx.restore();
       drawCannonballSkin(m, t);
     } else {
       // 小惑星グループ（跳躍・追尾・遅延）・レア玉グループ（紅・金）は専用イラストを描画。
@@ -10744,12 +10836,13 @@ function drawMarbles(cullOx, cullOy){
         const glow = MARBLE_GLOW_COLOR[m.marbleType];
         if (glow) {
           const glowR = m.r * (2.0 + Math.sin(t * 1.6 + m.phase) * 0.25); // ふわふわと呼吸する発光
-          const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, glowR);
-          g.addColorStop(0,   `rgba(${glow.r},${glow.g},${glow.b},0.55)`);
-          g.addColorStop(0.5, `rgba(${glow.r},${glow.g},${glow.b},0.25)`);
-          g.addColorStop(1,   `rgba(${glow.r},${glow.g},${glow.b},0)`);
-          ctx.beginPath(); ctx.arc(m.x, m.y, glowR, 0, Math.PI*2);
-          ctx.fillStyle = g; ctx.fill();
+          ctx.save();
+          ctx.translate(m.x, m.y);
+          ctx.scale(glowR, glowR);
+          ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI*2);
+          ctx.fillStyle = getRareGlowGrad(glow);
+          ctx.fill();
+          ctx.restore();
 
           // FB対応：紅・金星宙玉に周回スパークルを追加（3個、位相をずらして瞬かせる）
           const sparkleCount = 3;
@@ -11037,6 +11130,31 @@ function drawCannonExplosion(e, ex, ey, alpha){
   ctx.restore();
 }
 
+// FB対応（実機の重さ調査／OPPO A5 2020の続報）：大連鎖では爆発リング(explosions)が
+// 同時に何十個も生き残っている状態になり、drawExplosions()が「爆発1個・1フレームごと」に
+// createLinearGradient()を新規作成していた（addColorStopの文字列組み立て込み）。色の組み合わせは
+// 通常／岩の2種類しかなく、変わるのは半径(e.r、リングが広がるほど大きくなる)と透明度(alpha)だけなので、
+// グラデーション自体は半径1に正規化した状態で最初の1回だけ2種類作ってキャッシュしておき、
+// 実際の描画時はtranslate+scaleで実寸に引き伸ばし、濃さはctx.globalAlphaで掛け合わせる方式に変更。
+// 見た目（色・向き・濃さ・線の太さ）は元の実装と完全に同一で、爆発が何個同時に存在しても
+// グラデーションの新規作成そのものは発生しない（計算量だけを減らす安全な変更）。
+let _explosionRingGradCache = null;
+function getExplosionRingGrad(isRock){
+  if(!_explosionRingGradCache){
+    function build(c1, c2){
+      const g = ctx.createLinearGradient(-1, 0, 1, 0);
+      g.addColorStop(0, `rgb(${c1.join(',')})`);
+      g.addColorStop(1, `rgb(${c2.join(',')})`);
+      return g;
+    }
+    _explosionRingGradCache = {
+      normal: build([80,170,255], [190,110,255]),
+      rock:   build([0,200,220],  [150,120,255]),
+    };
+  }
+  return isRock ? _explosionRingGradCache.rock : _explosionRingGradCache.normal;
+}
+
 function drawExplosions(){
   if (explosions.length === 0) return;
   const RING2_DELAY = 0.22;  // 2本目のリングが遅れて発生するまでの、1本目のlife消費割合
@@ -11054,14 +11172,16 @@ function drawExplosions(){
     const cA = e.isRock ? [0,200,220]  : [80,170,255];
     const cB = e.isRock ? [150,120,255]: [190,110,255];
 
-    // ① 本体のリング
-    ctx.beginPath(); ctx.arc(ex, ey, e.r, 0, Math.PI*2);
-    const grad = ctx.createLinearGradient(ex - e.r, ey, ex + e.r, ey);
-    grad.addColorStop(0, `rgba(${cA.join(',')},${alpha*0.75})`);
-    grad.addColorStop(1, `rgba(${cB.join(',')},${alpha*0.75})`);
-    ctx.strokeStyle = grad;
-    ctx.lineWidth = 1.8;
+    // ① 本体のリング（グラデーションはキャッシュ済みのものを使い回し、translate+scaleで実寸化）
+    ctx.save();
+    ctx.translate(ex, ey);
+    ctx.scale(e.r, e.r);
+    ctx.beginPath(); ctx.arc(0, 0, 1, 0, Math.PI*2);
+    ctx.strokeStyle = getExplosionRingGrad(e.isRock);
+    ctx.globalAlpha = alpha*0.75;
+    ctx.lineWidth = 1.8 / e.r; // scale分を打ち消して、見た目の線の太さを元と同じに保つ
     ctx.stroke();
+    ctx.restore();
 
     // ② 2本目のリング（同じ最大半径まで、時間差で追いかけるように広がる）
     const elapsed2 = (1 - RING2_DELAY) - e.life;
@@ -12726,7 +12846,7 @@ function updateSkillUI(){
 // 「毎回」出ているように見える不具合があった（確率が2回分掛け合わさって高く見える）。
 // これを防ぐため、直前のイベントから極めて短い間隔（同一タップ由来とみなせる範囲）で
 // 発火した2つ目以降のイベントは、判定にすら入らずその場で無視するガードを追加する。
-const INTERSTITIAL_CHANCE_ON_RESULT = 0.4; // 2〜3回に1回程度（調整する場合はここだけ変更）
+const INTERSTITIAL_CHANCE_ON_RESULT = 0.5; // 2回に1回程度（調整する場合はここだけ変更）
 let resultInterstitialGateBusy = false;
 let lastResultBtnEventAt = 0;
 function withResultInterstitial(action){
